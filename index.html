@@ -3217,6 +3217,7 @@ function toolbarHtml(){
             <button data-act="open-noshows">Historial de no-shows</button>
             <button data-act="export-csv">Exportar CSV del mes</button>
             <button data-act="open-reminders">📲 Recordatorios de mañana</button>
+            <button data-act="open-touchups">💆 Retoques pendientes (30–45 días)</button>
             <hr>
             <button data-act="open-security">Seguridad</button>
           </div>` : ''}
@@ -3398,6 +3399,14 @@ function paymentBreakdown(appts){
     }
   };
   appts.forEach(a=>{
+    // Si el abono ya se había pagado en una cita anterior (reagendada), no es
+    // plata nueva entrando por ningún método: no se suma acá de nuevo.
+    if(a.abonoPrevio) {
+      if(a.estado!=='Cancelada' && a.estado!=='NoShow'){
+        addSplitAmount(a.metodoSaldo, Number(a.saldo)||0, a.metodoSaldo2, a.montoSaldo2);
+      }
+      return;
+    }
     if(a.estado==='Cancelada' || a.estado==='NoShow'){
       addSplitAmount(a.metodoAbono, Number(a.abono)||0, a.metodoAbono2, a.montoAbono2);
     } else {
@@ -3428,8 +3437,9 @@ function summaryHtml(){
   );
   const total = appts.length;
   // El abono se lo quedan aunque la cita se cancele o la clienta no llegue, así que
-  // siempre cuenta como plata recibida.
-  const abonos = appts.reduce((s,a)=>s+(Number(a.abono)||0),0);
+  // siempre cuenta como plata recibida — excepto si ya se contó antes en la cita
+  // original que se reagendó (abonoPrevio), porque ahí no entró plata nueva.
+  const abonos = appts.reduce((s,a)=>s+(a.abonoPrevio ? 0 : (Number(a.abono)||0)),0);
   // Si la cita se canceló o no llegó, ya no queda nada pendiente de cobrar por ella
   // (si la clienta reagenda, ese abono se descuenta del nuevo precio, pero eso es
   // otra cita nueva, no esta).
@@ -3498,6 +3508,7 @@ function modalHtml(){
   if(ui.modal.type==='clients') return clientsModalHtml();
   if(ui.modal.type==='block') return blockModalHtml();
   if(ui.modal.type==='reminders') return remindersModalHtml();
+  if(ui.modal.type==='touchups') return touchupsModalHtml();
   if(ui.modal.type==='appt' && ui.mode!=='admin') return apptViewOnlyHtml(ui.modal.data);
   return apptModalHtml();
 }
@@ -3634,18 +3645,24 @@ function apptModalHtml(){
         <div class="field"><label>Precio total</label><input type="number" id="f-price" value="${d.price}"></div>
         <div class="field" id="field-abono-total"><label${d.montoAbono2>0?' style="opacity:.7"':''}>Abono${d.montoAbono2>0?' (suma automática)':''}</label><input type="number" id="f-abono" value="${d.abono}" ${d.montoAbono2>0?'readonly style="opacity:.7"':''}></div>
       </div>
-      <div class="field">
-        <label>Método pago abono</label>
-        <div style="display:flex;gap:6px;">
-          <select id="f-metodoAbono" style="flex:1;">${paymentSelectOptions(d.metodoAbono)}</select>
-          <input type="number" id="f-montoAbono1" value="${d.montoAbono2>0 ? Math.max(d.abono-d.montoAbono2,0) : ''}" placeholder="Monto" style="flex:1;display:${d.montoAbono2>0?'block':'none'};">
-          <button type="button" class="addbtn" data-act="toggle-split" data-target="abono" title="Agregar otro método de pago">+</button>
+      <label style="display:flex;align-items:center;gap:8px;margin:-4px 0 12px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;">
+        <input type="checkbox" id="f-abonoPrevio" ${d.abonoPrevio?'checked':''} style="width:15px;height:15px;accent-color:var(--wine);flex-shrink:0;">
+        Este abono ya se pagó en una cita anterior que se canceló/reagendó (no es plata nueva, no se suma a los ingresos)
+      </label>
+      <div id="field-metodo-abono" style="display:${d.abonoPrevio?'none':'block'};">
+        <div class="field">
+          <label>Método pago abono</label>
+          <div style="display:flex;gap:6px;">
+            <select id="f-metodoAbono" style="flex:1;">${paymentSelectOptions(d.metodoAbono)}</select>
+            <input type="number" id="f-montoAbono1" value="${d.montoAbono2>0 ? Math.max(d.abono-d.montoAbono2,0) : ''}" placeholder="Monto" style="flex:1;display:${d.montoAbono2>0?'block':'none'};">
+            <button type="button" class="addbtn" data-act="toggle-split" data-target="abono" title="Agregar otro método de pago">+</button>
+          </div>
         </div>
-      </div>
-      <div class="split-fields" id="split-abono" style="display:${(d.montoAbono2>0)?'flex':'none'};gap:6px;align-items:center;margin:-8px 0 14px;">
-        <select id="f-metodoAbono2" style="flex:1;">${paymentSelectOptions(d.metodoAbono2)}</select>
-        <input type="number" id="f-montoAbono2" value="${d.montoAbono2}" placeholder="Monto" style="flex:1;">
-        <button type="button" class="linklike" data-act="toggle-split" data-target="abono" style="font-size:11px;white-space:nowrap;">Quitar</button>
+        <div class="split-fields" id="split-abono" style="display:${(d.montoAbono2>0)?'flex':'none'};gap:6px;align-items:center;margin:-8px 0 14px;">
+          <select id="f-metodoAbono2" style="flex:1;">${paymentSelectOptions(d.metodoAbono2)}</select>
+          <input type="number" id="f-montoAbono2" value="${d.montoAbono2}" placeholder="Monto" style="flex:1;">
+          <button type="button" class="linklike" data-act="toggle-split" data-target="abono" style="font-size:11px;white-space:nowrap;">Quitar</button>
+        </div>
       </div>
       <div class="field" id="field-saldo-total"><label${d.montoSaldo2>0?' style="opacity:.7"':''}>Saldo${d.montoSaldo2>0?' (suma automática)':''}</label><input type="number" id="f-saldo" value="${d.saldo}" ${d.montoSaldo2>0?'readonly style="opacity:.7"':''}></div>
       <div class="field">
@@ -4264,6 +4281,76 @@ function remindersModalHtml(){
   </div>`;
 }
 
+// ---------------- Retoques: clientas atendidas hace 30–45 días ----------------
+// El retoque se recomienda entre 30 y 45 días después de la sesión. Si la clienta
+// ya tiene una cita posterior a esa sesión (no cancelada), ya no hace falta
+// avisarle: significa que ya volvió o que ya está agendada.
+function touchupCandidates(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const minDate = addDays(today, -45);
+  const maxDate = addDays(today, -30);
+  const byClient = new Map();
+  state.appointments.forEach(a=>{
+    if(a.estado!=='Realizada' || !a.client) return;
+    const dt = parseKey(a.date);
+    if(dt < minDate || dt > maxDate) return;
+    const key = normalizeName(a.client);
+    const prev = byClient.get(key);
+    if(!prev || a.date > prev.date) byClient.set(key, a);
+  });
+  const hasLaterAppt = a=>{
+    const key = normalizeName(a.client);
+    return state.appointments.some(o=>
+      o.id!==a.id && normalizeName(o.client)===key &&
+      o.estado!=='Cancelada' && o.date > a.date
+    );
+  };
+  return Array.from(byClient.values())
+    .filter(a=>!hasLaterAppt(a))
+    .map(a=>({appt:a, diffDays: Math.round((today - parseKey(a.date)) / 86400000)}))
+    .sort((x,y)=>x.diffDays - y.diffDays);
+}
+function buildTouchupMsg(a){
+  const name = (a.client||'').trim().split(' ')[0] || '';
+  const svc = summarizeServices(a.services||[]) || 'tu tratamiento';
+  return `Hola${name?' '+name:''} 🌸 es Sibana.
+Ya pasaron unas semanas desde tu sesión de ${svc} y este es justo el momento ideal para hacerte el retoque y dejar el resultado perfecto ✨
+
+¿Te gustaría agendar tu hora? Cuéntanos qué día te queda mejor y te confirmamos disponibilidad.
+
+Te esperamos ❤️`;
+}
+function touchupsModalHtml(){
+  const list = touchupCandidates();
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">Retoques pendientes (30–45 días)</h2>
+      <div class="hint">Clientas que se atendieron hace entre 30 y 45 días y todavía no tienen una cita posterior agendada. Toca "Escribir por WhatsApp" para avisarles que ya pueden venir por su retoque — el mensaje se abre listo, tú decides si lo envías.</div>
+      ${list.length===0 ? `<div class="empty-msg">No hay clientas en ese rango por ahora.</div>` : `
+      <table class="reminders-table">
+        <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th></th></tr></thead>
+        <tbody>
+          ${list.map(({appt:a,diffDays})=>`
+            <tr>
+              <td>${a.date}</td>
+              <td>${diffDays}</td>
+              <td>${escapeHtml(a.client||'Sin nombre')}${a.phone?'':' <span class="hint">(sin teléfono)</span>'}</td>
+              <td>${escapeHtml(summarizeServices(a.services||[]))}</td>
+              <td>
+                ${a.phone ? `<a class="btn btn-primary" target="_blank" rel="noopener" href="${waLink(a.phone, buildTouchupMsg(a))}">Escribir por WhatsApp</a>` : ''}
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`}
+      <div class="modal-actions">
+        <div></div>
+        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function exportMonthCSV(){
   const year = ui.currentDate.getFullYear();
   const month = ui.currentDate.getMonth();
@@ -4287,7 +4374,7 @@ function exportMonthCSV(){
     lines.push([
       a.date, a.start, a.end, a.client, a.phone, summarizeServices(a.services||[]), a.specialist,
       estadoLabels[a.estado]||a.estado, a.price, a.abono,
-      paymentMethodSummary(a.metodoAbono, Number(a.abono)||0, a.metodoAbono2, a.montoAbono2),
+      a.abonoPrevio ? 'Abono previo (ya pagado antes, no es plata nueva)' : paymentMethodSummary(a.metodoAbono, Number(a.abono)||0, a.metodoAbono2, a.montoAbono2),
       a.saldo,
       paymentMethodSummary(a.metodoSaldo, Number(a.saldo)||0, a.metodoSaldo2, a.montoSaldo2),
       a.notas
@@ -4350,6 +4437,7 @@ function blankAppt(hour){
     specialist:'', estado:'Pendiente',
     abono:0, metodoAbono:'Transferencia', saldo:0, metodoSaldo:'', notas:'',
     metodoAbono2:'', montoAbono2:0, metodoSaldo2:'', montoSaldo2:0,
+    abonoPrevio:false,
     cremaComprada:false
   };
 }
@@ -4369,7 +4457,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-specialists','add-specialist','remove-specialist','save-specialists',
   'open-schedule','toggle-day-closed','save-schedule',
   'open-clients','toggle-client','delete-client',
-  'open-noshows','export-csv','open-security','save-security','forget-device','open-reminders',
+  'open-noshows','export-csv','open-security','save-security','forget-device','open-reminders','open-touchups',
   'goto-section','finance-tab','reports-prev-month','reports-next-month','save-comision-pct',
   'add-expense','remove-expense','save-expenses',
   'add-recurring-expense','remove-recurring-expense','save-recurring-expenses',
@@ -4528,6 +4616,8 @@ function onAction(e){
       exportMonthCSV(); break;
     case 'open-reminders':
       ui.modal = {type:'reminders'}; ui.menuOpen = false; render(); break;
+    case 'open-touchups':
+      ui.modal = {type:'touchups'}; ui.menuOpen = false; render(); break;
     case 'goto-section':
       ui.section = e.currentTarget.dataset.section;
       if(ui.section==='finanzas' && !ui.reportsDate) ui.reportsDate = new Date();
@@ -4680,6 +4770,7 @@ function saveApptFromForm(){
     metodoAbono2: get('f-metodoAbono2'), montoAbono2: Number(get('f-montoAbono2'))||0,
     metodoSaldo2: get('f-metodoSaldo2'), montoSaldo2: Number(get('f-montoSaldo2'))||0,
     cremaComprada: !!(document.getElementById('f-crema') && document.getElementById('f-crema').checked),
+    abonoPrevio: !!(document.getElementById('f-abonoPrevio') && document.getElementById('f-abonoPrevio').checked),
   };
   delete updated.service;
   if(!updated.client){ showAlert('Ingresa el nombre del cliente.'); return; }
@@ -4831,6 +4922,10 @@ document.addEventListener('change', e=>{
     if(abonoInput && saldoInput){
       saldoInput.value = Math.max((Number(e.target.value)||0) - (Number(abonoInput.value)||0), 0);
     }
+  }
+  if(e.target && e.target.id==='f-abonoPrevio'){
+    const box = document.getElementById('field-metodo-abono');
+    if(box) box.style.display = e.target.checked ? 'none' : 'block';
   }
 });
 

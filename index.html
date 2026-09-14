@@ -4246,6 +4246,24 @@ function waPhoneDigits(phone){
 function waLink(phone, msg){
   return `https://wa.me/${waPhoneDigits(phone)}?text=${encodeURIComponent(msg)}`;
 }
+// navigator.clipboard falla en algunos webviews/file://, así que si no está
+// disponible cae a la forma vieja de copiar (seleccionar texto + execCommand).
+function copyToClipboard(text){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    return navigator.clipboard.writeText(text).catch(()=>legacyCopy(text));
+  }
+  return Promise.resolve(legacyCopy(text));
+}
+function legacyCopy(text){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try{ document.execCommand('copy'); }catch(err){}
+  document.body.removeChild(ta);
+}
 
 function remindersModalHtml(){
   const tomorrowKey = toKey(addDays(new Date(), 1)); // "mañana" es respecto a hoy de verdad, no al día que estés mirando en la agenda
@@ -4320,25 +4338,45 @@ Ya pasaron unas semanas desde tu sesión de ${svc} y este es justo el momento id
 
 Te esperamos ❤️`;
 }
+// Versión sin nombre ni servicio, para copiar una sola vez y pegarla a mano en
+// WhatsApp (lista de difusión, o uno por uno) en vez de abrir un chat por clienta.
+function genericTouchupMsg(){
+  return `Hola 🌸 somos Sibana.
+Ya pasaron unas semanas desde tu última sesión y este es el momento ideal para hacer tu retoque y dejar el resultado perfecto ✨
+
+¿Te gustaría agendar tu hora? Cuéntanos qué día te queda mejor y te confirmamos disponibilidad.
+
+Te esperamos ❤️`;
+}
 function touchupsModalHtml(){
   const list = touchupCandidates();
+  const pendingCount = list.filter(({appt:a})=>!a.retoqueAvisado).length;
   return `
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
       <h2 class="serif">Retoques pendientes (30–45 días)</h2>
-      <div class="hint">Clientas que se atendieron hace entre 30 y 45 días y todavía no tienen una cita posterior agendada. Toca "Escribir por WhatsApp" para avisarles que ya pueden venir por su retoque — el mensaje se abre listo, tú decides si lo envías.</div>
+      <div class="hint">Clientas que se atendieron hace entre 30 y 45 días y todavía no tienen una cita posterior agendada.</div>
+      <div class="field">
+        <label>Mensaje genérico (copialo una vez y pegalo a mano en WhatsApp a cada una)</label>
+        <textarea id="touchup-generic-msg" rows="5" readonly style="opacity:.85;">${escapeHtml(genericTouchupMsg())}</textarea>
+      </div>
+      <button type="button" class="btn btn-ghost" style="margin:-8px 0 14px;" data-act="copy-touchup-msg">📋 Copiar mensaje</button>
       ${list.length===0 ? `<div class="empty-msg">No hay clientas en ese rango por ahora.</div>` : `
+      <div class="hint">${pendingCount} de ${list.length} sin marcar como avisadas. Marcá la casilla apenas le escribas a cada una, para no perder el hilo.</div>
       <table class="reminders-table">
-        <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th></th></tr></thead>
+        <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th></th><th>Avisada</th></tr></thead>
         <tbody>
           ${list.map(({appt:a,diffDays})=>`
-            <tr>
+            <tr style="${a.retoqueAvisado?'opacity:.5;':''}">
               <td>${a.date}</td>
               <td>${diffDays}</td>
-              <td>${escapeHtml(a.client||'Sin nombre')}${a.phone?'':' <span class="hint">(sin teléfono)</span>'}</td>
+              <td style="${a.retoqueAvisado?'text-decoration:line-through;':''}">${escapeHtml(a.client||'Sin nombre')}${a.phone?'':' <span class="hint">(sin teléfono)</span>'}</td>
               <td>${escapeHtml(summarizeServices(a.services||[]))}</td>
               <td>
-                ${a.phone ? `<a class="btn btn-primary" target="_blank" rel="noopener" href="${waLink(a.phone, buildTouchupMsg(a))}">Escribir por WhatsApp</a>` : ''}
+                ${a.phone ? `<a class="btn btn-ghost" target="_blank" rel="noopener" href="${waLink(a.phone, buildTouchupMsg(a))}">WhatsApp</a>` : ''}
+              </td>
+              <td style="text-align:center;">
+                <input type="checkbox" data-act="toggle-touchup-avisado" data-id="${a.id}" ${a.retoqueAvisado?'checked':''} style="width:18px;height:18px;accent-color:var(--wine);cursor:pointer;">
               </td>
             </tr>`).join('')}
         </tbody>
@@ -4458,6 +4496,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-schedule','toggle-day-closed','save-schedule',
   'open-clients','toggle-client','delete-client',
   'open-noshows','export-csv','open-security','save-security','forget-device','open-reminders','open-touchups',
+  'copy-touchup-msg','toggle-touchup-avisado',
   'goto-section','finance-tab','reports-prev-month','reports-next-month','save-comision-pct',
   'add-expense','remove-expense','save-expenses',
   'add-recurring-expense','remove-recurring-expense','save-recurring-expenses',
@@ -4618,6 +4657,18 @@ function onAction(e){
       ui.modal = {type:'reminders'}; ui.menuOpen = false; render(); break;
     case 'open-touchups':
       ui.modal = {type:'touchups'}; ui.menuOpen = false; render(); break;
+    case 'copy-touchup-msg': {
+      const box = document.getElementById('touchup-generic-msg');
+      const text = box ? box.value : genericTouchupMsg();
+      copyToClipboard(text).then(()=>showAlert('Mensaje copiado ✅ Ya lo puedes pegar en WhatsApp.'));
+      break;
+    }
+    case 'toggle-touchup-avisado': {
+      const id = e.currentTarget.dataset.id;
+      const appt = state.appointments.find(a=>a.id===id);
+      if(appt){ appt.retoqueAvisado = e.currentTarget.checked; saveData(); }
+      render(); break;
+    }
     case 'goto-section':
       ui.section = e.currentTarget.dataset.section;
       if(ui.section==='finanzas' && !ui.reportsDate) ui.reportsDate = new Date();

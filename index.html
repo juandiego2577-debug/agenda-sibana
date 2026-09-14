@@ -4300,9 +4300,15 @@ function remindersModalHtml(){
 }
 
 // ---------------- Retoques: clientas atendidas hace 30–45 días ----------------
-// El retoque se recomienda entre 30 y 45 días después de la sesión. Si la clienta
-// ya tiene una cita posterior a esa sesión (no cancelada), ya no hace falta
-// avisarle: significa que ya volvió o que ya está agendada.
+// El retoque se recomienda entre 30 y 45 días después de la SESIÓN INICIAL. Una
+// cita que ya es en sí misma un retoque (servicio "Retoque…") no cuenta como
+// sesión inicial: si contara, la clienta que ya se hizo su retoque volvería a
+// aparecer pidiendo "otro retoque", lo cual no corresponde.
+function isRetoqueAppt(a){
+  return (a.services||[]).some(s=>/retoque/i.test(s||''));
+}
+// Si la clienta ya tiene una cita posterior a la sesión inicial (no cancelada),
+// ya no hace falta avisarle: significa que ya volvió o que ya está agendada.
 function touchupCandidates(){
   const today = new Date(); today.setHours(0,0,0,0);
   const minDate = addDays(today, -45);
@@ -4310,6 +4316,7 @@ function touchupCandidates(){
   const byClient = new Map();
   state.appointments.forEach(a=>{
     if(a.estado!=='Realizada' || !a.client) return;
+    if(isRetoqueAppt(a)) return; // ya es un retoque, no una sesión inicial
     const dt = parseKey(a.date);
     if(dt < minDate || dt > maxDate) return;
     const key = normalizeName(a.client);

@@ -527,7 +527,7 @@ const LOGO_SRC = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACt
 // Pega aquí la URL que te dio Google al "Implementar" el script de respaldo /
 // sincronización con Calendar (paso a paso más abajo). Mientras diga
 // PEGA_AQUI, la agenda funciona igual pero no manda nada a ese respaldo.
-const BACKUP_WEBHOOK_URL = 'PEGA_AQUI_LA_URL_DE_TU_APPS_SCRIPT';
+const BACKUP_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxnxI2cXh60hZUs2uj7gG1zABN8oIguYYsRZG84XI1p2H_NHndkkcbeaw0HjGOqWtVA0A/exec';
 
 function syncToBackupWebhook(action, appt){
   if(!BACKUP_WEBHOOK_URL || BACKUP_WEBHOOK_URL.indexOf('PEGA_AQUI') === 0) return;

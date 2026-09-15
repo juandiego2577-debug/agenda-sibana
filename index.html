@@ -3276,22 +3276,36 @@ function apptsForDate(dateKey){
 function dayViewHtml(){
   const dateKey = toKey(ui.currentDate);
   const appts = filterBySpecialist(apptsForDate(dateKey));
+  const dayBlocks = blocksForDate(dateKey);
   const closed = isClosedWeekday(ui.currentDate);
-  const totalHours = HOUR_END - HOUR_START;
+
+  // Por defecto el grid muestra HOUR_START–HOUR_END, pero si hay una cita o un
+  // bloqueo cargado a una hora fuera de ese rango (por ejemplo, por error de
+  // tipeo), se amplía automáticamente para que quede visible y se pueda
+  // editar, en vez de quedar cortada por el overflow:hidden del contenedor.
+  let rangeStart = HOUR_START, rangeEnd = HOUR_END;
+  [...appts, ...dayBlocks].forEach(item=>{
+    const sH = Math.floor(minutesFromMidnight(item.start)/60);
+    const eH = Math.ceil(minutesFromMidnight(item.end)/60);
+    if(sH < rangeStart) rangeStart = Math.max(0, sH);
+    if(eH > rangeEnd) rangeEnd = Math.min(24, eH);
+  });
+
+  const totalHours = rangeEnd - rangeStart;
   const gridHeight = totalHours * SLOT_PX;
 
   let timeCol = '';
   let hourLines = '';
-  for(let h=HOUR_START; h<=HOUR_END; h++){
-    const top = (h-HOUR_START)*SLOT_PX;
+  for(let h=rangeStart; h<=rangeEnd; h++){
+    const top = (h-rangeStart)*SLOT_PX;
     timeCol += `<div class="slot" style="height:${SLOT_PX}px"><span>${pad(h)}:00</span></div>`;
     hourLines += `<div class="hourline" style="top:${top}px"></div>`;
-    if(h<HOUR_END) hourLines += `<div class="hourline half" style="top:${top+SLOT_PX/2}px"></div>`;
+    if(h<rangeEnd) hourLines += `<div class="hourline half" style="top:${top+SLOT_PX/2}px"></div>`;
   }
   let emptyClicks = '';
   let blockedOverlay = '';
-  for(let h=HOUR_START; h<HOUR_END; h++){
-    const top=(h-HOUR_START)*SLOT_PX;
+  for(let h=rangeStart; h<rangeEnd; h++){
+    const top=(h-rangeStart)*SLOT_PX;
     const blocked = closed || hourIsBlocked(h, ui.currentDate);
     if(blocked){
       blockedOverlay += `<div class="blocked" style="top:${top}px;height:${SLOT_PX}px"></div>`;
@@ -3303,9 +3317,9 @@ function dayViewHtml(){
   }
 
   let specialistBlocks = '';
-  blocksForDate(dateKey).forEach(b=>{
-    const startMin = minutesFromMidnight(b.start) - HOUR_START*60;
-    const endMin = minutesFromMidnight(b.end) - HOUR_START*60;
+  dayBlocks.forEach(b=>{
+    const startMin = minutesFromMidnight(b.start) - rangeStart*60;
+    const endMin = minutesFromMidnight(b.end) - rangeStart*60;
     const top = (startMin/60)*SLOT_PX;
     const height = Math.max(((endMin-startMin)/60)*SLOT_PX, 26);
     const col = specialistColor(b.specialist);
@@ -3319,8 +3333,8 @@ function dayViewHtml(){
 
   let apptBlocks = '';
   appts.forEach(a=>{
-    const startMin = minutesFromMidnight(a.start) - HOUR_START*60;
-    const endMin = minutesFromMidnight(a.end) - HOUR_START*60;
+    const startMin = minutesFromMidnight(a.start) - rangeStart*60;
+    const endMin = minutesFromMidnight(a.end) - rangeStart*60;
     const top = (startMin/60)*SLOT_PX;
     const height = Math.max(((endMin-startMin)/60)*SLOT_PX, 26);
     const stClass = 'st-' + (a.estado||'Pendiente').replace(/\s/g,'');

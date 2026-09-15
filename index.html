@@ -2516,6 +2516,7 @@ function renderConsentSearch(box, allDocs, initialQuery, close, apptId){
 
   function entryHtml(e){
     const linkBtn = apptId ? `<button type="button" class="btn btn-ghost" data-consent-link="${escapeHtml(e._id)}" data-consent-name="${escapeHtml(e.nombre||'')}" style="font-size:11.5px;margin-top:8px;">Vincular esta ficha a esta cita</button>` : '';
+    const deleteBtn = `<button type="button" class="btn btn-ghost" data-consent-delete="${escapeHtml(e._id)}" style="font-size:11.5px;margin-top:8px;margin-left:6px;color:var(--danger);">Eliminar esta ficha</button>`;
     return `
       <div style="border:1px solid rgba(255,255,255,.14);border-radius:4px;padding:12px;margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;gap:8px;">
@@ -2531,7 +2532,7 @@ function renderConsentSearch(box, allDocs, initialQuery, close, apptId){
           <div><b>Condiciones de piel:</b> ${yn(e.cond_piel)}${e.cond_piel_detalle?' — '+escapeHtml(e.cond_piel_detalle):''}</div>
         </div>
         ${e.firmaDataUrl?`<div style="background:#fdfaf3;border-radius:4px;margin-top:8px;padding:4px;"><img src="${e.firmaDataUrl}" style="max-width:200px;display:block;"></div>`:''}
-        ${linkBtn}
+        ${linkBtn}${deleteBtn}
       </div>`;
   }
 
@@ -2562,11 +2563,50 @@ function renderConsentSearch(box, allDocs, initialQuery, close, apptId){
       });
     });
   };
+  const wireDeleteButtons = ()=>{
+    box.querySelectorAll('[data-consent-delete]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        if(btn.dataset.confirming){
+          const id = btn.dataset.consentDelete;
+          btn.disabled = true;
+          btn.textContent = 'Eliminando…';
+          db.collection('sibana-consentimientos').doc(id).delete()
+            .then(()=>{
+              const idx = allDocs.findIndex(d=>d._id===id);
+              if(idx>=0) allDocs.splice(idx,1);
+              if(box.isConnected){
+                box.querySelector('#consent-search-results').innerHTML = renderList(input.value);
+                wireLinkButtons();
+                wireDeleteButtons();
+              }
+            })
+            .catch(err=>{
+              console.error(err);
+              showAlert('No se pudo eliminar la ficha. Revisa tu conexión e inténtalo de nuevo.');
+              btn.disabled = false;
+              btn.textContent = 'Eliminar esta ficha';
+              delete btn.dataset.confirming;
+            });
+        } else {
+          btn.dataset.confirming = '1';
+          btn.textContent = '¿Seguro? Confirmar';
+          setTimeout(()=>{
+            if(btn.isConnected && btn.dataset.confirming){
+              delete btn.dataset.confirming;
+              btn.textContent = 'Eliminar esta ficha';
+            }
+          }, 4000); // si no confirma en unos segundos, el botón vuelve solo a su estado normal
+        }
+      });
+    });
+  };
   input.addEventListener('input', ()=>{
     box.querySelector('#consent-search-results').innerHTML = renderList(input.value);
     wireLinkButtons();
+    wireDeleteButtons();
   });
   wireLinkButtons();
+  wireDeleteButtons();
   input.focus();
   input.selectionStart = input.selectionEnd = input.value.length;
 }

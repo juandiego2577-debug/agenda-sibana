@@ -527,7 +527,7 @@ const LOGO_SRC = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACt
 // Pega aquí la URL que te dio Google al "Implementar" el script de respaldo /
 // sincronización con Calendar (paso a paso más abajo). Mientras diga
 // PEGA_AQUI, la agenda funciona igual pero no manda nada a ese respaldo.
-const BACKUP_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxnxI2cXh60hZUs2uj7gG1zABN8oIguYYsRZG84XI1p2H_NHndkkcbeaw0HjGOqWtVA0A/exec';
+const BACKUP_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxiGxGvhHGrnxSp57ARghDsT6rbg-ROIsH1d0LRYBzo0oQL2ERIaoI7v6HdACxDOVn2/exec';
 
 function syncToBackupWebhook(action, appt){
   if(!BACKUP_WEBHOOK_URL || BACKUP_WEBHOOK_URL.indexOf('PEGA_AQUI') === 0) return;
@@ -541,6 +541,32 @@ function syncToBackupWebhook(action, appt){
   }catch(e){
     console.error('No se pudo avisar al respaldo/Calendar (la cita igual quedó guardada en Firebase)', e);
   }
+}
+
+// Reenvía TODAS las citas actuales a la Hoja/Calendar conectados, una por una
+// con una pequeña pausa entre cada una (para no saturar el script de Google).
+// Se puede usar las veces que quieras — como ya identifica cada cita por su
+// ID, nunca duplica filas ni eventos, solo los actualiza si ya existían.
+function runFullBackupSync(){
+  if(!BACKUP_WEBHOOK_URL || BACKUP_WEBHOOK_URL.indexOf('PEGA_AQUI') === 0){
+    showAlert('Todavía no has conectado ninguna Hoja/Calendar (falta pegar la URL del script). Pídele a Claude que te ayude con ese paso primero.');
+    return;
+  }
+  const total = state.appointments.length;
+  if(!total){ showAlert('No hay ninguna cita guardada para sincronizar.'); return; }
+  showConfirmDialog(`Esto va a mandar las ${total} citas guardadas (incluidas las de meses anteriores) a tu Hoja de Google y a crear/actualizar su evento en Calendar. Puede tardar un par de minutos. ¿Continuar?`, ()=>{
+    let i = 0;
+    const sendNext = ()=>{
+      if(i >= state.appointments.length){
+        showAlert(`Listo — se mandaron ${state.appointments.length} citas a la Hoja y al Calendar.`);
+        return;
+      }
+      syncToBackupWebhook('save', state.appointments[i]);
+      i++;
+      setTimeout(sendNext, 350);
+    };
+    sendNext();
+  });
 }
 
 // Pega aquí los valores exactos que Firebase te dio al crear el proyecto
@@ -3255,6 +3281,7 @@ function toolbarHtml(){
             <button data-act="open-clients">Clientes</button>
             <button data-act="open-noshows">Historial de no-shows</button>
             <button data-act="export-csv">Exportar CSV del mes</button>
+            <button data-act="sync-all-backup">☁️ Sincronizar todo con Sheets/Calendar</button>
             <button data-act="open-reminders">📲 Recordatorios de mañana</button>
             <button data-act="open-touchups">💆 Retoques pendientes (30–45 días)</button>
             <hr>
@@ -4555,7 +4582,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-specialists','add-specialist','remove-specialist','save-specialists',
   'open-schedule','toggle-day-closed','save-schedule',
   'open-clients','toggle-client','delete-client',
-  'open-noshows','export-csv','open-security','save-security','forget-device','open-reminders','open-touchups',
+  'open-noshows','export-csv','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-touchups',
   'copy-touchup-msg','toggle-touchup-avisado',
   'goto-section','finance-tab','reports-prev-month','reports-next-month','save-comision-pct',
   'add-expense','remove-expense','save-expenses',
@@ -4713,6 +4740,8 @@ function onAction(e){
     }
     case 'export-csv':
       exportMonthCSV(); break;
+    case 'sync-all-backup':
+      runFullBackupSync(); break;
     case 'open-reminders':
       ui.modal = {type:'reminders'}; ui.menuOpen = false; render(); break;
     case 'open-touchups':

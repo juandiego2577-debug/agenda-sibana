@@ -23,6 +23,14 @@ replantear salvo que surja algo que realmente lo justifique):
 - El panel de "Finanzas" ya construido en la versión de Santiago es la base
   de lo que a futuro será un panel unificado que sume ambas sedes — no hay
   que rehacerlo, solo eventualmente hacerlo leer de los dos documentos.
+- **El respaldo a Sheets/Calendar también debe distinguir sede**: el
+  webhook (`syncToBackupWebhook`) debe mandar además un campo `site`
+  ('santiago' | 'copiapo'). Del lado del Apps Script: `updateSheetRow`
+  debe escribir en una pestaña distinta por sede dentro de la MISMA Hoja
+  (ej. "Citas Santiago" / "Citas Copiapó"), y `syncToCalendar` debe elegir
+  el `CALENDAR_ID` según la sede (Santiago ya usa `sibana.cl@gmail.com`;
+  falta confirmar y compartir el calendario real de Copiapó, con permiso
+  de "Realizar cambios en los eventos", antes de poder cablear esto).
 
 ## Stack / dónde vive cada cosa
 - **Datos**: Firebase Firestore (proyecto `sibana-santiago` en Firebase

@@ -3312,6 +3312,7 @@ function toolbarHtml(){
         <button class="${ui.view==='week'?'active':''}" data-act="view-week">Semana</button>
         <button class="${ui.view==='month'?'active':''}" data-act="view-month">Mes</button>
       </div>
+      <button class="btn btn-ghost" data-act="open-search">🔍 Buscar</button>
       ${isAdmin ? `
       <div class="morewrap">
         <button class="btn btn-ghost" data-act="toggle-menu">⋯ Más</button>
@@ -3324,6 +3325,7 @@ function toolbarHtml(){
             <button data-act="open-clients">Clientes</button>
             <button data-act="open-noshows">Historial de no-shows</button>
             <button data-act="export-csv">Exportar CSV del mes</button>
+            <button data-act="download-backup">💾 Descargar respaldo completo (archivo aparte)</button>
             <button data-act="sync-all-backup">☁️ Sincronizar todo con Sheets/Calendar</button>
             <button data-act="open-reminders">📲 Recordatorios de mañana</button>
             <button data-act="open-touchups">💆 Retoques pendientes (30–45 días)</button>
@@ -3639,6 +3641,7 @@ function modalHtml(){
   if(ui.modal.type==='block') return blockModalHtml();
   if(ui.modal.type==='reminders') return remindersModalHtml();
   if(ui.modal.type==='touchups') return touchupsModalHtml();
+  if(ui.modal.type==='search') return searchModalHtml();
   if(ui.modal.type==='appt' && ui.mode!=='admin') return apptViewOnlyHtml(ui.modal.data);
   return apptModalHtml();
 }
@@ -4020,6 +4023,80 @@ function clientsModalHtml(){
       </div>
     </div>
   </div>`;
+}
+
+// ---------------- Buscador rápido de citas (por nombre o teléfono, en todas las fechas) ----------------
+function apptSearchScore(query, appt){
+  const q = normalizeName(query);
+  if(!q) return 0;
+  const n = normalizeName(appt.client||'');
+  const tel = (appt.phone||'').replace(/\D/g,'');
+  const qDigits = q.replace(/\D/g,'');
+  if(!n && !tel) return 0;
+  if(n === q) return 100;
+  if(n.includes(q) || (q.length>=3 && q.includes(n))) return 50;
+  if(qDigits.length>=4 && tel.includes(qDigits)) return 40;
+  const qWords = q.split(/\s+/).filter(w=>w.length>=2);
+  const nWords = n.split(/\s+/).filter(w=>w.length>=2);
+  let shared = 0;
+  qWords.forEach(w=>{ if(nWords.some(nw=>nw.includes(w)||w.includes(nw))) shared++; });
+  return shared>0 ? 10*shared : 0;
+}
+
+function renderApptSearchResults(query){
+  const q = (query||'').trim();
+  if(!q){
+    return `<p class="hint" style="margin-top:10px">Escribe el nombre o teléfono de la clienta para buscar entre todas las citas guardadas (no solo las del mes actual).</p>`;
+  }
+  const estadoLabels = {Pendiente:'Pendiente',Confirmada:'Confirmada',Realizada:'Realizada',Cancelada:'Cancelada',NoShow:'No se presentó'};
+  const scored = state.appointments
+    .map(a=>({a, score: apptSearchScore(q, a)}))
+    .filter(x=>x.score>0)
+    .sort((x,y)=> y.score-x.score || y.a.date.localeCompare(x.a.date) || y.a.start.localeCompare(x.a.start));
+  if(scored.length===0){
+    return `<p class="hint" style="margin-top:10px">No se encontraron citas con ese nombre o teléfono.</p>`;
+  }
+  const rows = scored.slice(0,40).map(({a})=>{
+    const d = parseKey(a.date);
+    const dateLabel = `${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)} ${d.getFullYear()}`;
+    return `
+      <div class="client-row">
+        <div class="client-row-main" data-goto-appt="${a.id}">
+          <div>
+            <div class="client-name">${escapeHtml(a.client||'(sin nombre)')}</div>
+            <div class="client-meta">${dateLabel} · ${a.start} · ${escapeHtml(summarizeServices(a.services||[])) || '—'} · ${estadoLabels[a.estado]||a.estado}</div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+  const moreHint = scored.length>40 ? `<p class="hint">Mostrando los primeros 40 resultados — escribe más letras para acotar la búsqueda.</p>` : '';
+  return rows + moreHint;
+}
+
+function searchModalHtml(){
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">Buscar cita</h2>
+      <input type="text" id="appt-search-input" class="client-search-input" placeholder="Nombre o teléfono de la clienta…" autocomplete="off">
+      <div id="appt-search-results">${renderApptSearchResults('')}</div>
+      <div class="modal-actions">
+        <div></div>
+        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function gotoApptFromSearch(id){
+  const found = state.appointments.find(a=>a.id===id);
+  if(!found) return;
+  ui.currentDate = parseKey(found.date);
+  ui.view = 'day';
+  const data = Object.assign({}, found);
+  if(!Array.isArray(data.services)) data.services = data.service ? [data.service] : [];
+  ui.modal = {type:'appt', mode:'edit', data};
+  render();
 }
 
 // ---------------- Finanzas: ingresos, gastos y comisiones ----------------
@@ -4567,6 +4644,34 @@ function exportMonthCSV(){
   setTimeout(()=>URL.revokeObjectURL(url), 3000);
 }
 
+// Copia completa de TODOS los datos (citas, servicios, especialistas, clientes,
+// bloqueos, gastos y configuración) en un archivo que queda en el dispositivo de
+// quien lo descarga — no depende de Firebase, Sheets ni Calendar, así que un
+// problema en cualquiera de esos tres no se lleva puesta esta copia.
+function downloadFullBackup(){
+  const payload = {
+    respaldoDe: 'Sibana Santiago',
+    fecha: new Date().toISOString(),
+    appointments: state.appointments,
+    services: state.services,
+    specialists: state.specialists,
+    clients: state.clients,
+    blocks: state.blocks,
+    expenses: state.expenses,
+    recurringExpenses: state.recurringExpenses,
+    settings: state.settings,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `Sibana-Santiago-respaldo-${toKey(new Date())}.json`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(()=>URL.revokeObjectURL(url), 3000);
+}
+
 // ---------------- Events ----------------
 function attachEvents(){
   document.querySelectorAll('[data-act]').forEach(el=>{
@@ -4581,6 +4686,13 @@ function attachEvents(){
       const tag = e.target.closest('[data-svc-remove]');
       if(!tag) return;
       setServiceQty(Number(tag.dataset.svcRemove), 0);
+    });
+  }
+  const searchResults = document.getElementById('appt-search-results');
+  if(searchResults){
+    searchResults.addEventListener('click', e=>{
+      const row = e.target.closest('[data-goto-appt]');
+      if(row) gotoApptFromSearch(row.dataset.gotoAppt);
     });
   }
   const svcPicker = document.getElementById('svc-picker');
@@ -4632,7 +4744,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-specialists','add-specialist','remove-specialist','save-specialists',
   'open-schedule','toggle-day-closed','save-schedule',
   'open-clients','toggle-client','delete-client',
-  'open-noshows','export-csv','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-touchups',
+  'open-noshows','export-csv','download-backup','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-touchups',
   'copy-touchup-msg','toggle-touchup-avisado',
   'goto-section','finance-tab','reports-prev-month','reports-next-month','save-comision-pct',
   'add-expense','remove-expense','save-expenses',
@@ -4790,8 +4902,12 @@ function onAction(e){
     }
     case 'export-csv':
       exportMonthCSV(); break;
+    case 'download-backup':
+      downloadFullBackup(); break;
     case 'sync-all-backup':
       runFullBackupSync(); break;
+    case 'open-search':
+      ui.modal = {type:'search'}; render(); break;
     case 'open-reminders':
       ui.modal = {type:'reminders'}; ui.menuOpen = false; render(); break;
     case 'open-touchups':
@@ -5131,6 +5247,10 @@ document.addEventListener('input', e=>{
     document.querySelectorAll('.client-row').forEach(row=>{
       row.style.display = (row.dataset.clientName||'').includes(q) ? '' : 'none';
     });
+  }
+  if(e.target && e.target.id==='appt-search-input'){
+    const results = document.getElementById('appt-search-results');
+    if(results) results.innerHTML = renderApptSearchResults(e.target.value);
   }
   if(e.target && (e.target.id==='f-montoAbono1' || e.target.id==='f-montoAbono2')){
     const m1 = document.getElementById('f-montoAbono1');

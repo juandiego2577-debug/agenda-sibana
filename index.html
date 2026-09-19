@@ -314,10 +314,12 @@
     color:var(--ink);font-size:12.5px;font-family:'Inter',sans-serif;width:100%;
   }
   .stock-row{display:grid;grid-template-columns:1.6fr 1fr .9fr auto auto;gap:6px;align-items:center;margin-bottom:8px;}
+  .stock-row.staff-row{grid-template-columns:1.6fr 1fr auto;}
   .stock-row select,.stock-row input{
     background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:7px 8px;
     color:var(--ink);font-size:12.5px;font-family:'Inter',sans-serif;width:100%;
   }
+  .stock-row-name{font-size:13px;color:var(--ink);}
   .stock-row-head{
     margin-bottom:4px;color:var(--ink-soft);font-size:10.5px;letter-spacing:.03em;
     text-transform:uppercase;font-family:'Inter',sans-serif;
@@ -3437,7 +3439,7 @@ function render(){
     ${sectionTabsHtml()}
     ${ui.mode==='admin' && ui.section==='finanzas' ? `
       <main class="fin-main">${finanzasPageHtml()}</main>
-    ` : ui.mode==='admin' && ui.section==='stock' ? `
+    ` : ui.section==='stock' ? `
       <main class="fin-main">${stockPageHtml()}</main>
     ` : `
       ${toolbarHtml()}
@@ -3456,11 +3458,12 @@ function render(){
 }
 
 function sectionTabsHtml(){
-  if(ui.mode!=='admin') return '';
+  const isAdmin = ui.mode==='admin';
+  if(!isAdmin && ui.section==='finanzas') ui.section = 'agenda'; // por si acaso: Finanzas es solo Admin
   return `
     <div class="section-tabs">
       <button class="${ui.section!=='finanzas'&&ui.section!=='stock'?'active':''}" data-act="goto-section" data-section="agenda">📅 Agenda</button>
-      <button class="${ui.section==='finanzas'?'active':''}" data-act="goto-section" data-section="finanzas">📊 Finanzas</button>
+      ${isAdmin ? `<button class="${ui.section==='finanzas'?'active':''}" data-act="goto-section" data-section="finanzas">📊 Finanzas</button>` : ''}
       <button class="${ui.section==='stock'?'active':''}" data-act="goto-section" data-section="stock">📦 Stock</button>
     </div>`;
 }
@@ -4567,6 +4570,14 @@ const STOCK_CATEGORIAS = {
 };
 function stockRowHeadHtml(categoria){
   const meta = STOCK_CATEGORIAS[categoria];
+  if(ui.mode!=='admin'){
+    return `
+    <div class="stock-row staff-row stock-row-head">
+      <span>Nombre</span>
+      <span>${meta.valorLabel}</span>
+      <span></span>
+    </div>`;
+  }
   return `
     <div class="stock-row stock-row-head">
       <span>Nombre</span>
@@ -4584,6 +4595,16 @@ function stockRowHtml(item, idx){
   const valorField = esPorcentaje
     ? `<select data-stock-field="valor">${STOCK_PCT_OPTIONS.map(p=>`<option value="${p}" ${Number(item.valor)===p?'selected':''}>${p}%</option>`).join('')}</select>`
     : `<input type="number" data-stock-field="valor" value="${Number(item.valor)||0}" min="0" placeholder="Cantidad">`;
+  // Las especialistas solo actualizan "cuánto queda" — el umbral de aviso y el
+  // nombre/categoría de cada ítem son una decisión de compra que le toca al Admin.
+  if(ui.mode!=='admin'){
+    return `
+    <div class="stock-row staff-row" data-stock-idx="${idx}">
+      <span class="stock-row-name">${escapeHtml(item.name)}</span>
+      ${valorField}
+      ${bajo ? '<span class="stock-low">⚠️ Bajo</span>' : '<span></span>'}
+    </div>`;
+  }
   return `
     <div class="stock-row" data-stock-idx="${idx}">
       <input type="text" data-stock-field="name" value="${escapeHtml(item.name)}" placeholder="${STOCK_CATEGORIAS[item.categoria].placeholder}">
@@ -4600,7 +4621,7 @@ function stockCategoriaSectionHtml(categoria){
     <h3 class="fin-sub" style="margin-top:26px;">${meta.titulo}</h3>
     ${items.length ? stockRowHeadHtml(categoria) : ''}
     <div id="stock-list-${categoria}">${items.map(({it,i})=>stockRowHtml(it,i)).join('') || '<div class="hint">Todavía no hay ítems cargados.</div>'}</div>
-    <button class="btn btn-ghost" style="margin-top:6px" data-act="add-stock-item" data-categoria="${categoria}">${meta.addLabel}</button>
+    ${ui.mode==='admin' ? `<button class="btn btn-ghost" style="margin-top:6px" data-act="add-stock-item" data-categoria="${categoria}">${meta.addLabel}</button>` : ''}
   `;
 }
 function stockPageHtml(){
@@ -5108,10 +5129,10 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-noshows','export-csv','download-backup','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-touchups',
   'copy-touchup-msg','toggle-touchup-avisado',
   'open-reviews','copy-review-msg','toggle-review-avisado',
-  'goto-section','finance-tab','reports-prev-month','reports-next-month','save-comision-pct',
+  'finance-tab','reports-prev-month','reports-next-month','save-comision-pct',
   'add-expense','remove-expense','save-expenses',
   'add-recurring-expense','remove-recurring-expense','save-recurring-expenses',
-  'add-stock-item','remove-stock-item','save-stock',
+  'add-stock-item','remove-stock-item',
 ]);
 
 function onAction(e){

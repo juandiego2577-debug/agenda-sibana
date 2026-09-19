@@ -317,6 +317,10 @@
     background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:7px 8px;
     color:var(--ink);font-size:12.5px;font-family:'Inter',sans-serif;width:100%;
   }
+  .stock-row-head{
+    margin-bottom:4px;color:var(--ink-soft);font-size:10.5px;letter-spacing:.03em;
+    text-transform:uppercase;font-family:'Inter',sans-serif;
+  }
   .stock-low{
     background:rgba(217,106,106,0.18);color:var(--danger);font-weight:700;font-size:11px;
     padding:4px 8px;border-radius:999px;white-space:nowrap;flex-shrink:0;
@@ -4404,10 +4408,20 @@ function saveRecurringExpensesFromForm(){
 // ---------------- Stock (revisión semanal de insumos) ----------------
 const STOCK_PCT_OPTIONS = [100,75,50,25,10,0];
 const STOCK_CATEGORIAS = {
-  Pigmentos: {titulo:'Pigmentos', addLabel:'+ Agregar color de pigmento', placeholder:'Color de pigmento'},
-  FilosAgujas: {titulo:'Filos y agujas', addLabel:'+ Agregar ítem', placeholder:'Nombre del ítem'},
-  Anestesia: {titulo:'Anestesia', addLabel:'+ Agregar ítem', placeholder:'Nombre del ítem'},
+  Pigmentos: {titulo:'Pigmentos', addLabel:'+ Agregar color de pigmento', placeholder:'Color de pigmento', valorLabel:'Nivel actual', umbralLabel:'Avisar en (%)'},
+  FilosAgujas: {titulo:'Filos y agujas', addLabel:'+ Agregar ítem', placeholder:'Nombre del ítem', valorLabel:'Cantidad', umbralLabel:'Avisar con (o menos)'},
+  Anestesia: {titulo:'Anestesia', addLabel:'+ Agregar ítem', placeholder:'Nombre del ítem', valorLabel:'Cantidad', umbralLabel:'Avisar con (o menos)'},
 };
+function stockRowHeadHtml(categoria){
+  const meta = STOCK_CATEGORIAS[categoria];
+  return `
+    <div class="stock-row stock-row-head">
+      <span>Nombre</span>
+      <span>${meta.valorLabel}</span>
+      <span>${meta.umbralLabel}</span>
+      <span></span><span></span>
+    </div>`;
+}
 function stockItemsByCategoria(categoria){
   return (state.stockItems||[]).map((it,i)=>({it,i})).filter(x=>x.it.categoria===categoria);
 }
@@ -4431,6 +4445,7 @@ function stockCategoriaSectionHtml(categoria){
   const items = stockItemsByCategoria(categoria);
   return `
     <h3 class="fin-sub" style="margin-top:26px;">${meta.titulo}</h3>
+    ${items.length ? stockRowHeadHtml(categoria) : ''}
     <div id="stock-list-${categoria}">${items.map(({it,i})=>stockRowHtml(it,i)).join('') || '<div class="hint">Todavía no hay ítems cargados.</div>'}</div>
     <button class="btn btn-ghost" style="margin-top:6px" data-act="add-stock-item" data-categoria="${categoria}">${meta.addLabel}</button>
   `;

@@ -175,6 +175,10 @@
   }
   .moremenu button:hover{background:var(--panel);}
   .moremenu hr{border:none;border-top:1px solid var(--line);margin:4px 0;}
+  .moremenu-label{
+    padding:8px 14px 4px;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--ink-soft);font-family:'Inter',sans-serif;
+  }
 
   /* ---------- Main layout ---------- */
   main{flex:1;display:flex;overflow:hidden;}
@@ -3318,17 +3322,24 @@ function toolbarHtml(){
         <button class="btn btn-ghost" data-act="toggle-menu">⋯ Más</button>
         ${ui.menuOpen ? `
           <div class="moremenu">
+            <div class="moremenu-label">Configuración</div>
             <button data-act="open-services">Servicios</button>
             <button data-act="open-specialists">Especialistas</button>
             <button data-act="open-schedule">Horario</button>
             <hr>
+            <div class="moremenu-label">Clientas</div>
             <button data-act="open-clients">Clientes</button>
             <button data-act="open-noshows">Historial de no-shows</button>
+            <hr>
+            <div class="moremenu-label">Seguimiento</div>
+            <button data-act="open-reminders">📲 Recordatorios de mañana</button>
+            <button data-act="open-touchups">💆 Retoques pendientes (30–45 días)</button>
+            <button data-act="open-reviews">🌟 Reseñas pendientes</button>
+            <hr>
+            <div class="moremenu-label">Respaldo y datos</div>
             <button data-act="export-csv">Exportar CSV del mes</button>
             <button data-act="download-backup">💾 Descargar respaldo completo (archivo aparte)</button>
             <button data-act="sync-all-backup">☁️ Sincronizar todo con Sheets/Calendar</button>
-            <button data-act="open-reminders">📲 Recordatorios de mañana</button>
-            <button data-act="open-touchups">💆 Retoques pendientes (30–45 días)</button>
             <hr>
             <button data-act="open-security">Seguridad</button>
           </div>` : ''}
@@ -3641,6 +3652,7 @@ function modalHtml(){
   if(ui.modal.type==='block') return blockModalHtml();
   if(ui.modal.type==='reminders') return remindersModalHtml();
   if(ui.modal.type==='touchups') return touchupsModalHtml();
+  if(ui.modal.type==='reviews') return reviewsModalHtml();
   if(ui.modal.type==='search') return searchModalHtml();
   if(ui.modal.type==='appt' && ui.mode!=='admin') return apptViewOnlyHtml(ui.modal.data);
   return apptModalHtml();
@@ -4603,6 +4615,76 @@ function touchupsModalHtml(){
   </div>`;
 }
 
+// ---------------- Reseñas pendientes (pedir opinión en Google tras un retoque) ----------------
+// Solo se piden reseñas de retoques ocurridos desde esta fecha en adelante (el día en
+// que se implementó esta función) — así no aparece de golpe una lista enorme con
+// clientas de meses o años atrás. A diferencia de los retoques, no hay límite superior:
+// una vez que entra a la lista, se queda ahí (para siempre) hasta que se marque como avisada.
+const REVIEWS_START_DATE = '2026-09-19';
+function reviewCandidates(){
+  const minDate = parseKey(REVIEWS_START_DATE);
+  const byClient = new Map();
+  state.appointments.forEach(a=>{
+    if(a.estado!=='Realizada' || !a.client) return;
+    if(a.reviewAvisada) return; // ya se le pidió la reseña: desaparece de la lista para siempre
+    if(!isRetoqueAppt(a)) return;
+    const dt = parseKey(a.date);
+    if(dt < minDate) return;
+    const key = normalizeName(a.client);
+    const prev = byClient.get(key);
+    if(!prev || a.date > prev.date) byClient.set(key, a);
+  });
+  return Array.from(byClient.values())
+    .map(a=>({appt:a, diffDays: Math.round((new Date().setHours(0,0,0,0) - parseKey(a.date)) / 86400000)}))
+    .sort((x,y)=>x.diffDays - y.diffDays);
+}
+function genericReviewMsg(){
+  return `Hola 🌸 somos Sibana.
+Esperamos que te haya encantado el resultado final de tu tratamiento ✨
+Si tienes un minuto, nos ayudaría muchísimo que nos dejaras tu opinión en Google: https://g.page/r/CRg9v-smnqROECE/review
+
+¡Gracias por confiar en nosotras! 💕`;
+}
+function reviewsModalHtml(){
+  const list = reviewCandidates();
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">Reseñas pendientes</h2>
+      <div class="hint">Clientas con un retoque realizado a las que todavía no se les pidió su opinión en Google. (No se piden reseñas de citas anteriores a la fecha en que se activó esta función, para no armar una lista con clientas de meses atrás.)</div>
+      <div class="field">
+        <label>Mensaje genérico (copialo una vez y pegalo a mano en WhatsApp a cada una)</label>
+        <textarea id="review-generic-msg" rows="5" readonly style="opacity:.85;">${escapeHtml(genericReviewMsg())}</textarea>
+      </div>
+      <button type="button" class="btn btn-ghost" style="margin:-8px 0 14px;" data-act="copy-review-msg">📋 Copiar mensaje</button>
+      ${list.length===0 ? `<div class="empty-msg">No hay clientas pendientes por ahora.</div>` : `
+      <div class="hint">${list.length} clienta${list.length===1?'':'s'} por contactar.</div>
+      <table class="reminders-table">
+        <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th></th><th>Avisada</th></tr></thead>
+        <tbody>
+          ${list.map(({appt:a,diffDays})=>`
+            <tr>
+              <td>${a.date}</td>
+              <td>${diffDays}</td>
+              <td>${escapeHtml(a.client||'Sin nombre')}${a.phone?'':' <span class="hint">(sin teléfono)</span>'}</td>
+              <td>${escapeHtml(summarizeServices(a.services||[]))}</td>
+              <td>
+                ${a.phone ? `<a class="btn btn-ghost" target="_blank" rel="noopener" href="${waLink(a.phone, genericReviewMsg())}">WhatsApp</a>` : ''}
+              </td>
+              <td style="text-align:center;">
+                <input type="checkbox" data-act="toggle-review-avisado" data-id="${a.id}" ${a.reviewAvisada?'checked':''} style="width:18px;height:18px;accent-color:var(--wine);cursor:pointer;">
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`}
+      <div class="modal-actions">
+        <div></div>
+        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function exportMonthCSV(){
   const year = ui.currentDate.getFullYear();
   const month = ui.currentDate.getMonth();
@@ -4746,6 +4828,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-clients','toggle-client','delete-client',
   'open-noshows','export-csv','download-backup','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-touchups',
   'copy-touchup-msg','toggle-touchup-avisado',
+  'open-reviews','copy-review-msg','toggle-review-avisado',
   'goto-section','finance-tab','reports-prev-month','reports-next-month','save-comision-pct',
   'add-expense','remove-expense','save-expenses',
   'add-recurring-expense','remove-recurring-expense','save-recurring-expenses',
@@ -4922,6 +5005,20 @@ function onAction(e){
       const id = e.currentTarget.dataset.id;
       const appt = state.appointments.find(a=>a.id===id);
       if(appt){ appt.retoqueAvisado = e.currentTarget.checked; saveData(); }
+      render(); break;
+    }
+    case 'open-reviews':
+      ui.modal = {type:'reviews'}; ui.menuOpen = false; render(); break;
+    case 'copy-review-msg': {
+      const box = document.getElementById('review-generic-msg');
+      const text = box ? box.value : genericReviewMsg();
+      copyToClipboard(text).then(()=>showAlert('Mensaje copiado ✅ Ya lo puedes pegar en WhatsApp.'));
+      break;
+    }
+    case 'toggle-review-avisado': {
+      const id = e.currentTarget.dataset.id;
+      const appt = state.appointments.find(a=>a.id===id);
+      if(appt){ appt.reviewAvisada = e.currentTarget.checked; saveData(); }
       render(); break;
     }
     case 'goto-section':

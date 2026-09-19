@@ -167,7 +167,7 @@
   .moremenu{
     position:absolute;top:110%;right:0;background:var(--panel-2);border:1px solid var(--line);
     border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5);min-width:210px;z-index:40;
-    overflow:hidden;
+    max-height:min(480px, 70vh);overflow-y:auto;
   }
   .moremenu button{
     display:block;width:100%;text-align:left;background:none;border:none;
@@ -229,6 +229,7 @@
   .legend-dot.st-Realizada{background:var(--ok);}
   .legend-dot.st-Cancelada{background:#5A5348;}
   .legend-dot.st-NoShow{background:var(--danger);}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
   .reminders-table{width:100%;border-collapse:collapse;margin:10px 0;}
   .reminders-table th,.reminders-table td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;font-size:14px;}
   .reminders-table td .btn{padding:4px 10px;font-size:12px;margin-right:6px;}
@@ -313,10 +314,12 @@
     color:var(--ink);font-size:12.5px;font-family:'Inter',sans-serif;width:100%;
   }
   .stock-row{display:grid;grid-template-columns:1.6fr 1fr .9fr auto auto;gap:6px;align-items:center;margin-bottom:8px;}
+  .stock-row.staff-row{grid-template-columns:1.6fr 1fr auto;}
   .stock-row select,.stock-row input{
     background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:7px 8px;
     color:var(--ink);font-size:12.5px;font-family:'Inter',sans-serif;width:100%;
   }
+  .stock-row-name{font-size:13px;color:var(--ink);}
   .stock-row-head{
     margin-bottom:4px;color:var(--ink-soft);font-size:10.5px;letter-spacing:.03em;
     text-transform:uppercase;font-family:'Inter',sans-serif;
@@ -335,6 +338,10 @@
     .stock-row{display:flex;flex-wrap:wrap;}
     .stock-row > *{flex:1 1 45%;}
     .stock-row .iconbtn{flex:0 0 32px;}
+    .reminders-table{min-width:480px;}
+    .svc-row{flex-wrap:wrap;}
+    .svc-row input:not(.price):not(.dur){flex:1 1 100%;}
+    .moremenu{left:0;right:auto;}
   }
 
   /* ---------- Footer summary ---------- */
@@ -522,9 +529,11 @@
     .btn[data-act="today"]{order:2;}
     .viewtoggle{order:3;flex:1;}
     .viewtoggle button{flex:1;}
-    .morewrap{order:4;}
-    .specfilter{order:5;width:100%;}
-    button.btn-primary[data-act="new-appt"]{order:6;width:100%;}
+    .btn[data-act="open-search"]{order:4;width:100%;}
+    .morewrap{order:5;}
+    .specfilter{order:6;width:100%;}
+    .btn[data-act="new-block"]{order:7;}
+    button.btn-primary[data-act="new-appt"]{order:8;width:100%;}
     .calendar-wrap{padding:12px 10px;}
     .timecol{width:46px;}
     .timecol .slot{font-size:9.5px;}
@@ -3430,7 +3439,7 @@ function render(){
     ${sectionTabsHtml()}
     ${ui.mode==='admin' && ui.section==='finanzas' ? `
       <main class="fin-main">${finanzasPageHtml()}</main>
-    ` : ui.mode==='admin' && ui.section==='stock' ? `
+    ` : ui.section==='stock' ? `
       <main class="fin-main">${stockPageHtml()}</main>
     ` : `
       ${toolbarHtml()}
@@ -3449,11 +3458,12 @@ function render(){
 }
 
 function sectionTabsHtml(){
-  if(ui.mode!=='admin') return '';
+  const isAdmin = ui.mode==='admin';
+  if(!isAdmin && ui.section==='finanzas') ui.section = 'agenda'; // por si acaso: Finanzas es solo Admin
   return `
     <div class="section-tabs">
       <button class="${ui.section!=='finanzas'&&ui.section!=='stock'?'active':''}" data-act="goto-section" data-section="agenda">📅 Agenda</button>
-      <button class="${ui.section==='finanzas'?'active':''}" data-act="goto-section" data-section="finanzas">📊 Finanzas</button>
+      ${isAdmin ? `<button class="${ui.section==='finanzas'?'active':''}" data-act="goto-section" data-section="finanzas">📊 Finanzas</button>` : ''}
       <button class="${ui.section==='stock'?'active':''}" data-act="goto-section" data-section="stock">📦 Stock</button>
     </div>`;
 }
@@ -4560,6 +4570,14 @@ const STOCK_CATEGORIAS = {
 };
 function stockRowHeadHtml(categoria){
   const meta = STOCK_CATEGORIAS[categoria];
+  if(ui.mode!=='admin'){
+    return `
+    <div class="stock-row staff-row stock-row-head">
+      <span>Nombre</span>
+      <span>${meta.valorLabel}</span>
+      <span></span>
+    </div>`;
+  }
   return `
     <div class="stock-row stock-row-head">
       <span>Nombre</span>
@@ -4577,6 +4595,16 @@ function stockRowHtml(item, idx){
   const valorField = esPorcentaje
     ? `<select data-stock-field="valor">${STOCK_PCT_OPTIONS.map(p=>`<option value="${p}" ${Number(item.valor)===p?'selected':''}>${p}%</option>`).join('')}</select>`
     : `<input type="number" data-stock-field="valor" value="${Number(item.valor)||0}" min="0" placeholder="Cantidad">`;
+  // Las especialistas solo actualizan "cuánto queda" — el umbral de aviso y el
+  // nombre/categoría de cada ítem son una decisión de compra que le toca al Admin.
+  if(ui.mode!=='admin'){
+    return `
+    <div class="stock-row staff-row" data-stock-idx="${idx}">
+      <span class="stock-row-name">${escapeHtml(item.name)}</span>
+      ${valorField}
+      ${bajo ? '<span class="stock-low">⚠️ Bajo</span>' : '<span></span>'}
+    </div>`;
+  }
   return `
     <div class="stock-row" data-stock-idx="${idx}">
       <input type="text" data-stock-field="name" value="${escapeHtml(item.name)}" placeholder="${STOCK_CATEGORIAS[item.categoria].placeholder}">
@@ -4593,7 +4621,7 @@ function stockCategoriaSectionHtml(categoria){
     <h3 class="fin-sub" style="margin-top:26px;">${meta.titulo}</h3>
     ${items.length ? stockRowHeadHtml(categoria) : ''}
     <div id="stock-list-${categoria}">${items.map(({it,i})=>stockRowHtml(it,i)).join('') || '<div class="hint">Todavía no hay ítems cargados.</div>'}</div>
-    <button class="btn btn-ghost" style="margin-top:6px" data-act="add-stock-item" data-categoria="${categoria}">${meta.addLabel}</button>
+    ${ui.mode==='admin' ? `<button class="btn btn-ghost" style="margin-top:6px" data-act="add-stock-item" data-categoria="${categoria}">${meta.addLabel}</button>` : ''}
   `;
 }
 function stockPageHtml(){
@@ -4762,7 +4790,7 @@ function remindersModalHtml(){
       <h2 class="serif">Recordatorios para mañana</h2>
       <div class="hint">Toca "Enviar recordatorio" para cada clienta — se abre WhatsApp con el mensaje completo ya escrito, listo para enviar. Nada se manda solo, tú apruetas Enviar.</div>
       ${list.length===0 ? `<div class="empty-msg">No hay citas para mañana.</div>` : `
-      <table class="reminders-table">
+      <div class="table-scroll"><table class="reminders-table">
         <thead><tr><th>Hora</th><th>Clienta</th><th></th></tr></thead>
         <tbody>
           ${list.map(a=>`
@@ -4776,7 +4804,7 @@ function remindersModalHtml(){
               </td>
             </tr>`).join('')}
         </tbody>
-      </table>`}
+      </table></div>`}
       <div class="modal-actions">
         <div></div>
         <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
@@ -4860,7 +4888,7 @@ function touchupsModalHtml(){
       <button type="button" class="btn btn-ghost" style="margin:-8px 0 14px;" data-act="copy-touchup-msg">📋 Copiar mensaje</button>
       ${list.length===0 ? `<div class="empty-msg">No hay clientas en ese rango por ahora.</div>` : `
       <div class="hint">${pendingCount} de ${list.length} sin marcar como avisadas. Marcá la casilla apenas le escribas a cada una, para no perder el hilo.</div>
-      <table class="reminders-table">
+      <div class="table-scroll"><table class="reminders-table">
         <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th></th><th>Avisada</th></tr></thead>
         <tbody>
           ${list.map(({appt:a,diffDays})=>`
@@ -4877,7 +4905,7 @@ function touchupsModalHtml(){
               </td>
             </tr>`).join('')}
         </tbody>
-      </table>`}
+      </table></div>`}
       <div class="modal-actions">
         <div></div>
         <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
@@ -4930,7 +4958,7 @@ function reviewsModalHtml(){
       <button type="button" class="btn btn-ghost" style="margin:-8px 0 14px;" data-act="copy-review-msg">📋 Copiar mensaje</button>
       ${list.length===0 ? `<div class="empty-msg">No hay clientas pendientes por ahora.</div>` : `
       <div class="hint">${list.length} clienta${list.length===1?'':'s'} por contactar.</div>
-      <table class="reminders-table">
+      <div class="table-scroll"><table class="reminders-table">
         <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th></th><th>Avisada</th></tr></thead>
         <tbody>
           ${list.map(({appt:a,diffDays})=>`
@@ -4947,7 +4975,7 @@ function reviewsModalHtml(){
               </td>
             </tr>`).join('')}
         </tbody>
-      </table>`}
+      </table></div>`}
       <div class="modal-actions">
         <div></div>
         <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
@@ -5101,10 +5129,10 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-noshows','export-csv','download-backup','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-touchups',
   'copy-touchup-msg','toggle-touchup-avisado',
   'open-reviews','copy-review-msg','toggle-review-avisado',
-  'goto-section','finance-tab','reports-prev-month','reports-next-month','save-comision-pct',
+  'finance-tab','reports-prev-month','reports-next-month','save-comision-pct',
   'add-expense','remove-expense','save-expenses',
   'add-recurring-expense','remove-recurring-expense','save-recurring-expenses',
-  'add-stock-item','remove-stock-item','save-stock',
+  'add-stock-item','remove-stock-item',
 ]);
 
 function onAction(e){

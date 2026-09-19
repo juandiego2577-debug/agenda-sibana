@@ -175,6 +175,10 @@
   }
   .moremenu button:hover{background:var(--panel);}
   .moremenu hr{border:none;border-top:1px solid var(--line);margin:4px 0;}
+  .moremenu-label{
+    padding:8px 14px 4px;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--ink-soft);font-family:'Inter',sans-serif;
+  }
 
   /* ---------- Main layout ---------- */
   main{flex:1;display:flex;overflow:hidden;}
@@ -3318,18 +3322,24 @@ function toolbarHtml(){
         <button class="btn btn-ghost" data-act="toggle-menu">⋯ Más</button>
         ${ui.menuOpen ? `
           <div class="moremenu">
+            <div class="moremenu-label">Configuración</div>
             <button data-act="open-services">Servicios</button>
             <button data-act="open-specialists">Especialistas</button>
             <button data-act="open-schedule">Horario</button>
             <hr>
+            <div class="moremenu-label">Clientas</div>
             <button data-act="open-clients">Clientes</button>
             <button data-act="open-noshows">Historial de no-shows</button>
-            <button data-act="export-csv">Exportar CSV del mes</button>
-            <button data-act="download-backup">💾 Descargar respaldo completo (archivo aparte)</button>
-            <button data-act="sync-all-backup">☁️ Sincronizar todo con Sheets/Calendar</button>
+            <hr>
+            <div class="moremenu-label">Seguimiento</div>
             <button data-act="open-reminders">📲 Recordatorios de mañana</button>
             <button data-act="open-touchups">💆 Retoques pendientes (30–45 días)</button>
             <button data-act="open-reviews">🌟 Reseñas pendientes</button>
+            <hr>
+            <div class="moremenu-label">Respaldo y datos</div>
+            <button data-act="export-csv">Exportar CSV del mes</button>
+            <button data-act="download-backup">💾 Descargar respaldo completo (archivo aparte)</button>
+            <button data-act="sync-all-backup">☁️ Sincronizar todo con Sheets/Calendar</button>
             <hr>
             <button data-act="open-security">Seguridad</button>
           </div>` : ''}
@@ -4641,7 +4651,7 @@ function reviewsModalHtml(){
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
       <h2 class="serif">Reseñas pendientes</h2>
-      <div class="hint">Clientas con un retoque realizado (desde el ${REVIEWS_START_DATE}) a las que todavía no se les pidió su opinión en Google.</div>
+      <div class="hint">Clientas con un retoque realizado a las que todavía no se les pidió su opinión en Google. (No se piden reseñas de citas anteriores a la fecha en que se activó esta función, para no armar una lista con clientas de meses atrás.)</div>
       <div class="field">
         <label>Mensaje genérico (copialo una vez y pegalo a mano en WhatsApp a cada una)</label>
         <textarea id="review-generic-msg" rows="5" readonly style="opacity:.85;">${escapeHtml(genericReviewMsg())}</textarea>

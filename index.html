@@ -167,7 +167,7 @@
   .moremenu{
     position:absolute;top:110%;right:0;background:var(--panel-2);border:1px solid var(--line);
     border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5);min-width:210px;z-index:40;
-    overflow:hidden;
+    max-height:min(480px, 70vh);overflow-y:auto;
   }
   .moremenu button{
     display:block;width:100%;text-align:left;background:none;border:none;
@@ -229,6 +229,7 @@
   .legend-dot.st-Realizada{background:var(--ok);}
   .legend-dot.st-Cancelada{background:#5A5348;}
   .legend-dot.st-NoShow{background:var(--danger);}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
   .reminders-table{width:100%;border-collapse:collapse;margin:10px 0;}
   .reminders-table th,.reminders-table td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;font-size:14px;}
   .reminders-table td .btn{padding:4px 10px;font-size:12px;margin-right:6px;}
@@ -335,6 +336,10 @@
     .stock-row{display:flex;flex-wrap:wrap;}
     .stock-row > *{flex:1 1 45%;}
     .stock-row .iconbtn{flex:0 0 32px;}
+    .reminders-table{min-width:480px;}
+    .svc-row{flex-wrap:wrap;}
+    .svc-row input:not(.price):not(.dur){flex:1 1 100%;}
+    .moremenu{left:0;right:auto;}
   }
 
   /* ---------- Footer summary ---------- */
@@ -522,9 +527,11 @@
     .btn[data-act="today"]{order:2;}
     .viewtoggle{order:3;flex:1;}
     .viewtoggle button{flex:1;}
-    .morewrap{order:4;}
-    .specfilter{order:5;width:100%;}
-    button.btn-primary[data-act="new-appt"]{order:6;width:100%;}
+    .btn[data-act="open-search"]{order:4;width:100%;}
+    .morewrap{order:5;}
+    .specfilter{order:6;width:100%;}
+    .btn[data-act="new-block"]{order:7;}
+    button.btn-primary[data-act="new-appt"]{order:8;width:100%;}
     .calendar-wrap{padding:12px 10px;}
     .timecol{width:46px;}
     .timecol .slot{font-size:9.5px;}
@@ -4762,7 +4769,7 @@ function remindersModalHtml(){
       <h2 class="serif">Recordatorios para mañana</h2>
       <div class="hint">Toca "Enviar recordatorio" para cada clienta — se abre WhatsApp con el mensaje completo ya escrito, listo para enviar. Nada se manda solo, tú apruetas Enviar.</div>
       ${list.length===0 ? `<div class="empty-msg">No hay citas para mañana.</div>` : `
-      <table class="reminders-table">
+      <div class="table-scroll"><table class="reminders-table">
         <thead><tr><th>Hora</th><th>Clienta</th><th></th></tr></thead>
         <tbody>
           ${list.map(a=>`
@@ -4776,7 +4783,7 @@ function remindersModalHtml(){
               </td>
             </tr>`).join('')}
         </tbody>
-      </table>`}
+      </table></div>`}
       <div class="modal-actions">
         <div></div>
         <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
@@ -4860,7 +4867,7 @@ function touchupsModalHtml(){
       <button type="button" class="btn btn-ghost" style="margin:-8px 0 14px;" data-act="copy-touchup-msg">📋 Copiar mensaje</button>
       ${list.length===0 ? `<div class="empty-msg">No hay clientas en ese rango por ahora.</div>` : `
       <div class="hint">${pendingCount} de ${list.length} sin marcar como avisadas. Marcá la casilla apenas le escribas a cada una, para no perder el hilo.</div>
-      <table class="reminders-table">
+      <div class="table-scroll"><table class="reminders-table">
         <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th></th><th>Avisada</th></tr></thead>
         <tbody>
           ${list.map(({appt:a,diffDays})=>`
@@ -4877,7 +4884,7 @@ function touchupsModalHtml(){
               </td>
             </tr>`).join('')}
         </tbody>
-      </table>`}
+      </table></div>`}
       <div class="modal-actions">
         <div></div>
         <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
@@ -4930,7 +4937,7 @@ function reviewsModalHtml(){
       <button type="button" class="btn btn-ghost" style="margin:-8px 0 14px;" data-act="copy-review-msg">📋 Copiar mensaje</button>
       ${list.length===0 ? `<div class="empty-msg">No hay clientas pendientes por ahora.</div>` : `
       <div class="hint">${list.length} clienta${list.length===1?'':'s'} por contactar.</div>
-      <table class="reminders-table">
+      <div class="table-scroll"><table class="reminders-table">
         <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th></th><th>Avisada</th></tr></thead>
         <tbody>
           ${list.map(({appt:a,diffDays})=>`
@@ -4947,7 +4954,7 @@ function reviewsModalHtml(){
               </td>
             </tr>`).join('')}
         </tbody>
-      </table>`}
+      </table></div>`}
       <div class="modal-actions">
         <div></div>
         <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>

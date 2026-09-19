@@ -3023,6 +3023,53 @@ function runSabado12ImportIfNeeded(){
   return true;
 }
 
+// ---------------- Carga de citas del 5 al 11 de septiembre 2026 (faltaban en la agenda) ----------------
+// Pasadas por Juan Diego a mano desde su calendario viejo. Precios = los actuales
+// del catálogo (confirmó que son los mismos). Abono = $5.000 estándar salvo que
+// diga "NO ABONÓ" explícito. Especialista: Salome atendió todo el rango, excepto
+// Lina Murillo (10 sept) y Andri Estévez (11 sept), que las atendió Melissa. El
+// caso de la hija de Sandra Lopeda (8 sept) quedó sin precio: no se recuerda con
+// certeza qué servicio se hizo. Lo de "DOD" en la cita de Lina Murillo tampoco se
+// pudo identificar, pero sí se sabe el precio final ($125.000, combo con descuento).
+const SEPT_5_11_KEY = 'importSept5a11_2026';
+const SEPT_5_11_IMPORT = [
+  { id: uid(), date:'2026-09-05', start:'10:00', end:'11:30', client:'Yolimar Rey', phone:'+56965010172', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'' },
+  { id: uid(), date:'2026-09-05', start:'11:30', end:'13:00', client:'Nancy Contreras', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'' },
+  { id: uid(), date:'2026-09-05', start:'13:00', end:'14:00', client:'María Elena Urbina', phone:'', services:['Sombreado (SOMB)'], specialist:'Salome', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'' },
+  { id: uid(), date:'2026-09-05', start:'14:00', end:'16:00', client:'Meliandi Ochoa', phone:'', services:['Sombreado (SOMB)'], specialist:'Salome', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'"Efecto polvo" en el registro original — es Sombreado.' },
+  { id: uid(), date:'2026-09-05', start:'16:00', end:'17:30', client:'Pamela Rojas Zeballos', phone:'', services:['Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'' },
+  { id: uid(), date:'2026-09-05', start:'17:30', end:'19:00', client:'Maria Soledad Arevalo', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'' },
+
+  { id: uid(), date:'2026-09-07', start:'09:30', end:'11:00', client:'Romina', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'' },
+  { id: uid(), date:'2026-09-07', start:'11:30', end:'13:00', client:'Mariapaz Saez', phone:'', services:['Lifting de Pestañas (LP)'], specialist:'Salome', estado:'Realizada', price:19990, abono:5000, metodoAbono:'', saldo:14990, metodoSaldo:'', notas:'' },
+  { id: uid(), date:'2026-09-07', start:'13:30', end:'14:00', client:'Evelyn Fuentes', phone:'', services:['Garantía de servicio'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'' },
+  { id: uid(), date:'2026-09-07', start:'15:30', end:'17:00', client:'Cristina Navarrete Saez', phone:'', services:['Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:49990, abono:0, metodoAbono:'', saldo:49990, metodoSaldo:'', notas:'' },
+  { id: uid(), date:'2026-09-07', start:'17:00', end:'20:00', client:'Marcia Perez Castro', phone:'', services:['Full Lips (FL)','Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:119980, abono:5000, metodoAbono:'', saldo:114980, metodoSaldo:'', notas:'' },
+
+  { id: uid(), date:'2026-09-08', start:'10:00', end:'10:30', client:'Sofía Zanni', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:19990, abono:5000, metodoAbono:'', saldo:14990, metodoSaldo:'', notas:'' },
+  { id: uid(), date:'2026-09-08', start:'10:30', end:'12:00', client:'Becerra Suarez', phone:'', services:['Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:49990, abono:0, metodoAbono:'', saldo:49990, metodoSaldo:'', notas:'' },
+  { id: uid(), date:'2026-09-08', start:'12:00', end:'14:00', client:'Jessica Herrera', phone:'', services:['Full Lips (FL)'], specialist:'Salome', estado:'Realizada', price:69990, abono:5000, metodoAbono:'', saldo:64990, metodoSaldo:'', notas:'' },
+  { id: uid(), date:'2026-09-08', start:'15:30', end:'18:00', client:'Sandra Lopeda', phone:'', services:['MixBrows'], specialist:'Salome', estado:'Realizada', price:69990, abono:0, metodoAbono:'', saldo:69990, metodoSaldo:'', notas:'"Técnica mixta" en el registro original — es MixBrows.' },
+  { id: uid(), date:'2026-09-08', start:'15:30', end:'18:00', client:'Hija de Sandra Lopeda', phone:'', services:['Henna (sin confirmar)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — no se recuerda con certeza qué servicio se hizo (posiblemente Henna, no está en la lista de Servicios); sin precio registrado.' },
+  { id: uid(), date:'2026-09-08', start:'17:30', end:'20:00', client:'Elisa Coviello', phone:'', services:['Full Lips (FL)','Lifting de Pestañas (LP)'], specialist:'Salome', estado:'Realizada', price:89980, abono:5000, metodoAbono:'', saldo:84980, metodoSaldo:'', notas:'' },
+
+  { id: uid(), date:'2026-09-09', start:'10:00', end:'13:00', client:'Camila Ahumada', phone:'', services:['Microblading (MB)','Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:99980, abono:5000, metodoAbono:'', saldo:94980, metodoSaldo:'', notas:'' },
+  { id: uid(), date:'2026-09-09', start:'16:00', end:'17:30', client:'Ruth Lugo', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'' },
+
+  { id: uid(), date:'2026-09-10', start:'15:30', end:'18:00', client:'Lina Murillo', phone:'', services:['Full Lips (FL)','DOD (código sin identificar)'], specialist:'Melissa', estado:'Realizada', price:125000, abono:5000, metodoAbono:'', saldo:120000, metodoSaldo:'', cremaComprada:true, notas:'Dato importado — código "DOD" del registro original sin identificar. Precio total $125.000 acordado como combo con descuento (incluye crema).' },
+
+  { id: uid(), date:'2026-09-11', start:'18:30', end:'19:30', client:'Andri Estévez', phone:'', services:['Microblading (MB)'], specialist:'Melissa', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'' },
+];
+function runSept5a11ImportIfNeeded(){
+  if(state.settings[SEPT_5_11_KEY]) return false;
+  state.appointments = state.appointments.concat(SEPT_5_11_IMPORT);
+  SEPT_5_11_IMPORT.forEach(a=>{
+    if(a.client) upsertClient(a.client, a.phone, summarizeServices(a.services||[]));
+  });
+  state.settings[SEPT_5_11_KEY] = true;
+  return true;
+}
+
 // ---------------- Gastos fijos recurrentes (del Excel de control financiero) ----------------
 // Se pagan todos los meses el día 5, según confirmó el usuario. Se cargan una
 // sola vez; de ahí en adelante se editan desde Finanzas → Gastos.
@@ -3198,6 +3245,7 @@ function startRealtimeSync(){
       applyRemoteData(snap.data());
       const imported = runHistoricalImportIfNeeded();
       const sabado12 = runSabado12ImportIfNeeded();
+      const sept5a11 = runSept5a11ImportIfNeeded();
       const gastosFijos = runRecurringExpensesImportIfNeeded();
       const corrected = runCorrectionsIfNeeded();
       const priceFixed = runPriceCorrectionsIfNeeded();
@@ -3213,7 +3261,7 @@ function startRealtimeSync(){
       // re-render completo — los datos ya quedaron actualizados por dentro y se
       // van a ver apenas cierre ese modal.
       if(!ui.modal) render();
-      if(imported || sabado12 || gastosFijos || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed) saveData();
+      if(imported || sabado12 || sept5a11 || gastosFijos || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed) saveData();
     } else {
       // No existe ningún documento en la base de datos. Después de la primera
       // vez que se configuró Firebase, esto NUNCA debería volver a pasar — si
@@ -4091,8 +4139,8 @@ function apptSearchScore(query, appt){
   if(n === q) return 100;
   if(n.includes(q) || (q.length>=3 && q.includes(n))) return 50;
   if(qDigits.length>=4 && tel.includes(qDigits)) return 40;
-  const qWords = q.split(/\s+/).filter(w=>w.length>=2);
-  const nWords = n.split(/\s+/).filter(w=>w.length>=2);
+  const qWords = q.split(/\s+/).filter(w=>w.length>=3);
+  const nWords = n.split(/\s+/).filter(w=>w.length>=3);
   let shared = 0;
   qWords.forEach(w=>{ if(nWords.some(nw=>nw.includes(w)||w.includes(nw))) shared++; });
   return shared>0 ? 10*shared : 0;

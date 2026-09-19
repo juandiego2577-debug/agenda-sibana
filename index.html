@@ -3073,11 +3073,13 @@ function runSept5a11ImportIfNeeded(){
 // ---------------- Carga de citas de julio 2026 (agenda vieja) ----------------
 // Pasadas por Juan Diego a mano desde su agenda anterior. Sin datos reales de
 // especialista al momento de anotarlas, salvo las excepciones que confirmó de
-// memoria (el resto lo atendió Salome). Como no hay info real de precio/abono
-// para casi todas, quedan en $0 con una nota explicando por qué — excepto Edith
-// Tua y Yormaly Ochoa, que sí traían un monto real escrito. Los códigos o notas
-// del registro original que no se pudieron identificar (ej. "lf", "pod", "nerly
-// te cop") se dejaron sin adivinar, anotados tal cual en "notas". No se cargaron
+// memoria (el resto lo atendió Salome). TODAS quedan con precio/abono/saldo en
+// $0 — aunque dos citas (Edith Tua y Yormaly Ochoa) sí traían un monto real
+// anotado, se decidió no cargarlo, para que los reportes de Finanzas de julio
+// no mezclen un par de cifras reales con el resto sin verificar (mejor $0 en
+// todas y consistente, que verificar caso por caso). Los códigos o notas del
+// registro original que no se pudieron identificar (ej. "lf", "pod", "nerly te
+// cop") se dejaron sin adivinar, anotados tal cual en "notas". No se cargaron
 // tareas personales (ej. "Comprar pasaje", "Ir a URBE") ni los feriados que
 // aparecían en el registro original (Día de la Independencia, Día de la Virgen
 // del Carmen, Natalicio de Simón Bolívar) — no son citas de clientas.
@@ -3104,13 +3106,13 @@ const JULIO_2026_IMPORT = [
   { id: uid(), date:'2026-07-08', start:'11:30', end:'13:00', client:'Hermana de Marisol Rocha', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Nombre no especificado en el registro original (hermana de Marisol Rocha). Dato importado — sin información real de precio/pago (no se registró en su momento).' },
   { id: uid(), date:'2026-07-08', start:'15:00', end:'16:00', client:'Nicole Stephanie Escudero Flores', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
   { id: uid(), date:'2026-07-08', start:'16:30', end:'18:00', client:'Stefany Arteaga', phone:'', services:['Sombreado (SOMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-09', start:'10:00', end:'12:00', client:'Edith Tua', phone:'', services:['MixBrows'], specialist:'Salome', estado:'Realizada', price:70000, abono:5000, metodoAbono:'', saldo:65000, metodoSaldo:'', notas:'"tm" en el registro original — es MixBrows. Precio real informado: $70.000.' },
+  { id: uid(), date:'2026-07-09', start:'10:00', end:'12:00', client:'Edith Tua', phone:'', services:['MixBrows'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'"tm" en el registro original — es MixBrows. En su momento se anotó un precio de $70.000, pero no se cargó como precio real (todas las citas de julio quedaron en $0, para no mezclar meses con datos reales y meses sin verificar). Dato importado — sin información real de precio/pago (no se registró en su momento).' },
   { id: uid(), date:'2026-07-09', start:'11:30', end:'13:00', client:'Sofia Zanni', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
   { id: uid(), date:'2026-07-09', start:'13:30', end:'15:30', client:'Mairelyn Zumztein', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
   { id: uid(), date:'2026-07-09', start:'17:00', end:'18:00', client:'Karyelis Parra', phone:'', services:['Full Lips (FL)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
   { id: uid(), date:'2026-07-10', start:'11:30', end:'13:30', client:'Paola Puyol', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'El registro original no traía hora de fin; se calculó según la duración habitual del servicio. Dato importado — sin información real de precio/pago (no se registró en su momento).' },
   { id: uid(), date:'2026-07-10', start:'13:00', end:'14:30', client:'Soledad Galvez Petit', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-10', start:'14:30', end:'16:30', client:'Yormaly Ochoa', phone:'', services:['Retoque Microblading (RMB)','Retoque de Full Lips'], specialist:'Salome', estado:'Realizada', price:40000, abono:5000, metodoAbono:'', saldo:35000, metodoSaldo:'', notas:'Precio real informado: $40.000 (combo).' },
+  { id: uid(), date:'2026-07-10', start:'14:30', end:'16:30', client:'Yormaly Ochoa', phone:'', services:['Retoque Microblading (RMB)','Retoque de Full Lips'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'En su momento se anotó un precio de $40.000 (combo), pero no se cargó como precio real (todas las citas de julio quedaron en $0, para no mezclar meses con datos reales y meses sin verificar). Dato importado — sin información real de precio/pago (no se registró en su momento).' },
   { id: uid(), date:'2026-07-10', start:'17:00', end:'18:00', client:'Karyelis Parra', phone:'', services:['Full Lips (FL)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
   { id: uid(), date:'2026-07-10', start:'18:30', end:'19:30', client:'Paula Valdivieso', phone:'', services:['Retoque Delineado de Ojos (RDO)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
   { id: uid(), date:'2026-07-11', start:'10:00', end:'11:00', client:'Rocio Melendez Gomez', phone:'', services:['Perfeccionamiento (PERF)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
@@ -4825,6 +4827,8 @@ function buildTouchupMsg(a){
   return `Hola${name?' '+name:''} 🌸 es Sibana.
 Ya pasaron unas semanas desde tu sesión de ${svc} y este es justo el momento ideal para hacerte el retoque y dejar el resultado perfecto ✨
 
+⏳ Recuerda que el retoque solo mantiene su precio hasta los 45 días desde tu sesión — pasado ese plazo ya no se puede hacer como retoque y pasa a cobrarse como un tratamiento nuevo.
+
 ¿Te gustaría agendar tu hora? Cuéntanos qué día te queda mejor y te confirmamos disponibilidad.
 
 Te esperamos ❤️`;
@@ -4834,6 +4838,8 @@ Te esperamos ❤️`;
 function genericTouchupMsg(){
   return `Hola 🌸 somos Sibana.
 Ya pasaron unas semanas desde tu última sesión y este es el momento ideal para hacer tu retoque y dejar el resultado perfecto ✨
+
+⏳ Recuerda que el retoque solo mantiene su precio hasta los 45 días desde tu sesión — pasado ese plazo ya no se puede hacer como retoque y pasa a cobrarse como un tratamiento nuevo.
 
 ¿Te gustaría agendar tu hora? Cuéntanos qué día te queda mejor y te confirmamos disponibilidad.
 

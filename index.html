@@ -2961,6 +2961,7 @@ function applyRemoteData(data){
   if(state.appointments.length > lastKnownGoodCount) lastKnownGoodCount = state.appointments.length;
   state.services = (data.services && data.services.length) ? data.services : DEFAULT_SERVICES.slice();
   state.services.forEach(s=>{ if(s.duration==null) s.duration = 60; });
+  state.services.sort((a,b)=>(a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'}));
   state.specialists = (data.specialists && data.specialists.length) ? data.specialists : DEFAULT_SPECIALISTS.map(s=>Object.assign({}, s));
   state.clients = (data.clients && data.clients.length) ? data.clients : deriveClientsFromAppointments();
   state.blocks = data.blocks || [];

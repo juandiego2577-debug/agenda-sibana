@@ -312,6 +312,15 @@
     background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:7px 8px;
     color:var(--ink);font-size:12.5px;font-family:'Inter',sans-serif;width:100%;
   }
+  .stock-row{display:grid;grid-template-columns:1.6fr 1fr .9fr auto auto;gap:6px;align-items:center;margin-bottom:8px;}
+  .stock-row select,.stock-row input{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:7px 8px;
+    color:var(--ink);font-size:12.5px;font-family:'Inter',sans-serif;width:100%;
+  }
+  .stock-low{
+    background:rgba(217,106,106,0.18);color:var(--danger);font-weight:700;font-size:11px;
+    padding:4px 8px;border-radius:999px;white-space:nowrap;flex-shrink:0;
+  }
   .chart-box{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 10px;margin-bottom:6px;overflow-x:auto;}
   @media (max-width:600px){
     .fin-cards{grid-template-columns:1fr;}
@@ -319,6 +328,9 @@
     .exp-row{display:flex;flex-wrap:wrap;}
     .exp-row > *{flex:1 1 45%;}
     .exp-row .iconbtn{flex:0 0 32px;}
+    .stock-row{display:flex;flex-wrap:wrap;}
+    .stock-row > *{flex:1 1 45%;}
+    .stock-row .iconbtn{flex:0 0 32px;}
   }
 
   /* ---------- Footer summary ---------- */
@@ -2386,6 +2398,7 @@ let state = {
   blocks: [], // {id,date:'YYYY-MM-DD',start:'HH:MM',end:'HH:MM',specialist,reason} — horas que una especialista bloquea (no puede trabajar)
   expenses: [], // {id,date:'YYYY-MM-DD',tipo:'Fijo'|'Variable',categoria,descripcion,monto,metodoPago} — insumos y gastos puntuales
   recurringExpenses: [], // {id,categoria,monto,diaPago,metodoPago} — arriendo, luz, internet: se pagan todos los meses, no hay que volver a anotarlos
+  stockItems: [], // {id,categoria:'Pigmentos'|'FilosAgujas'|'Anestesia',name,valor,umbral,actualizadoEn} — revisión semanal de insumos
   settings: Object.assign({}, DEFAULT_SETTINGS),
 };
 const ADMIN_TRUST_KEY = 'sibanaAdminTrust'; // marca este dispositivo como admin de forma permanente, una vez puesta la contraseña correcta
@@ -2967,6 +2980,7 @@ function applyRemoteData(data){
   state.blocks = data.blocks || [];
   state.expenses = data.expenses || [];
   state.recurringExpenses = data.recurringExpenses || [];
+  state.stockItems = data.stockItems || [];
   state.settings = Object.assign({}, DEFAULT_SETTINGS, data.settings || {});
 }
 
@@ -3151,6 +3165,25 @@ function runPaymentMethodNormalizeIfNeeded(){
   return true;
 }
 
+// Carga inicial (una sola vez) de la sección Stock, con lo que ya se sabe
+// (definido con Juan Diego y su papá): Filos (1 sola medida), Agujas 1RL y
+// 3RL (avisar con 20 o menos) y Anestesia (una sola). Los colores de
+// pigmento no se precargan porque no sabemos los nombres reales — se
+// agregan a mano la primera vez, desde la pestaña Stock.
+const STOCK_SEED_KEY = 'stockSeed20260919';
+function runStockSeedIfNeeded(){
+  if(state.settings[STOCK_SEED_KEY]) return false;
+  state.settings[STOCK_SEED_KEY] = true;
+  if(!Array.isArray(state.stockItems)) state.stockItems = [];
+  state.stockItems.push(
+    {id:uid(), categoria:'FilosAgujas', name:'Filos', valor:0, umbral:0, actualizadoEn:''},
+    {id:uid(), categoria:'FilosAgujas', name:'Agujas 1RL (0,25 / 0,30mm)', valor:0, umbral:20, actualizadoEn:''},
+    {id:uid(), categoria:'FilosAgujas', name:'Agujas 3RL (0,25mm)', valor:0, umbral:20, actualizadoEn:''},
+    {id:uid(), categoria:'Anestesia', name:'Anestesia', valor:0, umbral:0, actualizadoEn:''},
+  );
+  return true;
+}
+
 function startRealtimeSync(){
   if(!FIREBASE_READY){
     document.getElementById('root').innerHTML = '<div class="loading">No se pudo cargar Firebase (revisa tu conexión a internet o vuelve a intentarlo). Si el problema sigue, avísame.</div>';
@@ -3170,12 +3203,13 @@ function startRealtimeSync(){
       const saldoFix = runSaldoFixIfNeeded();
       const paymentNormalize = runPaymentMethodNormalizeIfNeeded();
       const noLunch = runNoLunchIfNeeded();
+      const stockSeed = runStockSeedIfNeeded();
       ui.loaded = true;
       // Si hay un modal abierto (alguien escribiendo), no lo interrumpimos con un
       // re-render completo — los datos ya quedaron actualizados por dentro y se
       // van a ver apenas cierre ese modal.
       if(!ui.modal) render();
-      if(imported || sabado12 || gastosFijos || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch) saveData();
+      if(imported || sabado12 || gastosFijos || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed) saveData();
     } else {
       // No existe ningún documento en la base de datos. Después de la primera
       // vez que se configuró Firebase, esto NUNCA debería volver a pasar — si
@@ -3217,6 +3251,7 @@ async function saveData(){
       blocks: state.blocks,
       expenses: state.expenses,
       recurringExpenses: state.recurringExpenses,
+      stockItems: state.stockItems,
       settings: state.settings,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
@@ -3245,6 +3280,8 @@ function render(){
     ${sectionTabsHtml()}
     ${ui.mode==='admin' && ui.section==='finanzas' ? `
       <main class="fin-main">${finanzasPageHtml()}</main>
+    ` : ui.mode==='admin' && ui.section==='stock' ? `
+      <main class="fin-main">${stockPageHtml()}</main>
     ` : `
       ${toolbarHtml()}
       ${statusLegendHtml()}
@@ -3265,8 +3302,9 @@ function sectionTabsHtml(){
   if(ui.mode!=='admin') return '';
   return `
     <div class="section-tabs">
-      <button class="${ui.section!=='finanzas'?'active':''}" data-act="goto-section" data-section="agenda">📅 Agenda</button>
+      <button class="${ui.section!=='finanzas'&&ui.section!=='stock'?'active':''}" data-act="goto-section" data-section="agenda">📅 Agenda</button>
       <button class="${ui.section==='finanzas'?'active':''}" data-act="goto-section" data-section="finanzas">📊 Finanzas</button>
+      <button class="${ui.section==='stock'?'active':''}" data-act="goto-section" data-section="stock">📦 Stock</button>
     </div>`;
 }
 
@@ -4363,6 +4401,73 @@ function saveRecurringExpensesFromForm(){
   saveData();
 }
 
+// ---------------- Stock (revisión semanal de insumos) ----------------
+const STOCK_PCT_OPTIONS = [100,75,50,25,10,0];
+const STOCK_CATEGORIAS = {
+  Pigmentos: {titulo:'Pigmentos', addLabel:'+ Agregar color de pigmento', placeholder:'Color de pigmento'},
+  FilosAgujas: {titulo:'Filos y agujas', addLabel:'+ Agregar ítem', placeholder:'Nombre del ítem'},
+  Anestesia: {titulo:'Anestesia', addLabel:'+ Agregar ítem', placeholder:'Nombre del ítem'},
+};
+function stockItemsByCategoria(categoria){
+  return (state.stockItems||[]).map((it,i)=>({it,i})).filter(x=>x.it.categoria===categoria);
+}
+function stockRowHtml(item, idx){
+  const esPorcentaje = item.categoria==='Pigmentos';
+  const bajo = Number(item.umbral)>0 && Number(item.valor)<=Number(item.umbral);
+  const valorField = esPorcentaje
+    ? `<select data-stock-field="valor">${STOCK_PCT_OPTIONS.map(p=>`<option value="${p}" ${Number(item.valor)===p?'selected':''}>${p}%</option>`).join('')}</select>`
+    : `<input type="number" data-stock-field="valor" value="${Number(item.valor)||0}" min="0" placeholder="Cantidad">`;
+  return `
+    <div class="stock-row" data-stock-idx="${idx}">
+      <input type="text" data-stock-field="name" value="${escapeHtml(item.name)}" placeholder="${STOCK_CATEGORIAS[item.categoria].placeholder}">
+      ${valorField}
+      <input type="number" data-stock-field="umbral" value="${Number(item.umbral)||0}" min="0" ${esPorcentaje?'max="100"':''} title="Avisar cuando llegue a este ${esPorcentaje?'porcentaje':'número'} o menos (0 = sin aviso)">
+      ${bajo ? '<span class="stock-low">⚠️ Bajo</span>' : '<span></span>'}
+      <button class="iconbtn" data-act="remove-stock-item" data-idx="${idx}">✕</button>
+    </div>`;
+}
+function stockCategoriaSectionHtml(categoria){
+  const meta = STOCK_CATEGORIAS[categoria];
+  const items = stockItemsByCategoria(categoria);
+  return `
+    <h3 class="fin-sub" style="margin-top:26px;">${meta.titulo}</h3>
+    <div id="stock-list-${categoria}">${items.map(({it,i})=>stockRowHtml(it,i)).join('') || '<div class="hint">Todavía no hay ítems cargados.</div>'}</div>
+    <button class="btn btn-ghost" style="margin-top:6px" data-act="add-stock-item" data-categoria="${categoria}">${meta.addLabel}</button>
+  `;
+}
+function stockPageHtml(){
+  const lastReview = state.settings.stockLastReviewedAt;
+  const daysSince = lastReview ? Math.round((new Date().setHours(0,0,0,0) - parseKey(lastReview)) / 86400000) : null;
+  const stale = daysSince===null || daysSince>=7;
+  return `
+    <div class="fin-page">
+      <div class="hint" style="${stale?'color:var(--danger);':''}">
+        ${lastReview ? `Última revisión de stock: ${lastReview} (hace ${daysSince} día${daysSince===1?'':'s'}).` : 'Todavía no se ha revisado el stock.'}
+        ${stale ? ' Ya toca revisar y actualizar los números (recomendado: todos los lunes).' : ''}
+      </div>
+      <div class="hint">Actualiza los números y guarda — los ítems marcados "⚠️ Bajo" son los que conviene reponer.</div>
+      ${stockCategoriaSectionHtml('Pigmentos')}
+      ${stockCategoriaSectionHtml('FilosAgujas')}
+      ${stockCategoriaSectionHtml('Anestesia')}
+      <div style="margin-top:16px;"><button class="btn btn-primary" data-act="save-stock">Guardar stock</button></div>
+    </div>`;
+}
+function saveStockFromForm(){
+  document.querySelectorAll('[data-stock-idx]').forEach(row=>{
+    const idx = Number(row.dataset.stockIdx);
+    const item = state.stockItems[idx];
+    if(!item) return;
+    row.querySelectorAll('[data-stock-field]').forEach(el=>{
+      const field = el.dataset.stockField;
+      item[field] = (field==='valor'||field==='umbral') ? (Number(el.value)||0) : el.value;
+    });
+    item.actualizadoEn = toKey(new Date());
+  });
+  state.settings.stockLastReviewedAt = toKey(new Date());
+  render();
+  saveData();
+}
+
 // ---------------- Gráficos (SVG livianos, sin librerías externas) ----------------
 function svgHBarChart(data, opts={}){
   const w = opts.width || 620, barH = 24, gap = 10, labelW = opts.labelW || 170, padding = 8;
@@ -4742,6 +4847,7 @@ function downloadFullBackup(){
     blocks: state.blocks,
     expenses: state.expenses,
     recurringExpenses: state.recurringExpenses,
+    stockItems: state.stockItems,
     settings: state.settings,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
@@ -4833,6 +4939,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'goto-section','finance-tab','reports-prev-month','reports-next-month','save-comision-pct',
   'add-expense','remove-expense','save-expenses',
   'add-recurring-expense','remove-recurring-expense','save-recurring-expenses',
+  'add-stock-item','remove-stock-item','save-stock',
 ]);
 
 function onAction(e){
@@ -5076,6 +5183,22 @@ function onAction(e){
     }
     case 'save-expenses':
       saveExpensesFromForm(); break;
+    case 'add-stock-item': {
+      const categoria = e.currentTarget.dataset.categoria;
+      state.stockItems.push({id:uid(), categoria, name:'', valor:0, umbral:0, actualizadoEn:''});
+      render();
+      break;
+    }
+    case 'remove-stock-item': {
+      const idx = Number(e.currentTarget.dataset.idx);
+      showConfirmDialog('¿Eliminar este ítem del stock?', ()=>{
+        state.stockItems.splice(idx,1);
+        render(); saveData();
+      });
+      break;
+    }
+    case 'save-stock':
+      saveStockFromForm(); break;
     case 'close-modal':
     case 'overlay-close':
       ui.modal = null; render(); break;

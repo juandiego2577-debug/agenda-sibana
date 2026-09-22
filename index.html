@@ -478,6 +478,13 @@
     background:var(--panel-2);color:var(--ink);font-size:13.5px;font-family:'Inter',sans-serif;
     margin-bottom:10px;
   }
+  .pw-field{position:relative;}
+  .pw-field .client-search-input{padding-right:38px;}
+  .pw-toggle{
+    position:absolute;right:4px;top:50%;transform:translateY(-50%);
+    background:none;border:none;cursor:pointer;font-size:16px;line-height:1;
+    color:var(--ink-soft);padding:7px 8px;
+  }
   .client-row{border-bottom:1px solid var(--line);}
   .client-row:last-child{border-bottom:none;}
   .client-row-main{display:flex;justify-content:space-between;align-items:center;padding:10px 2px;cursor:pointer;gap:10px;}
@@ -2422,6 +2429,7 @@ let state = {
   blocks: [], // {id,date:'YYYY-MM-DD',start:'HH:MM',end:'HH:MM',specialist,reason} — horas que una especialista bloquea (no puede trabajar)
   expenses: [], // {id,date:'YYYY-MM-DD',tipo:'Fijo'|'Variable',categoria,descripcion,monto,metodoPago} — insumos y gastos puntuales
   recurringExpenses: [], // {id,categoria,monto,diaPago,metodoPago} — arriendo, luz, internet: se pagan todos los meses, no hay que volver a anotarlos
+  recurringIncomes: [], // {id,categoria,monto,metodoPago} — ingresos pasivos que llegan todas las semanas (ej. arriendo de un box), aparte de las citas
   stockItems: [], // {id,categoria:'Pigmentos'|'FilosAgujas'|'Anestesia',name,valor,umbral,actualizadoEn} — revisión semanal de insumos
   settings: Object.assign({}, DEFAULT_SETTINGS),
 };
@@ -2521,7 +2529,10 @@ function showPrompt(message, onSubmit){
   wrap.innerHTML = `
     <div class="confirm-box">
       <p>${escapeHtml(message)}</p>
-      <input type="password" id="dlg-input" class="client-search-input" style="margin-bottom:14px" autocomplete="off">
+      <div class="pw-field" style="margin-bottom:14px">
+        <input type="password" id="dlg-input" class="client-search-input" style="margin-bottom:0" autocomplete="off">
+        <button type="button" class="pw-toggle" id="dlg-input-toggle" aria-label="Mostrar contraseña">👁</button>
+      </div>
       <div class="confirm-actions">
         <button class="btn btn-ghost" id="dlg-cancel">Cancelar</button>
         <button class="btn btn-primary" id="dlg-ok">Entrar</button>
@@ -2533,6 +2544,10 @@ function showPrompt(message, onSubmit){
   wrap.querySelector('#dlg-ok').addEventListener('click', submit);
   wrap.querySelector('#dlg-cancel').addEventListener('click', close);
   wrap.querySelector('#dlg-input').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+  wrap.querySelector('#dlg-input-toggle').addEventListener('click', ()=>{
+    const inp = document.getElementById('dlg-input');
+    inp.type = inp.type==='password' ? 'text' : 'password';
+  });
   wrap.addEventListener('click', e=>{ if(e.target===wrap) close(); });
   setTimeout(()=>{ const inp = document.getElementById('dlg-input'); if(inp) inp.focus(); }, 50);
 }
@@ -3004,6 +3019,7 @@ function applyRemoteData(data){
   state.blocks = data.blocks || [];
   state.expenses = data.expenses || [];
   state.recurringExpenses = data.recurringExpenses || [];
+  state.recurringIncomes = data.recurringIncomes || [];
   state.stockItems = data.stockItems || [];
   state.settings = Object.assign({}, DEFAULT_SETTINGS, data.settings || {});
 }
@@ -3211,6 +3227,20 @@ function runRecurringExpensesImportIfNeeded(){
   return true;
 }
 
+// Ingreso pasivo semanal por el arriendo de un box: $40.000 todas las semanas,
+// aparte de lo que se cobra por citas. Se carga una sola vez; de ahí en
+// adelante se edita desde Finanzas → Gastos, junto a los gastos fijos.
+const RECURRING_INCOME_IMPORT_KEY = 'ingresoBoxImport20260922';
+const RECURRING_INCOME_IMPORT = [
+  { id: uid(), categoria:'Arriendo de box', monto:40000, metodoPago:'' },
+];
+function runRecurringIncomeImportIfNeeded(){
+  if(state.settings[RECURRING_INCOME_IMPORT_KEY]) return false;
+  state.recurringIncomes = (state.recurringIncomes||[]).concat(RECURRING_INCOME_IMPORT);
+  state.settings[RECURRING_INCOME_IMPORT_KEY] = true;
+  return true;
+}
+
 const CORRECTIONS_KEY = 'correcciones20260909a';
 function runCorrectionsIfNeeded(){
   if(state.settings[CORRECTIONS_KEY]) return false;
@@ -3329,6 +3359,7 @@ function runPaymentMethodNormalizeIfNeeded(){
   });
   (state.expenses||[]).forEach(g=>{ if(g.metodoPago) g.metodoPago = normalizePaymentMethod(g.metodoPago); });
   (state.recurringExpenses||[]).forEach(r=>{ if(r.metodoPago) r.metodoPago = normalizePaymentMethod(r.metodoPago); });
+  (state.recurringIncomes||[]).forEach(r=>{ if(r.metodoPago) r.metodoPago = normalizePaymentMethod(r.metodoPago); });
   state.settings[PAYMENT_METHOD_NORMALIZE_KEY] = true;
   return true;
 }
@@ -3384,7 +3415,10 @@ function showTeamLoginGate(){
       <h1 class="serif">Agenda Sibana</h1>
       <p class="hint">Ingresa la contraseña del equipo para entrar.</p>
       <div class="login-gate-box">
-        <input type="password" id="team-login-input" class="client-search-input" placeholder="Contraseña" autocomplete="current-password">
+        <div class="pw-field">
+          <input type="password" id="team-login-input" class="client-search-input" placeholder="Contraseña" autocomplete="current-password">
+          <button type="button" class="pw-toggle" id="team-login-toggle" aria-label="Mostrar contraseña">👁</button>
+        </div>
         <div id="team-login-error" class="login-gate-error"></div>
         <button class="btn btn-primary" id="team-login-btn" style="width:100%;">Entrar</button>
       </div>
@@ -3392,6 +3426,9 @@ function showTeamLoginGate(){
   const input = document.getElementById('team-login-input');
   const btn = document.getElementById('team-login-btn');
   const errBox = document.getElementById('team-login-error');
+  document.getElementById('team-login-toggle').addEventListener('click', ()=>{
+    input.type = input.type==='password' ? 'text' : 'password';
+  });
   const submit = ()=>{
     const pass = input.value;
     if(!pass){ errBox.textContent = 'Escribe la contraseña.'; return; }
@@ -3421,6 +3458,7 @@ function startFirestoreSync(){
       const sept5a11 = runSept5a11ImportIfNeeded();
       const julio2026 = runJulio2026ImportIfNeeded();
       const gastosFijos = runRecurringExpensesImportIfNeeded();
+      const ingresoBox = runRecurringIncomeImportIfNeeded();
       const corrected = runCorrectionsIfNeeded();
       const priceFixed = runPriceCorrectionsIfNeeded();
       const passwordInit = runPasswordInitIfNeeded();
@@ -3435,7 +3473,7 @@ function startFirestoreSync(){
       // re-render completo — los datos ya quedaron actualizados por dentro y se
       // van a ver apenas cierre ese modal.
       if(!ui.modal) render();
-      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed) saveData();
+      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed) saveData();
     } else {
       // No existe ningún documento en la base de datos. Después de la primera
       // vez que se configuró Firebase, esto NUNCA debería volver a pasar — si
@@ -3477,6 +3515,7 @@ async function saveData(){
       blocks: state.blocks,
       expenses: state.expenses,
       recurringExpenses: state.recurringExpenses,
+      recurringIncomes: state.recurringIncomes,
       stockItems: state.stockItems,
       settings: state.settings,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -4397,16 +4436,26 @@ function expensesInMonth(year, month){
     return dt.getFullYear()===year && dt.getMonth()===month;
   });
 }
+function recurringIncomeTotal(){
+  return (state.recurringIncomes||[]).reduce((s,r)=>s+(Number(r.monto)||0),0);
+}
 function monthFinancials(year, month){
   const appts = apptsInMonth(year, month);
   const gastos = expensesInMonth(year, month);
-  const ingresos = appts.reduce((s,a)=>s+apptRevenue(a),0);
+  const ingresosCitas = appts.reduce((s,a)=>s+apptRevenue(a),0);
+  // El ingreso pasivo (ej. arriendo de un box) llega una vez por cada semana
+  // que cae dentro del mes — la misma cantidad de semanas que se ven en el
+  // desglose semanal de abajo, para que ambos números siempre cuadren.
+  const ingresosPasivos = recurringIncomeTotal() * weekRangesForMonth(year, month).length;
+  const ingresos = ingresosCitas + ingresosPasivos;
   const cremasVendidas = appts.filter(a=>a.cremaComprada && a.estado!=='Cancelada' && a.estado!=='NoShow').length;
   const recurringTotal = (state.recurringExpenses||[]).reduce((s,r)=>s+(Number(r.monto)||0),0);
   const gastosFijos = recurringTotal + gastos.filter(g=>g.tipo==='Fijo').reduce((s,g)=>s+(Number(g.monto)||0),0);
   const gastosVariables = gastos.filter(g=>g.tipo==='Variable').reduce((s,g)=>s+(Number(g.monto)||0),0);
   const comisionPct = state.settings.comisionPct!=null ? Number(state.settings.comisionPct) : 0.5;
-  const comisiones = ingresos * comisionPct;
+  // La comisión de las especialistas se calcula solo sobre lo que generan las
+  // citas, no sobre el ingreso pasivo del box (ellas no hacen nada por eso).
+  const comisiones = ingresosCitas * comisionPct;
   const gastosTotal = gastosFijos + gastosVariables + comisiones;
   const beneficio = ingresos - gastosTotal;
 
@@ -4421,7 +4470,7 @@ function monthFinancials(year, month){
   });
   Object.keys(porEspecialista).forEach(name=>{ porEspecialista[name].comision = porEspecialista[name].ingresos * comisionPct; });
 
-  return {ingresos, gastosFijos, gastosVariables, comisiones, gastosTotal, beneficio, porMetodo, porEspecialista, comisionPct, appts, gastos, cremasVendidas};
+  return {ingresos, ingresosCitas, ingresosPasivos, gastosFijos, gastosVariables, comisiones, gastosTotal, beneficio, porMetodo, porEspecialista, comisionPct, appts, gastos, cremasVendidas};
 }
 function weekRangesForMonth(year, month){
   // Semanas de lunes a domingo, recortadas a los límites del mes — igual que
@@ -4442,7 +4491,9 @@ function rangeFinancials(start, end){
   const startKey = toKey(start), endKey = toKey(end);
   const appts = state.appointments.filter(a=> a.date>=startKey && a.date<=endKey);
   const gastosVar = (state.expenses||[]).filter(g=> g.date>=startKey && g.date<=endKey && g.tipo==='Variable').reduce((s,g)=>s+(Number(g.monto)||0),0);
-  const ingresos = appts.reduce((s,a)=>s+apptRevenue(a),0);
+  // Cada llamada a esta función representa una semana (ver weekRangesForMonth),
+  // así que el ingreso pasivo se suma una vez por llamada.
+  const ingresos = appts.reduce((s,a)=>s+apptRevenue(a),0) + recurringIncomeTotal();
   return {ingresos, gastosVar, ganancia: ingresos - gastosVar};
 }
 
@@ -4494,6 +4545,14 @@ function finanzasResumenHtml(year, month){
       <div class="fin-card"><div class="lbl">Gastos totales</div><div class="val">${fmtCLP(f.gastosTotal)}</div></div>
       <div class="fin-card highlight"><div class="lbl">Beneficio neto</div><div class="val">${fmtCLP(f.beneficio)}</div></div>
     </div>
+
+    <h3 class="fin-sub">Desglose de ingresos</h3>
+    <table class="fin-table">
+      <tbody>
+        <tr><td>Citas</td><td>${fmtCLP(f.ingresosCitas)}</td></tr>
+        <tr><td>Ingresos pasivos (arriendo box, etc.)</td><td>${fmtCLP(f.ingresosPasivos)}</td></tr>
+      </tbody>
+    </table>
 
     <h3 class="fin-sub">Desglose de gastos</h3>
     <table class="fin-table">
@@ -4579,14 +4638,34 @@ function recurringExpenseRowHtml(r, i){
     </div>`;
 }
 
+function recurringIncomeRowHtml(r, i){
+  return `
+    <div class="exp-row rec-row" data-recurring-income-idx="${i}">
+      <input type="text" data-rec-income-field="categoria" value="${escapeHtml(r.categoria)}" placeholder="Categoría">
+      <input type="number" data-rec-income-field="monto" value="${r.monto||0}" placeholder="Monto semanal">
+      <select data-rec-income-field="metodoPago">
+        <option value="">Método…</option>
+        ${PAYMENT_METHODS.map(m=>`<option value="${m}" ${r.metodoPago===m?'selected':''}>${m}</option>`).join('')}
+      </select>
+      <button class="iconbtn" data-act="remove-recurring-income" data-idx="${i}">✕</button>
+    </div>`;
+}
+
 function finanzasGastosHtml(year, month){
   const recurring = state.recurringExpenses||[];
+  const recurringIncomes = state.recurringIncomes||[];
   const monthExpenses = expensesInMonth(year, month).map(g=>({...g, _idx: state.expenses.indexOf(g)}));
   const variables = monthExpenses.filter(g=>g.tipo!=='Fijo');
   const fijosPuntuales = monthExpenses.filter(g=>g.tipo==='Fijo');
 
   return `
-    <h3 class="fin-sub">Gastos fijos recurrentes (todos los meses)</h3>
+    <h3 class="fin-sub">Ingresos fijos recurrentes (todas las semanas)</h3>
+    <div class="hint">Ingresos pasivos como el arriendo de un box: llegan todas las semanas y se suman automáticamente — no hace falta volver a anotarlos.</div>
+    <div id="rec-income-list">${recurringIncomes.map((r,i)=>recurringIncomeRowHtml(r,i)).join('') || '<div class="hint">Sin ingresos fijos configurados.</div>'}</div>
+    <button class="btn btn-ghost" style="margin-top:6px" data-act="add-recurring-income">+ Agregar ingreso fijo recurrente</button>
+    <div style="margin-top:10px;"><button class="btn btn-primary" data-act="save-recurring-incomes">Guardar ingresos fijos</button></div>
+
+    <h3 class="fin-sub" style="margin-top:26px;">Gastos fijos recurrentes (todos los meses)</h3>
     <div class="hint">Arriendo, cuentas, etc. Se pagan siempre el mismo día y se suman automáticamente cada mes — no hace falta volver a escribirlos.</div>
     <div id="rec-list">${recurring.map((r,i)=>recurringExpenseRowHtml(r,i)).join('') || '<div class="hint">Sin gastos fijos configurados.</div>'}</div>
     <button class="btn btn-ghost" style="margin-top:6px" data-act="add-recurring-expense">+ Agregar gasto fijo recurrente</button>
@@ -4622,6 +4701,20 @@ function saveRecurringExpensesFromForm(){
     row.querySelectorAll('[data-rec-field]').forEach(el=>{
       const field = el.dataset.recField;
       item[field] = (field==='monto'||field==='diaPago') ? (Number(el.value)||0) : el.value;
+    });
+  });
+  render();
+  saveData();
+}
+
+function saveRecurringIncomesFromForm(){
+  document.querySelectorAll('[data-recurring-income-idx]').forEach(row=>{
+    const idx = Number(row.dataset.recurringIncomeIdx);
+    const item = state.recurringIncomes[idx];
+    if(!item) return;
+    row.querySelectorAll('[data-rec-income-field]').forEach(el=>{
+      const field = el.dataset.recIncomeField;
+      item[field] = field==='monto' ? (Number(el.value)||0) : el.value;
     });
   });
   render();
@@ -5107,6 +5200,7 @@ function downloadFullBackup(){
     blocks: state.blocks,
     expenses: state.expenses,
     recurringExpenses: state.recurringExpenses,
+    recurringIncomes: state.recurringIncomes,
     stockItems: state.stockItems,
     settings: state.settings,
   };
@@ -5199,6 +5293,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'finance-tab','reports-prev-month','reports-next-month','save-comision-pct',
   'add-expense','remove-expense','save-expenses',
   'add-recurring-expense','remove-recurring-expense','save-recurring-expenses',
+  'add-recurring-income','remove-recurring-income','save-recurring-incomes',
   'add-stock-item','remove-stock-item',
 ]);
 
@@ -5420,6 +5515,20 @@ function onAction(e){
     }
     case 'save-recurring-expenses':
       saveRecurringExpensesFromForm(); break;
+    case 'add-recurring-income':
+      state.recurringIncomes.push({id:uid(), categoria:'Nuevo ingreso fijo', monto:0, metodoPago:''});
+      render();
+      break;
+    case 'remove-recurring-income': {
+      const idx = Number(e.currentTarget.dataset.idx);
+      showConfirmDialog('¿Eliminar este ingreso fijo recurrente? Dejará de sumarse todas las semanas.', ()=>{
+        state.recurringIncomes.splice(idx,1);
+        render(); saveData();
+      });
+      break;
+    }
+    case 'save-recurring-incomes':
+      saveRecurringIncomesFromForm(); break;
     case 'add-expense': {
       const tipo = e.currentTarget.dataset.tipo;
       if(!ui.reportsDate) ui.reportsDate = new Date();

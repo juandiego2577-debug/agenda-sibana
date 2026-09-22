@@ -2564,8 +2564,11 @@ function consentMatchScore(query, entry){
   if((rut && rut.includes(q)) || (tel && tel.includes(q))) return 40;
   const qWords = q.split(/\s+/).filter(w=>w.length>=3);
   const nWords = n.split(/\s+/).filter(w=>w.length>=3);
+  // Coincidencia exacta por palabra (no "contiene"), para que buscar "Rosario"
+  // no muestre de paso a alguien que se llama "Rosa" solo porque "Rosa" es
+  // un pedazo de la palabra "Rosario".
   let shared = 0;
-  qWords.forEach(w=>{ if(nWords.some(nw=>nw.includes(w)||w.includes(nw))) shared++; });
+  qWords.forEach(w=>{ if(nWords.includes(w)) shared++; });
   return shared>0 ? 10*shared : 0;
 }
 
@@ -4355,8 +4358,11 @@ function apptSearchScore(query, appt){
   if(qDigits.length>=4 && tel.includes(qDigits)) return 40;
   const qWords = q.split(/\s+/).filter(w=>w.length>=3);
   const nWords = n.split(/\s+/).filter(w=>w.length>=3);
+  // Coincidencia exacta por palabra (no "contiene"), para que buscar "Rosario"
+  // no muestre de paso a alguien que se llama "Rosa" solo porque "Rosa" es
+  // un pedazo de la palabra "Rosario".
   let shared = 0;
-  qWords.forEach(w=>{ if(nWords.some(nw=>nw.includes(w)||w.includes(nw))) shared++; });
+  qWords.forEach(w=>{ if(nWords.includes(w)) shared++; });
   return shared>0 ? 10*shared : 0;
 }
 

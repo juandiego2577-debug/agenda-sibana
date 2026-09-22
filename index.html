@@ -478,6 +478,13 @@
     background:var(--panel-2);color:var(--ink);font-size:13.5px;font-family:'Inter',sans-serif;
     margin-bottom:10px;
   }
+  .pw-field{position:relative;}
+  .pw-field .client-search-input{padding-right:38px;}
+  .pw-toggle{
+    position:absolute;right:4px;top:50%;transform:translateY(-50%);
+    background:none;border:none;cursor:pointer;font-size:16px;line-height:1;
+    color:var(--ink-soft);padding:7px 8px;
+  }
   .client-row{border-bottom:1px solid var(--line);}
   .client-row:last-child{border-bottom:none;}
   .client-row-main{display:flex;justify-content:space-between;align-items:center;padding:10px 2px;cursor:pointer;gap:10px;}
@@ -2521,7 +2528,10 @@ function showPrompt(message, onSubmit){
   wrap.innerHTML = `
     <div class="confirm-box">
       <p>${escapeHtml(message)}</p>
-      <input type="password" id="dlg-input" class="client-search-input" style="margin-bottom:14px" autocomplete="off">
+      <div class="pw-field" style="margin-bottom:14px">
+        <input type="password" id="dlg-input" class="client-search-input" style="margin-bottom:0" autocomplete="off">
+        <button type="button" class="pw-toggle" id="dlg-input-toggle" aria-label="Mostrar contraseña">👁</button>
+      </div>
       <div class="confirm-actions">
         <button class="btn btn-ghost" id="dlg-cancel">Cancelar</button>
         <button class="btn btn-primary" id="dlg-ok">Entrar</button>
@@ -2533,6 +2543,10 @@ function showPrompt(message, onSubmit){
   wrap.querySelector('#dlg-ok').addEventListener('click', submit);
   wrap.querySelector('#dlg-cancel').addEventListener('click', close);
   wrap.querySelector('#dlg-input').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+  wrap.querySelector('#dlg-input-toggle').addEventListener('click', ()=>{
+    const inp = document.getElementById('dlg-input');
+    inp.type = inp.type==='password' ? 'text' : 'password';
+  });
   wrap.addEventListener('click', e=>{ if(e.target===wrap) close(); });
   setTimeout(()=>{ const inp = document.getElementById('dlg-input'); if(inp) inp.focus(); }, 50);
 }
@@ -3384,7 +3398,10 @@ function showTeamLoginGate(){
       <h1 class="serif">Agenda Sibana</h1>
       <p class="hint">Ingresa la contraseña del equipo para entrar.</p>
       <div class="login-gate-box">
-        <input type="password" id="team-login-input" class="client-search-input" placeholder="Contraseña" autocomplete="current-password">
+        <div class="pw-field">
+          <input type="password" id="team-login-input" class="client-search-input" placeholder="Contraseña" autocomplete="current-password">
+          <button type="button" class="pw-toggle" id="team-login-toggle" aria-label="Mostrar contraseña">👁</button>
+        </div>
         <div id="team-login-error" class="login-gate-error"></div>
         <button class="btn btn-primary" id="team-login-btn" style="width:100%;">Entrar</button>
       </div>
@@ -3392,6 +3409,9 @@ function showTeamLoginGate(){
   const input = document.getElementById('team-login-input');
   const btn = document.getElementById('team-login-btn');
   const errBox = document.getElementById('team-login-error');
+  document.getElementById('team-login-toggle').addEventListener('click', ()=>{
+    input.type = input.type==='password' ? 'text' : 'password';
+  });
   const submit = ()=>{
     const pass = input.value;
     if(!pass){ errBox.textContent = 'Escribe la contraseña.'; return; }

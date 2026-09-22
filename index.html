@@ -4515,7 +4515,7 @@ function finanzasPageHtml(){
       <div class="fin-subtabs">
         <button class="${ui.financeTab==='resumen'?'active':''}" data-act="finance-tab" data-tab="resumen">Resumen</button>
         <button class="${ui.financeTab==='graficos'?'active':''}" data-act="finance-tab" data-tab="graficos">Gráficos</button>
-        <button class="${ui.financeTab==='gastos'?'active':''}" data-act="finance-tab" data-tab="gastos">Gastos</button>
+        <button class="${ui.financeTab==='gastos'?'active':''}" data-act="finance-tab" data-tab="gastos">Ingresos y gastos fijos</button>
       </div>
       ${ui.financeTab==='resumen' ? finanzasResumenHtml(year,month) : ui.financeTab==='graficos' ? finanzasGraficosHtml(year,month) : finanzasGastosHtml(year,month)}
     </div>`;

@@ -519,6 +519,16 @@
   .empty-msg{text-align:center;color:var(--ink-soft);font-size:13px;padding:40px 0;}
   .loading{padding:60px;text-align:center;color:var(--ink-soft);font-family:'Fraunces',serif;font-size:16px;}
 
+  .login-gate{
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:24px;text-align:center;
+  }
+  .login-gate-logo{height:56px;margin-bottom:18px;}
+  .login-gate h1{font-size:22px;margin:0 0 6px;}
+  .login-gate .hint{margin-bottom:18px;}
+  .login-gate-box{width:100%;max-width:320px;}
+  .login-gate-error{color:var(--danger);font-size:12.5px;min-height:16px;margin:-4px 0 8px;}
+
   @media (max-width:720px){
     header.topbar{padding:10px 14px;}
     header.topbar .brand img{height:34px;}
@@ -3342,27 +3352,64 @@ function runStockSeedIfNeeded(){
   return true;
 }
 
+// Contraseña compartida por todo el equipo (Admin y Especialistas) para poder
+// ver el calendario — el correo es solo un identificador técnico que pide
+// Firebase por dentro, nadie lo escribe ni lo ve. El "Modo administrador"
+// sigue existiendo tal cual estaba, como una segunda puerta encima de esta,
+// solo para poder editar.
+const TEAM_EMAIL = 'equipo@sibanasantiago.app';
+
 function startRealtimeSync(){
   if(!FIREBASE_READY){
     document.getElementById('root').innerHTML = '<div class="loading">No se pudo cargar Firebase (revisa tu conexión a internet o vuelve a intentarlo). Si el problema sigue, avísame.</div>';
     return;
   }
-  // Las reglas de seguridad de Firestore ahora exigen estar autenticado
-  // (aunque sea de forma anónima) para poder leer o guardar cualquier dato —
-  // antes cualquiera en internet podía leer/escribir la base de datos
-  // directamente, sin pasar por la agenda. Este inicio de sesión es
-  // invisible: no pide contraseña ni nada a quien abre el link, solo cierra
-  // esa puerta.
   let syncStarted = false;
   firebase.auth().onAuthStateChanged(user=>{
-    if(!user || syncStarted) return;
-    syncStarted = true;
-    startFirestoreSync();
+    if(syncStarted) return;
+    if(user && !user.isAnonymous){
+      syncStarted = true;
+      startFirestoreSync();
+    } else {
+      showTeamLoginGate();
+    }
   });
-  firebase.auth().signInAnonymously().catch(err=>{
-    console.error('No se pudo iniciar sesión anónima', err);
-    document.getElementById('root').innerHTML = '<div class="loading">No se pudo conectar de forma segura con la base de datos (revisa tu conexión a internet). Si el problema sigue, avísale a Juan Diego.</div>';
-  });
+}
+
+function showTeamLoginGate(){
+  const root = document.getElementById('root');
+  root.innerHTML = `
+    <div class="login-gate">
+      <img src="${LOGO_SRC}" alt="Sibana" class="login-gate-logo">
+      <h1 class="serif">Agenda Sibana</h1>
+      <p class="hint">Ingresa la contraseña del equipo para entrar.</p>
+      <div class="login-gate-box">
+        <input type="password" id="team-login-input" class="client-search-input" placeholder="Contraseña" autocomplete="current-password">
+        <div id="team-login-error" class="login-gate-error"></div>
+        <button class="btn btn-primary" id="team-login-btn" style="width:100%;">Entrar</button>
+      </div>
+    </div>`;
+  const input = document.getElementById('team-login-input');
+  const btn = document.getElementById('team-login-btn');
+  const errBox = document.getElementById('team-login-error');
+  const submit = ()=>{
+    const pass = input.value;
+    if(!pass){ errBox.textContent = 'Escribe la contraseña.'; return; }
+    btn.disabled = true;
+    btn.textContent = 'Entrando…';
+    errBox.textContent = '';
+    firebase.auth().signInWithEmailAndPassword(TEAM_EMAIL, pass).catch(err=>{
+      console.error('No se pudo iniciar sesión', err);
+      errBox.textContent = 'Contraseña incorrecta. Intenta de nuevo.';
+      btn.disabled = false;
+      btn.textContent = 'Entrar';
+      input.value = '';
+      input.focus();
+    });
+  };
+  btn.addEventListener('click', submit);
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+  input.focus();
 }
 
 function startFirestoreSync(){

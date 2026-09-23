@@ -96,7 +96,9 @@ replantear salvo que surja algo que realmente lo justifique):
    Además hay un **respaldo automático diario** en la colección
    `sibana-agenda-respaldos` (doc `santiago_YYYY-MM-DD`, nunca se
    sobrescribe, se guardan 60 días, índice en `santiago_indice`) — se ve y
-   descarga desde Más → "Respaldos automáticos".
+   descarga desde Más → "Respaldos". (El botón manual "Descargar respaldo
+   completo" y "Exportar CSV del mes" se quitaron a pedido del usuario:
+   quedaron redundantes con esto y con la Hoja de Google.)
 2. **Cambiar la cantidad de un servicio (o el checkbox de la crema) en una
    cita YA EXISTENTE nunca debe pisar el abono ya cobrado** — el abono
    automático por defecto ($5.000 por tratamiento) solo debe sugerirse en
@@ -109,7 +111,7 @@ replantear salvo que surja algo que realmente lo justifique):
    sumarlos en los reportes, porque variantes con espacios o mayúsculas
    distintas ("Transferencia " vs "Transferencia") se contaban como
    métodos separados.
-5. El botón "Sincronizar todo con Sheets/Calendar" (en el menú Más) es
+5. El botón "Reenviar todo a Sheets/Calendar" (Más → Respaldos) es
    idempotente — nunca duplica filas/eventos, porque cada cita se
    identifica por su `id`. Se puede correr las veces que se quiera.
 6. **El nombre de cada especialista se guarda como texto suelto en cada
@@ -172,7 +174,10 @@ replantear salvo que surja algo que realmente lo justifique):
   para fichas donde se atienden varias personas juntas (ej. clienta + amiga).
   Solo se muestra en estadísticas cuando difiere del número de citas. No
   afecta ningún cálculo de plata. Qué servicio se hizo cada persona NO se
-  registra (decidido: basta con anotarlo en Notas).
+  registra (decidido: basta con anotarlo en Notas). También se probó
+  esconder este campo y "abono previo" bajo un desplegable "Más opciones"
+  en Nueva cita, y el usuario decidió NO hacerlo (riesgo de que se olvide
+  marcar las personas) — no volver a proponerlo.
 - **Etiqueta "Sin abono"**: en la ficha de cada cita del día (vista Admin y
   Especialista), aparece un aviso visual cuando la cita no tiene abono
   cobrado (`abono <= 0`) y no está Cancelada/NoShow — para que la

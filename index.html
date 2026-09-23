@@ -3719,12 +3719,7 @@ function toolbarHtml(){
             <button data-act="open-touchups">💆 Retoques pendientes (30–45 días)</button>
             <button data-act="open-reviews">🌟 Reseñas pendientes</button>
             <hr>
-            <div class="moremenu-label">Respaldo y datos</div>
-            <button data-act="export-csv">Exportar CSV del mes</button>
-            <button data-act="download-backup">💾 Descargar respaldo completo (archivo aparte)</button>
-            <button data-act="open-autobackups">🗓️ Respaldos automáticos (diarios)</button>
-            <button data-act="sync-all-backup">☁️ Sincronizar todo con Sheets/Calendar</button>
-            <hr>
+            <button data-act="open-autobackups">🗓️ Respaldos</button>
             <button data-act="open-security">Seguridad</button>
           </div>` : ''}
       </div>` : ''}
@@ -5091,7 +5086,6 @@ function finanzasGraficosHtml(year, month){
   `;
 }
 
-// ---------------- Exportar CSV ----------------
 // ---------------- Recordatorios de WhatsApp (día siguiente) ----------------
 function buildReminderMsg(a){
   const name = (a.client||'').trim().split(' ')[0] || '';
@@ -5348,51 +5342,10 @@ function reviewsModalHtml(){
   </div>`;
 }
 
-function exportMonthCSV(){
-  const year = ui.currentDate.getFullYear();
-  const month = ui.currentDate.getMonth();
-  const monthAppts = state.appointments
-    .filter(a=>{ const dt = parseKey(a.date); return dt.getFullYear()===year && dt.getMonth()===month; })
-    .sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
-
-  if(!monthAppts.length){
-    showAlert('No hay citas registradas en ' + MONTHS[month] + ' de ' + year + ' para exportar.');
-    return;
-  }
-
-  const headers = ['Fecha','Hora inicio','Hora fin','Cliente','Teléfono','Servicio','Personas','Especialista','Estado','Precio','Abono','Método abono','Saldo','Método saldo','Notas'];
-  const estadoLabels = {Pendiente:'Pendiente',Confirmada:'Confirmada',Realizada:'Realizada',Cancelada:'Cancelada',NoShow:'No se presentó'};
-  const csvEscape = v=>{
-    const s = (v==null?'':v).toString();
-    return '"' + s.replace(/"/g,'""') + '"';
-  };
-  const lines = [headers.map(csvEscape).join(';')];
-  monthAppts.forEach(a=>{
-    lines.push([
-      a.date, a.start, a.end, a.client, a.phone, summarizeServices(a.services||[]), apptPersonas(a), a.specialist,
-      estadoLabels[a.estado]||a.estado, a.price, a.abono,
-      a.abonoPrevio ? 'Abono previo (ya pagado antes, no es plata nueva)' : paymentMethodSummary(a.metodoAbono, Number(a.abono)||0, a.metodoAbono2, a.montoAbono2),
-      a.saldo,
-      paymentMethodSummary(a.metodoSaldo, Number(a.saldo)||0, a.metodoSaldo2, a.montoSaldo2),
-      a.notas
-    ].map(csvEscape).join(';'));
-  });
-  const csvContent = '\uFEFF' + lines.join('\r\n');
-  const blob = new Blob([csvContent], {type:'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `Sibana-Santiago-${MONTHS[month]}-${year}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  setTimeout(()=>URL.revokeObjectURL(url), 3000);
-}
 
 // Copia completa de TODOS los datos (citas, servicios, especialistas, clientes,
-// bloqueos, gastos y configuración) en un archivo que queda en el dispositivo de
-// quien lo descarga — no depende de Firebase, Sheets ni Calendar, así que un
-// problema en cualquiera de esos tres no se lleva puesta esta copia.
+// bloqueos, gastos y configuración) — es lo que guarda el respaldo automático
+// diario, y lo que se descarga desde Más → Respaldos.
 function fullBackupPayload(){
   return {
     respaldoDe: 'Sibana Santiago',
@@ -5408,9 +5361,6 @@ function fullBackupPayload(){
     stockItems: state.stockItems,
     settings: state.settings,
   };
-}
-function downloadFullBackup(){
-  downloadBackupFile(fullBackupPayload(), toKey(new Date()));
 }
 function downloadBackupFile(payload, dateKey){
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
@@ -5509,9 +5459,11 @@ function autoBackupsModalHtml(){
   return `
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
-      <h2 class="serif">Respaldos automáticos</h2>
+      <h2 class="serif">Respaldos</h2>
       <p class="hint">Cada día, la primera vez que alguien abre la agenda, se guarda sola una copia completa de todos los datos. Se guardan los últimos ${AUTO_BACKUP_KEEP_DAYS} días. Si algún día se pierde algo, con estas copias se puede recuperar.</p>
       ${body}
+      <p class="hint" style="margin:18px 0 8px;">Cada cita también se copia sola a la Hoja de Google y a Google Calendar. Si alguna no aparece allá (por ejemplo, porque justo falló internet), esto las vuelve a mandar todas — nunca duplica nada.</p>
+      <button type="button" class="btn btn-ghost" style="font-size:12.5px;" data-act="sync-all-backup">☁️ Reenviar todo a Sheets/Calendar</button>
       <div class="modal-actions">
         <div></div>
         <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
@@ -5607,7 +5559,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-specialists','add-specialist','remove-specialist','save-specialists',
   'open-schedule','toggle-day-closed','save-schedule',
   'open-clients','toggle-client','delete-client',
-  'open-noshows','export-csv','download-backup','open-autobackups','download-autobackup','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-touchups',
+  'open-noshows','open-autobackups','download-autobackup','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-touchups',
   'copy-touchup-msg','toggle-touchup-avisado',
   'open-reviews','copy-review-msg','toggle-review-avisado',
   'finance-tab','save-comision-pct','save-mis-ganancias-desde',
@@ -5767,10 +5719,6 @@ function onAction(e){
       });
       break;
     }
-    case 'export-csv':
-      exportMonthCSV(); break;
-    case 'download-backup':
-      downloadFullBackup(); break;
     case 'open-autobackups':
       ui.modal = {type:'autobackups', loading:true};
       render();

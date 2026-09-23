@@ -187,7 +187,7 @@ replantear salvo que surja algo que realmente lo justifique):
   completo se ven también en las vistas Semana/Mes ("🚫" + punto de color;
   el nombre se oculta en Mes en teléfono). En la vista Día, los de día
   completo van como aviso arriba de la grilla (no tapan las horas); los de
-  unas horas se dibujan lado a lado si se cruzan (`layoutSideBySide`). El
+  unas horas y las CITAS se reparten lado a lado cuando se cruzan (`layoutSideBySide`), para que un bloqueo nunca quede tapado por una cita de otra especialista. El
   bloqueo nuevo viene SIN especialista elegida ("— Elige quién —") —
   decidido: NO vincularlo al nombre de "Mis ganancias". Todas ven los
   bloqueos de todas; se puede tocar una hora libre aunque otra especialista

@@ -3850,10 +3850,14 @@ function dayViewHtml(){
 
   // Los bloqueos de día completo (o de varios días) no se dibujan en la
   // grilla — van como un aviso arriba (ver fullDayBanners), así no tapan todo
-  // el día ni se encima uno con otro. Los bloqueos de unas horas se dibujan en
-  // la grilla, lado a lado si dos especialistas bloquean a la misma hora.
+  // el día ni se encima uno con otro. Las citas y los bloqueos de unas horas
+  // se reparten lado a lado cuando se cruzan (ej. una cita de Jeeymar a la
+  // misma hora en que Salomé bloqueó), para que ninguno quede tapado.
   const partBlocks = dayBlocks.filter(b=>!b.fullDay);
-  const blockCols = layoutSideBySide(partBlocks);
+  const sideCols = layoutSideBySide([...appts, ...partBlocks]);
+  const apptCols = sideCols.slice(0, appts.length);
+  const blockCols = sideCols.slice(appts.length);
+  const sidePos = ({col, cols})=> cols>1 ? `left:calc(6px + (100% - 12px) * ${col} / ${cols});right:auto;width:calc((100% - 12px) / ${cols} - 3px);` : '';
   let specialistBlocks = '';
   partBlocks.forEach((b,i)=>{
     const startMin = minutesFromMidnight(b.start) - rangeStart*60;
@@ -3861,8 +3865,8 @@ function dayViewHtml(){
     const top = (startMin/60)*SLOT_PX;
     const height = Math.max(((endMin-startMin)/60)*SLOT_PX, 26);
     const col = specialistColor(b.specialist);
-    const {col:ci, cols:n} = blockCols[i];
-    const pos = n>1 ? `left:calc(6px + (100% - 12px) * ${ci} / ${n});right:auto;width:calc((100% - 12px) / ${n} - 3px);` : '';
+    const n = blockCols[i].cols;
+    const pos = sidePos(blockCols[i]);
     const who = `🚫 ${escapeHtml(blockSpecialistLabel(b.specialist))}`;
     const isCompact = height < 40;
     specialistBlocks += `
@@ -3881,7 +3885,7 @@ function dayViewHtml(){
     </div>`).join('');
 
   let apptBlocks = '';
-  appts.forEach(a=>{
+  appts.forEach((a,ai)=>{
     const startMin = minutesFromMidnight(a.start) - rangeStart*60;
     const endMin = minutesFromMidnight(a.end) - rangeStart*60;
     const top = (startMin/60)*SLOT_PX;
@@ -3904,7 +3908,7 @@ function dayViewHtml(){
       : `<div class="t-name">${escapeHtml(a.client||'Sin nombre')}${personasBadge}</div>
         <div class="t-service">${escapeHtml(summarizeServices(a.services||[]))}</div>`;
     apptBlocks += `
-      <div class="appt ${stClass}${isCompact?' compact':''}" style="top:${top}px;height:${height}px;${specBorder}" data-act="edit-appt" data-id="${a.id}">
+      <div class="appt ${stClass}${isCompact?' compact':''}" style="top:${top}px;height:${height}px;${specBorder}${sidePos(apptCols[ai])}" data-act="edit-appt" data-id="${a.id}">
         <div class="t-time">${a.start}–${a.end}${a.specialist?`<span class="spec-dot" style="background:${dotColor}"></span>`:''}${!isCompact?noAbonoBadge:''}</div>
         ${nameServiceHtml}
       </div>`;

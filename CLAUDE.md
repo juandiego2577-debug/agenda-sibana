@@ -170,6 +170,21 @@ replantear salvo que surja algo que realmente lo justifique):
   Sibana): todo vive en el repo aparte `sibana-consentimiento` (ver
   arriba), no en este.
 
+## Pendientes actuales (borrar esta sección cuando se resuelvan)
+- **Datos reales del 12 de septiembre de 2026**: ese día quedó importado con
+  7 citas en $0 (Mariela Figueroa, María Angélica Gutiérrez, Yliana
+  Urdaneta, Naireli Nieves, Stella Vega, Isabel Ibaceta, Maryne Granado —
+  todas con `specialist:'Jeeymar'`, `estado:'Confirmada'`) porque en ese
+  momento no había datos reales, solo un placeholder. El usuario está
+  buscando los precios/abonos/método de pago reales (Salomé se los pasó
+  por WhatsApp originalmente) para actualizarlos a mano en la app — avisar
+  si pregunta por esto, no hay que hacer nada de código, solo esperar los
+  datos y cargarlos cuando los traiga.
+- **Confirmar si el 14 y 17 de septiembre de 2026 ya tienen datos reales
+  completos** en la app (no aparecen en ningún bloque de importación del
+  código fuente) — pendiente de que el usuario lo revise directamente en
+  la agenda y confirme.
+
 ## Cómo se trabaja en este proyecto
 - **Siempre probar antes de entregar.** Este proyecto se construyó
   simulando Firebase con mocks (Playwright + un `window.firebase` falso)

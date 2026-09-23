@@ -687,7 +687,8 @@ const DEFAULT_SETTINGS = {
   lunchStart: '', // sin horario de almuerzo por defecto
   lunchEnd: '',
   adminPassword: '', // vacío = cualquiera que toque "Modo administrador" entra (configúrala en Más → Seguridad)
-  comisionPct: 0.5, // % de comisión de especialistas sobre lo que generan (ej. 0.5 = 50%)
+  comisionPct: 0.5, // % de comisión de especialistas sobre lo que generan (ej. 0.5 = 50%) — usado solo si no hay historial (ver comisionHistory)
+  comisionHistory: [], // [{desde:'YYYY-MM', pct:0.5}, ...] — permite cambiar el % sin afectar meses ya pasados
 };
 
 const HISTORICAL_IMPORT_KEY = 'importedAgostoSeptiembre2026';
@@ -2894,13 +2895,10 @@ function getClientStats(){
   });
   return Array.from(map.values()).map(c=>{
     const sorted = c.appts.slice().sort((a,b)=>(b.date+b.start).localeCompare(a.date+a.start));
-    // Mismo criterio que en el resumen del día: si la cita se canceló o no llegó,
-    // solo cuenta el abono (que no se devuelve) como plata gastada, no el precio
-    // completo del servicio que nunca se hizo.
-    const totalSpent = c.appts.reduce((s,a)=>{
-      if(a.estado==='Cancelada' || a.estado==='NoShow') return s + (Number(a.abono)||0);
-      return s + (Number(a.price)||0);
-    }, 0);
+    // Mismo criterio que en el resumen del día (ver apptRevenue): si la cita se
+    // canceló o no llegó, solo cuenta el abono (salvo que se haya devuelto) como
+    // plata gastada, no el precio completo del servicio que nunca se hizo.
+    const totalSpent = c.appts.reduce((s,a)=> s + apptRevenue(a), 0);
     return {
       name: c.name, phone: c.phone, count: c.appts.length, totalSpent,
       lastDate: sorted[0] ? sorted[0].date : null,
@@ -3912,12 +3910,10 @@ function summaryHtml(){
     if(a.estado==='Cancelada' || a.estado==='NoShow') return s;
     return s + (Number(a.saldo)||0);
   }, 0);
-  // El ingreso real de una cita cancelada o sin show es solo el abono (el servicio
-  // nunca se hizo, así que el resto del precio no debe contarse como ingreso).
-  const ingreso = appts.reduce((s,a)=>{
-    if(a.estado==='Cancelada' || a.estado==='NoShow') return s + (Number(a.abono)||0);
-    return s + (Number(a.price)||0);
-  }, 0);
+  // El ingreso real de una cita cancelada o sin show es solo el abono, salvo que
+  // se haya devuelto (ver apptRevenue) — el servicio nunca se hizo, así que el
+  // resto del precio no debe contarse como ingreso.
+  const ingreso = appts.reduce((s,a)=> s + apptRevenue(a), 0);
   const isAdmin = ui.mode==='admin';
   const breakdown = paymentBreakdown(appts);
   const breakdownEntries = Object.keys(breakdown).sort((a,b)=>breakdown[b]-breakdown[a]);
@@ -4115,6 +4111,10 @@ function apptModalHtml(){
       <label style="display:flex;align-items:center;gap:8px;margin:-4px 0 12px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;">
         <input type="checkbox" id="f-abonoPrevio" ${d.abonoPrevio?'checked':''} style="width:15px;height:15px;accent-color:var(--wine);flex-shrink:0;">
         Este abono ya se pagó en una cita anterior que se canceló/reagendó (no es plata nueva, no se suma a los ingresos)
+      </label>
+      <label id="field-abono-devuelto" style="display:${(d.estado==='Cancelada'||d.estado==='NoShow')?'flex':'none'};align-items:center;gap:8px;margin:-4px 0 12px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;">
+        <input type="checkbox" id="f-abonoDevuelto" ${d.abonoDevuelto?'checked':''} style="width:15px;height:15px;accent-color:var(--wine);flex-shrink:0;">
+        Se le devolvió el abono a la clienta (no cuenta como ingreso ni genera comisión)
       </label>
       <div id="field-metodo-abono" style="display:${d.abonoPrevio?'none':'block'};">
         <div class="field">
@@ -4440,7 +4440,7 @@ function gotoApptFromSearch(id){
 // no se presentó, solo el abono (no se devuelve). Mismo criterio que ya usa el
 // resto de la agenda en el resumen de arriba.
 function apptRevenue(a){
-  if(a.estado==='Cancelada' || a.estado==='NoShow') return Number(a.abono)||0;
+  if(a.estado==='Cancelada' || a.estado==='NoShow') return a.abonoDevuelto ? 0 : (Number(a.abono)||0);
   return Number(a.price)||0;
 }
 // Base sobre la que se calcula la comisión de la especialista: igual que
@@ -4463,6 +4463,20 @@ function expensesInMonth(year, month){
     return dt.getFullYear()===year && dt.getMonth()===month;
   });
 }
+// El % de comisión puede cambiar de un mes a otro (ej. subir precios y bajar
+// el %) sin alterar los meses ya pasados: se guarda un historial con la fecha
+// desde la que aplica cada cambio, y cada mes usa el que estaba vigente en
+// ese momento.
+function comisionPctForMonth(year, month){
+  const key = `${year}-${pad(month+1)}`; // 'YYYY-MM'
+  const history = state.settings.comisionHistory;
+  const fallback = state.settings.comisionPct!=null ? Number(state.settings.comisionPct) : 0.5;
+  if(!Array.isArray(history) || !history.length) return fallback;
+  const sorted = history.slice().sort((a,b)=> (a.desde||'').localeCompare(b.desde||''));
+  let pct = fallback;
+  sorted.forEach(h=>{ if(h.desde && h.desde<=key) pct = Number(h.pct); });
+  return pct;
+}
 function recurringIncomeTotal(){
   return (state.recurringIncomes||[]).reduce((s,r)=>s+(Number(r.monto)||0),0);
 }
@@ -4479,7 +4493,7 @@ function monthFinancials(year, month){
   const recurringTotal = (state.recurringExpenses||[]).reduce((s,r)=>s+(Number(r.monto)||0),0);
   const gastosFijos = recurringTotal + gastos.filter(g=>g.tipo==='Fijo').reduce((s,g)=>s+(Number(g.monto)||0),0);
   const gastosVariables = gastos.filter(g=>g.tipo==='Variable').reduce((s,g)=>s+(Number(g.monto)||0),0);
-  const comisionPct = state.settings.comisionPct!=null ? Number(state.settings.comisionPct) : 0.5;
+  const comisionPct = comisionPctForMonth(year, month);
   // La comisión de las especialistas se calcula solo sobre lo que generan las
   // citas (sin contar la crema ni el ingreso pasivo del box) — ver
   // apptCommissionBase.
@@ -4550,7 +4564,7 @@ function misGananciasPageHtml(){
       </div>
       <p class="hint" style="margin-top:0;">Hola, <b>${escapeHtml(identity)}</b> — <button type="button" class="linklike" data-act="reset-staff-identity">¿no eres tú?</button></p>
       <div class="fin-cards">
-        <div class="fin-card"><div class="lbl">Citas realizadas</div><div class="val">${mine.citas}</div></div>
+        <div class="fin-card"><div class="lbl">Citas del mes</div><div class="val">${mine.citas}</div></div>
         <div class="fin-card"><div class="lbl">Generaste</div><div class="val">${fmtCLP(mine.ingresos)}</div></div>
         <div class="fin-card highlight"><div class="lbl">Tu comisión (${Math.round(f.comisionPct*100)}%)</div><div class="val">${fmtCLP(mine.comision)}</div></div>
       </div>
@@ -4636,11 +4650,12 @@ function finanzasResumenHtml(year, month){
     <table class="fin-table"><tbody>${metodoRows}</tbody></table>
 
     <h3 class="fin-sub">Comisiones por especialista</h3>
-    <div class="field-row" style="align-items:center;gap:8px;margin-bottom:8px;">
+    <div class="field-row" style="align-items:center;gap:8px;margin-bottom:4px;">
       <label style="margin:0;font-size:12px;color:var(--ink-soft);">% de comisión</label>
       <input type="number" id="f-comision-pct" min="0" max="100" step="1" value="${Math.round(f.comisionPct*100)}" style="width:70px;">
-      <button class="btn btn-ghost" data-act="save-comision-pct" style="font-size:12px;padding:6px 12px;">Guardar %</button>
+      <button class="btn btn-ghost" data-act="save-comision-pct" data-year="${year}" data-month="${month}" style="font-size:12px;padding:6px 12px;">Guardar %</button>
     </div>
+    <div class="hint" style="margin-bottom:8px;">Aplica desde <b>${MONTHS[month]} ${year}</b> en adelante — los meses anteriores se quedan con el % que tenían.</div>
     <table class="fin-table">
       <thead><tr><th>Especialista</th><th>Citas</th><th>Generó</th><th>Comisión</th></tr></thead>
       <tbody>${espRows}</tbody>
@@ -5330,6 +5345,7 @@ function blankAppt(hour){
     abono:0, metodoAbono:'Transferencia', saldo:0, metodoSaldo:'', notas:'',
     metodoAbono2:'', montoAbono2:0, metodoSaldo2:'', montoSaldo2:0,
     abonoPrevio:false,
+    abonoDevuelto:false,
     cremaComprada:false
   };
 }
@@ -5565,7 +5581,13 @@ function onAction(e){
     case 'save-comision-pct': {
       const input = document.getElementById('f-comision-pct');
       const pct = Math.max(0, Math.min(100, Number(input && input.value) || 0));
-      state.settings.comisionPct = pct/100;
+      const year = Number(e.currentTarget.dataset.year);
+      const month = Number(e.currentTarget.dataset.month);
+      const desde = `${year}-${pad(month+1)}`;
+      if(!Array.isArray(state.settings.comisionHistory)) state.settings.comisionHistory = [];
+      const existing = state.settings.comisionHistory.find(h=>h.desde===desde);
+      if(existing) existing.pct = pct/100;
+      else state.settings.comisionHistory.push({desde, pct: pct/100});
       render(); saveData();
       break;
     }
@@ -5737,6 +5759,7 @@ function saveApptFromForm(){
     metodoSaldo2: get('f-metodoSaldo2'), montoSaldo2: Number(get('f-montoSaldo2'))||0,
     cremaComprada: !!(document.getElementById('f-crema') && document.getElementById('f-crema').checked),
     abonoPrevio: !!(document.getElementById('f-abonoPrevio') && document.getElementById('f-abonoPrevio').checked),
+    abonoDevuelto: !!(document.getElementById('f-abonoDevuelto') && document.getElementById('f-abonoDevuelto').checked),
   };
   delete updated.service;
   if(!updated.client){ showAlert('Ingresa el nombre del cliente.'); return; }
@@ -5893,6 +5916,10 @@ document.addEventListener('change', e=>{
   if(e.target && e.target.id==='f-abonoPrevio'){
     const box = document.getElementById('field-metodo-abono');
     if(box) box.style.display = e.target.checked ? 'none' : 'block';
+  }
+  if(e.target && e.target.id==='f-estado'){
+    const box = document.getElementById('field-abono-devuelto');
+    if(box) box.style.display = (e.target.value==='Cancelada'||e.target.value==='NoShow') ? 'flex' : 'none';
   }
 });
 

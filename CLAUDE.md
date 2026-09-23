@@ -184,7 +184,13 @@ replantear salvo que surja algo que realmente lo justifique):
   es UN solo registro (se edita/quita de una vez). Toda lectura de bloqueos
   por fecha debe pasar por `allBlocksForDate` (que ya expande los rangos y
   marca `fullDay`), nunca filtrar `b.date===fecha` directo. Los de día
-  completo se ven también en las vistas Semana/Mes ("🚫 Nombre").
+  completo se ven también en las vistas Semana/Mes ("🚫" + punto de color;
+  el nombre se oculta en Mes en teléfono). En la vista Día, los de día
+  completo van como aviso arriba de la grilla (no tapan las horas); los de
+  unas horas se dibujan lado a lado si se cruzan (`layoutSideBySide`). En
+  modo Especialista, el bloqueo nuevo viene con su nombre
+  (`defaultBlockSpecialist`, usa `STAFF_IDENTITY_KEY`), y puede tocar una
+  hora libre aunque OTRA especialista la tenga bloqueada.
 - **Etiqueta "Sin abono"**: en la ficha de cada cita del día (vista Admin y
   Especialista), aparece un aviso visual cuando la cita no tiene abono
   cobrado (`abono <= 0`) y no está Cancelada/NoShow — para que la

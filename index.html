@@ -217,7 +217,17 @@
   .appt.compact{display:flex;align-items:center;gap:6px;padding:2px 9px;overflow:hidden;}
   .appt.compact .t-time{font-size:9px;flex-shrink:0;white-space:nowrap;}
   .appt.compact .t-name-compact{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;}
-  .wd-block,.mc-block{font-size:10.5px;color:#E7A39A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .block-appt{background:repeating-linear-gradient(45deg, rgba(0,0,0,.05), rgba(0,0,0,.05) 6px, transparent 6px, transparent 12px);}
+  .block-appt .t-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .day-banners{display:flex;flex-direction:column;gap:6px;margin:0 0 10px;}
+  .day-banner{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;padding:10px 12px;border-radius:10px;background:rgba(178,58,46,0.12);border:1px solid rgba(178,58,46,0.35);border-left:6px solid #B23A2E;cursor:pointer;}
+  .day-banner .db-who{font-weight:700;font-size:13.5px;color:var(--ink);}
+  .day-banner .db-when{font-size:12.5px;color:var(--ink-soft);}
+  .wd-block,.mc-block{font-size:10.5px;color:#E7A39A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:3px;flex-wrap:wrap;}
+  .bk-item{display:inline-flex;align-items:center;gap:3px;min-width:0;}
+  .bk-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .bk-name{overflow:hidden;text-overflow:ellipsis;}
+  @media (max-width:600px){ .mc-block .bk-name{display:none;} .wd-block{flex-direction:column;align-items:flex-start;} }
   .block-kind{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px;}
   .block-kind label{flex:1;text-align:center;padding:9px 4px;font-size:13px;cursor:pointer;color:var(--ink-soft);}
   .block-kind input{display:none;}
@@ -2835,6 +2845,35 @@ function allBlocksForDate(dateKey){
     .map(b=>blockIsFullDay(b) ? {...b, start:pad(HOUR_START)+':00', end:pad(HOUR_END)+':00', fullDay:true} : b)
     .sort((a,b)=>minutesFromMidnight(a.start)-minutesFromMidnight(b.start));
 }
+// Reparte en columnas los elementos que se cruzan en horario (ej. dos
+// especialistas que bloquean la misma hora), para dibujarlos lado a lado.
+// Devuelve, para cada elemento, {col, cols}.
+function layoutSideBySide(items){
+  const order = items.map((it,i)=>i).sort((a,b)=>minutesFromMidnight(items[a].start)-minutesFromMidnight(items[b].start));
+  const result = items.map(()=>({col:0, cols:1}));
+  let cluster = [], colEnds = [], clusterEnd = -1;
+  const close = ()=>{ cluster.forEach(i=>{ result[i].cols = colEnds.length; }); cluster = []; colEnds = []; };
+  order.forEach(i=>{
+    const st = minutesFromMidnight(items[i].start), en = minutesFromMidnight(items[i].end);
+    if(cluster.length && st >= clusterEnd) close();
+    let c = colEnds.findIndex(e=>e <= st);
+    if(c<0){ c = colEnds.length; colEnds.push(en); } else colEnds[c] = en;
+    result[i].col = c;
+    cluster.push(i);
+    clusterEnd = cluster.length===1 ? en : Math.max(clusterEnd, en);
+  });
+  close();
+  return result;
+}
+// Aviso compacto de quién tiene el día completo bloqueado, para las vistas
+// Semana y Mes. En pantallas angostas (teléfono) se ve solo "🚫" + un punto del
+// color de cada especialista; en pantallas anchas, también el nombre.
+function fullDayBlocksMarkup(dateKey, cls){
+  const list = blocksForDate(dateKey).filter(b=>b.fullDay);
+  if(!list.length) return '';
+  const who = list.map(b=>`<span class="bk-item"><span class="bk-dot" style="background:${specialistColor(b.specialist)}"></span><span class="bk-name">${escapeHtml(blockSpecialistLabel(b.specialist))}</span></span>`).join('');
+  return `<div class="${cls}">🚫${who}</div>`;
+}
 function blockDateLabel(key){
   const d = parseKey(key);
   return `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}`;
@@ -2849,10 +2888,14 @@ function blocksForDate(dateKey){
   if(ui.specialistFilter==='all') return list;
   return list.filter(b=>b.specialist===ALL_SPECIALISTS_VALUE || normalizeName(b.specialist)===normalizeName(ui.specialistFilter));
 }
-function blockCoversHour(hour, date){
+// Si se indica una especialista, solo cuentan sus propios bloqueos y los de
+// todo el estudio (así, que otra especialista esté de viaje no le impide a
+// ella bloquear sus propias horas).
+function blockCoversHour(hour, date, specialist){
   const dateKey = toKey(date);
   const slotStart = hour*60, slotEnd = (hour+1)*60;
   return allBlocksForDate(dateKey).find(b=>{
+    if(specialist && b.specialist!==ALL_SPECIALISTS_VALUE && normalizeName(b.specialist)!==normalizeName(specialist)) return false;
     const bs = minutesFromMidnight(b.start), be = minutesFromMidnight(b.end);
     return slotStart < be && bs < slotEnd;
   });
@@ -3800,25 +3843,42 @@ function dayViewHtml(){
       blockedOverlay += `<div class="blocked" style="top:${top}px;height:${SLOT_PX}px"></div>`;
     } else if(ui.mode==='admin') {
       emptyClicks += `<div class="emptyclick" style="top:${top}px" data-act="new-appt-at" data-hour="${h}"></div>`;
-    } else if(!blockCoversHour(h, ui.currentDate)) {
+    } else if(!blockCoversHour(h, ui.currentDate, safeGetLocal(STAFF_IDENTITY_KEY))) {
       emptyClicks += `<div class="emptyclick" style="top:${top}px" data-act="new-block-at" data-hour="${h}" title="Bloquear esta hora"></div>`;
     }
   }
 
+  // Los bloqueos de día completo (o de varios días) no se dibujan en la
+  // grilla — van como un aviso arriba (ver fullDayBanners), así no tapan todo
+  // el día ni se encima uno con otro. Los bloqueos de unas horas se dibujan en
+  // la grilla, lado a lado si dos especialistas bloquean a la misma hora.
+  const partBlocks = dayBlocks.filter(b=>!b.fullDay);
+  const blockCols = layoutSideBySide(partBlocks);
   let specialistBlocks = '';
-  dayBlocks.forEach(b=>{
+  partBlocks.forEach((b,i)=>{
     const startMin = minutesFromMidnight(b.start) - rangeStart*60;
     const endMin = minutesFromMidnight(b.end) - rangeStart*60;
     const top = (startMin/60)*SLOT_PX;
     const height = Math.max(((endMin-startMin)/60)*SLOT_PX, 26);
     const col = specialistColor(b.specialist);
+    const {col:ci, cols:n} = blockCols[i];
+    const pos = n>1 ? `left:calc(6px + (100% - 12px) * ${ci} / ${n});right:auto;width:calc((100% - 12px) / ${n} - 3px);` : '';
+    const who = `🚫 ${escapeHtml(blockSpecialistLabel(b.specialist))}`;
+    const isCompact = height < 40;
     specialistBlocks += `
-      <div class="appt st-Cancelada" style="top:${top}px;height:${height}px;border-left-color:${col};background:repeating-linear-gradient(45deg, rgba(0,0,0,.05), rgba(0,0,0,.05) 6px, transparent 6px, transparent 12px)" data-act="edit-block" data-id="${b.id}">
-        <div class="t-time">${escapeHtml(blockWhenLabel(b))}<span class="spec-dot" style="background:${col}"></span></div>
-        <div class="t-name">🚫 ${escapeHtml(blockSpecialistLabel(b.specialist))} no disponible</div>
-        ${b.reason ? `<div class="t-service">${escapeHtml(b.reason)}</div>` : ''}
+      <div class="appt st-Cancelada block-appt${isCompact?' compact':''}" style="top:${top}px;height:${height}px;${pos}border-left-color:${col};" data-act="edit-block" data-id="${b.id}">
+        ${isCompact
+          ? `<div class="t-time">${b.start}–${b.end}</div><div class="t-name-compact">${who}${b.reason?' · '+escapeHtml(b.reason):''}</div>`
+          : `<div class="t-time">${b.start}–${b.end}</div>
+             <div class="t-name">${who}${n>1?'':' no disponible'}</div>
+             ${b.reason ? `<div class="t-service">${escapeHtml(b.reason)}</div>` : ''}`}
       </div>`;
   });
+  const fullDayBanners = dayBlocks.filter(b=>b.fullDay).map(b=>`
+    <div class="day-banner" style="border-left-color:${specialistColor(b.specialist)}" data-act="edit-block" data-id="${b.id}">
+      <span class="db-who">🚫 ${escapeHtml(blockSpecialistLabel(b.specialist))} no disponible</span>
+      <span class="db-when">${escapeHtml(blockWhenLabel(b))}${b.reason?' · '+escapeHtml(b.reason):''}</span>
+    </div>`).join('');
 
   let apptBlocks = '';
   appts.forEach(a=>{
@@ -3851,6 +3911,7 @@ function dayViewHtml(){
   });
 
   return `
+    ${fullDayBanners ? `<div class="day-banners">${fullDayBanners}</div>` : ''}
     <div class="dayrow" style="height:${gridHeight}px">
       <div class="timecol">${timeCol}</div>
       <div class="gridcol" style="height:${gridHeight}px">
@@ -3879,7 +3940,7 @@ function weekViewHtml(){
         <div class="wd-label">${DAY_NAMES[d.getDay()]}</div>
         <div class="wd-num">${d.getDate()}</div>
         <div class="wd-count">${appts.length} cita${appts.length===1?'':'s'}${personasSuffix(appts, true)}</div>
-        ${blocksForDate(key).filter(b=>b.fullDay).map(b=>`<div class="wd-block">🚫 ${escapeHtml(blockSpecialistLabel(b.specialist))}</div>`).join('')}
+        ${fullDayBlocksMarkup(key, 'wd-block')}
         ${(ui.mode==='admin' && revenue>0) ? `<div class="wd-rev">${fmtCLP(revenue)}</div>` : ''}
       </div>`;
   }
@@ -3918,7 +3979,7 @@ function monthViewHtml(){
       rowHtml += `
         <div class="month-cell ${isOther?'other-month':''} ${sameDay(d,today)?'today':''}" data-act="goto-day" data-date="${key}">
           <div class="mc-num">${d.getDate()}</div>
-          ${blocksForDate(key).filter(b=>b.fullDay).map(b=>`<div class="mc-block">🚫 ${escapeHtml(blockSpecialistLabel(b.specialist))}</div>`).join('')}
+          ${fullDayBlocksMarkup(key, 'mc-block')}
           <div class="mc-count">${appts.length?`${appts.length} cita${appts.length===1?'':'s'}${personasSuffix(appts, true)}`:''}</div>
           ${shown.map(a=>`<div class="mc-event"><span class="dot" style="background:${specialistColor(a.specialist)}"></span>${a.start} ${escapeHtml(a.client||'')}</div>`).join('')}
           ${extra>0?`<div class="mc-more">+${extra} más</div>`:''}
@@ -5591,13 +5652,23 @@ function blankAppt(hour){
     cremaComprada:false
   };
 }
+// En el teléfono de una especialista, el bloqueo viene ya con su nombre
+// (el mismo que eligió en "Mis ganancias").
+function defaultBlockSpecialist(){
+  const me = safeGetLocal(STAFF_IDENTITY_KEY);
+  if(me){
+    const sp = state.specialists.find(s=>normalizeName(s.name)===normalizeName(me));
+    if(sp) return sp.name;
+  }
+  return (state.specialists[0]||{}).name || '';
+}
 function blankBlock(hour){
   const h = hour!==undefined ? hour : 10;
   const start = pad(h)+':00';
   return {
     id: uid(), date: toKey(ui.currentDate),
     start, end: addMinutesToHHMM(start, 60),
-    specialist: (state.specialists[0]||{}).name || '', reason: ''
+    specialist: defaultBlockSpecialist(), reason: ''
   };
 }
 

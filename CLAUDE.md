@@ -178,6 +178,13 @@ replantear salvo que surja algo que realmente lo justifique):
   esconder este campo y "abono previo" bajo un desplegable "Más opciones"
   en Nueva cita, y el usuario decidió NO hacerlo (riesgo de que se olvide
   marcar las personas) — no volver a proponerlo.
+- **Bloquear hora** (`state.blocks`): tres tipos — "Unas horas" (date +
+  start/end), "Día completo" (`allDay:true`) y "Varios días" (`allDay:true`
+  + `dateEnd`, último día incluido; ej. un viaje). Un bloqueo de varios días
+  es UN solo registro (se edita/quita de una vez). Toda lectura de bloqueos
+  por fecha debe pasar por `allBlocksForDate` (que ya expande los rangos y
+  marca `fullDay`), nunca filtrar `b.date===fecha` directo. Los de día
+  completo se ven también en las vistas Semana/Mes ("🚫 Nombre").
 - **Etiqueta "Sin abono"**: en la ficha de cada cita del día (vista Admin y
   Especialista), aparece un aviso visual cuando la cita no tiene abono
   cobrado (`abono <= 0`) y no está Cancelada/NoShow — para que la

@@ -217,6 +217,11 @@
   .appt.compact{display:flex;align-items:center;gap:6px;padding:2px 9px;overflow:hidden;}
   .appt.compact .t-time{font-size:9px;flex-shrink:0;white-space:nowrap;}
   .appt.compact .t-name-compact{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;}
+  .wd-block,.mc-block{font-size:10.5px;color:#E7A39A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .block-kind{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px;}
+  .block-kind label{flex:1;text-align:center;padding:9px 4px;font-size:13px;cursor:pointer;color:var(--ink-soft);}
+  .block-kind input{display:none;}
+  .block-kind label.on{background:var(--gold);color:#1a140c;font-weight:700;}
   .personas-badge{background:rgba(30,15,22,0.6);color:#FFF3D6;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;flex-shrink:0;white-space:nowrap;letter-spacing:.2px;margin-left:4px;}
   .no-abono-badge{background:rgba(217,106,106,0.28);color:#FFD9D9;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;flex-shrink:0;white-space:nowrap;letter-spacing:.2px;}
   .appt.st-Pendiente{background:var(--pending);border-color:#6459A8;}
@@ -239,7 +244,7 @@
   .appt:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,0.38);}
 
   /* ---------- Week view ---------- */
-  .weekgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;}
+  .weekgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;}
   .weekday{
     background:var(--panel);border:1px solid var(--line);border-radius:14px;
     padding:12px;cursor:pointer;min-height:120px;display:flex;flex-direction:column;gap:6px;
@@ -254,9 +259,9 @@
 
   /* ---------- Month view ---------- */
   .monthgrid{display:flex;flex-direction:column;gap:6px;}
-  .month-headerrow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:2px;}
+  .month-headerrow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-bottom:2px;}
   .month-headerrow div{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.5px;text-align:center;padding-bottom:4px;}
-  .month-weekrow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .month-weekrow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;}
   .month-cell{
     background:var(--panel);border:1px solid var(--line);border-radius:10px;
     padding:6px 7px;min-height:92px;cursor:pointer;display:flex;flex-direction:column;gap:3px;
@@ -2430,7 +2435,7 @@ let state = {
   services: DEFAULT_SERVICES.slice(),
   specialists: DEFAULT_SPECIALISTS.map(s=>Object.assign({}, s)),
   clients: [], // {id,name,phone,lastService,lastDate} — se usa para el autocompletado
-  blocks: [], // {id,date:'YYYY-MM-DD',start:'HH:MM',end:'HH:MM',specialist,reason} — horas que una especialista bloquea (no puede trabajar)
+  blocks: [], // {id,date:'YYYY-MM-DD',start:'HH:MM',end:'HH:MM',specialist,reason, allDay?, dateEnd?} — horas que una especialista bloquea (no puede trabajar). allDay = el día completo; dateEnd = último día (incluido) si son varios días seguidos (ej. un viaje)
   expenses: [], // {id,date:'YYYY-MM-DD',tipo:'Fijo'|'Variable',categoria,descripcion,monto,metodoPago} — insumos y gastos puntuales
   recurringExpenses: [], // {id,categoria,monto,diaPago,metodoPago} — arriendo, luz, internet: se pagan todos los meses, no hay que volver a anotarlos
   recurringIncomes: [], // {id,categoria,monto,metodoPago} — ingresos pasivos que llegan todas las semanas (ej. arriendo de un box), aparte de las citas
@@ -2815,8 +2820,29 @@ const ALL_SPECIALISTS_VALUE = '__TODAS__'; // bloqueo general del estudio (ej: c
 function blockSpecialistLabel(specialist){
   return specialist===ALL_SPECIALISTS_VALUE ? 'Todo el estudio' : (specialist||'');
 }
+// Último día que cubre un bloqueo (el mismo día si es de un solo día).
+function blockLastDate(b){
+  return (b.dateEnd && b.dateEnd > b.date) ? b.dateEnd : b.date;
+}
+function blockIsFullDay(b){
+  return !!b.allDay || blockLastDate(b)!==b.date;
+}
+// Los bloqueos de día completo (o de varios días) se muestran de HOUR_START a
+// HOUR_END en la grilla, pero cuentan como bloqueado el día entero.
 function allBlocksForDate(dateKey){
-  return (state.blocks||[]).filter(b=>b.date===dateKey).sort((a,b)=>minutesFromMidnight(a.start)-minutesFromMidnight(b.start));
+  return (state.blocks||[])
+    .filter(b=>b.date<=dateKey && dateKey<=blockLastDate(b))
+    .map(b=>blockIsFullDay(b) ? {...b, start:pad(HOUR_START)+':00', end:pad(HOUR_END)+':00', fullDay:true} : b)
+    .sort((a,b)=>minutesFromMidnight(a.start)-minutesFromMidnight(b.start));
+}
+function blockDateLabel(key){
+  const d = parseKey(key);
+  return `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}`;
+}
+function blockWhenLabel(b){
+  const last = blockLastDate(b);
+  if(last!==b.date) return `${blockDateLabel(b.date)} al ${blockDateLabel(last)}`;
+  return blockIsFullDay(b) ? 'Todo el día' : `${b.start}–${b.end}`;
 }
 function blocksForDate(dateKey){
   const list = allBlocksForDate(dateKey);
@@ -2836,6 +2862,7 @@ function findCoveringBlock(date, start, end, specialist){
   const startMin = minutesFromMidnight(start), endMin = minutesFromMidnight(end);
   return allBlocksForDate(dateKey).find(b=>{
     if(b.specialist!==ALL_SPECIALISTS_VALUE && specialist!==undefined && normalizeName(b.specialist)!==normalizeName(specialist)) return false;
+    if(b.fullDay) return true;
     const bs = minutesFromMidnight(b.start), be = minutesFromMidnight(b.end);
     return startMin < be && bs < endMin;
   });
@@ -3787,7 +3814,7 @@ function dayViewHtml(){
     const col = specialistColor(b.specialist);
     specialistBlocks += `
       <div class="appt st-Cancelada" style="top:${top}px;height:${height}px;border-left-color:${col};background:repeating-linear-gradient(45deg, rgba(0,0,0,.05), rgba(0,0,0,.05) 6px, transparent 6px, transparent 12px)" data-act="edit-block" data-id="${b.id}">
-        <div class="t-time">${b.start}–${b.end}<span class="spec-dot" style="background:${col}"></span></div>
+        <div class="t-time">${escapeHtml(blockWhenLabel(b))}<span class="spec-dot" style="background:${col}"></span></div>
         <div class="t-name">🚫 ${escapeHtml(blockSpecialistLabel(b.specialist))} no disponible</div>
         ${b.reason ? `<div class="t-service">${escapeHtml(b.reason)}</div>` : ''}
       </div>`;
@@ -3852,6 +3879,7 @@ function weekViewHtml(){
         <div class="wd-label">${DAY_NAMES[d.getDay()]}</div>
         <div class="wd-num">${d.getDate()}</div>
         <div class="wd-count">${appts.length} cita${appts.length===1?'':'s'}${personasSuffix(appts, true)}</div>
+        ${blocksForDate(key).filter(b=>b.fullDay).map(b=>`<div class="wd-block">🚫 ${escapeHtml(blockSpecialistLabel(b.specialist))}</div>`).join('')}
         ${(ui.mode==='admin' && revenue>0) ? `<div class="wd-rev">${fmtCLP(revenue)}</div>` : ''}
       </div>`;
   }
@@ -3890,6 +3918,7 @@ function monthViewHtml(){
       rowHtml += `
         <div class="month-cell ${isOther?'other-month':''} ${sameDay(d,today)?'today':''}" data-act="goto-day" data-date="${key}">
           <div class="mc-num">${d.getDate()}</div>
+          ${blocksForDate(key).filter(b=>b.fullDay).map(b=>`<div class="mc-block">🚫 ${escapeHtml(blockSpecialistLabel(b.specialist))}</div>`).join('')}
           <div class="mc-count">${appts.length?`${appts.length} cita${appts.length===1?'':'s'}${personasSuffix(appts, true)}`:''}</div>
           ${shown.map(a=>`<div class="mc-event"><span class="dot" style="background:${specialistColor(a.specialist)}"></span>${a.start} ${escapeHtml(a.client||'')}</div>`).join('')}
           ${extra>0?`<div class="mc-more">+${extra} más</div>`:''}
@@ -4047,11 +4076,12 @@ function modalHtml(){
 function blockModalHtml(){
   const d = ui.modal.data;
   const isEdit = ui.modal.mode==='edit';
+  const kind = blockLastDate(d)!==d.date ? 'days' : (d.allDay ? 'day' : 'hours');
   return `
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
       <h2 class="serif">${isEdit ? 'Editar bloqueo' : 'Bloquear un horario'}</h2>
-      <div class="hint">Marca un horario en el que una especialista no puede atender (por ejemplo, una hora médica), o un bloqueo general del estudio por una causa externa (por ejemplo, un corte de luz). Mientras esté bloqueado, no se pueden agendar citas ahí sin confirmar.</div>
+      <div class="hint">Marca cuándo una especialista no puede atender (una hora médica, un día libre, un viaje), o un bloqueo general del estudio por una causa externa (por ejemplo, un corte de luz). Mientras esté bloqueado, no se pueden agendar citas ahí.</div>
       <div class="field">
         <label>¿A quién afecta?</label>
         <select id="f-block-specialist">
@@ -4059,12 +4089,20 @@ function blockModalHtml(){
           ${state.specialists.map(s=>`<option value="${escapeHtml(s.name)}" ${d.specialist===s.name?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
         </select>
       </div>
-      <div class="field"><label>Fecha</label><input type="date" id="f-block-date" value="${d.date}"></div>
-      <div class="field-row">
+      <div class="block-kind" id="block-kind">
+        <label class="${kind==='hours'?'on':''}"><input type="radio" name="block-kind" value="hours" ${kind==='hours'?'checked':''}>Unas horas</label>
+        <label class="${kind==='day'?'on':''}"><input type="radio" name="block-kind" value="day" ${kind==='day'?'checked':''}>Día completo</label>
+        <label class="${kind==='days'?'on':''}"><input type="radio" name="block-kind" value="days" ${kind==='days'?'checked':''}>Varios días</label>
+      </div>
+      <div class="row2">
+        <div class="field"><label id="f-block-date-label">${kind==='days'?'Desde el día':'Fecha'}</label><input type="date" id="f-block-date" value="${d.date}"></div>
+        <div class="field" id="block-dateend-field" style="display:${kind==='days'?'block':'none'};"><label>Hasta el día (incluido)</label><input type="date" id="f-block-dateEnd" value="${d.dateEnd && d.dateEnd>d.date ? d.dateEnd : toKey(addDays(parseKey(d.date),1))}"></div>
+      </div>
+      <div class="row2" id="block-hours-fields" style="display:${kind==='hours'?'grid':'none'};">
         <div class="field"><label>Desde</label><input type="time" id="f-block-start" value="${d.start}"></div>
         <div class="field"><label>Hasta</label><input type="time" id="f-block-end" value="${d.end}"></div>
       </div>
-      <div class="field"><label>Motivo (opcional)</label><input type="text" id="f-block-reason" placeholder="Ej: hora médica" value="${escapeHtml(d.reason||'')}"></div>
+      <div class="field"><label>Motivo (opcional)</label><input type="text" id="f-block-reason" placeholder="Ej: hora médica, viaje" value="${escapeHtml(d.reason||'')}"></div>
       <div class="modal-actions">
         <div>${isEdit ? `<button class="btn btn-ghost" data-act="delete-block" data-id="${d.id}">Quitar bloqueo</button>` : ''}</div>
         <div class="right">
@@ -5511,6 +5549,16 @@ function attachEvents(){
       }
     });
   }
+  const blockKind = document.getElementById('block-kind');
+  if(blockKind){
+    blockKind.addEventListener('change', ()=>{
+      const kind = (blockKind.querySelector('input:checked')||{}).value || 'hours';
+      blockKind.querySelectorAll('label').forEach(l=>l.classList.toggle('on', l.querySelector('input').checked));
+      document.getElementById('block-hours-fields').style.display = kind==='hours' ? 'grid' : 'none';
+      document.getElementById('block-dateend-field').style.display = kind==='days' ? 'block' : 'none';
+      document.getElementById('f-block-date-label').textContent = kind==='days' ? 'Desde el día' : 'Fecha';
+    });
+  }
   const personasInput = document.getElementById('f-personas');
   if(personasInput){
     const wrap = personasInput.parentElement;
@@ -5881,7 +5929,9 @@ function onAction(e){
       saveBlockFromForm(); break;
     case 'delete-block': {
       const id = e.currentTarget.dataset.id;
-      showConfirmDialog('¿Quitar este bloqueo de horario?', ()=>{
+      const toRemove = (state.blocks||[]).find(b=>b.id===id);
+      const many = toRemove && blockLastDate(toRemove)!==toRemove.date;
+      showConfirmDialog(many ? `¿Quitar este bloqueo? Se quitan todos sus días (${blockWhenLabel(toRemove)}).` : '¿Quitar este bloqueo de horario?', ()=>{
         state.blocks = (state.blocks||[]).filter(b=>b.id!==id);
         ui.modal = null; render(); saveData();
       });
@@ -6007,13 +6057,28 @@ function saveApptFromForm(){
 function saveBlockFromForm(){
   const d = ui.modal.data;
   const get = id=>document.getElementById(id).value;
+  const kindInput = document.querySelector('input[name="block-kind"]:checked');
+  const kind = kindInput ? kindInput.value : 'hours';
   const updated = {
     ...d,
     date: get('f-block-date'), start: get('f-block-start'), end: get('f-block-end'),
     specialist: get('f-block-specialist'), reason: get('f-block-reason').trim(),
   };
+  delete updated.allDay; delete updated.dateEnd;
+  if(!updated.date){ showAlert('Elige la fecha.'); return; }
   if(!updated.specialist){ showAlert('Elige qué especialista bloquea ese horario.'); return; }
-  if(updated.end <= updated.start){ showAlert('La hora de fin debe ser posterior a la hora de inicio.'); return; }
+  if(kind==='hours'){
+    if(updated.end <= updated.start){ showAlert('La hora de fin debe ser posterior a la hora de inicio.'); return; }
+  } else {
+    updated.allDay = true;
+    updated.start = pad(HOUR_START)+':00'; updated.end = pad(HOUR_END)+':00';
+    if(kind==='days'){
+      const dateEnd = get('f-block-dateEnd');
+      if(!dateEnd || dateEnd <= updated.date){ showAlert('El último día tiene que ser después del primero. (Si es un solo día, elige "Día completo".)'); return; }
+      updated.dateEnd = dateEnd;
+    }
+  }
+  const lastDate = blockLastDate(updated);
 
   const commit = ()=>{
     const idx = (state.blocks||[]).findIndex(b=>b.id===updated.id);
@@ -6025,13 +6090,14 @@ function saveBlockFromForm(){
   };
 
   const clashing = state.appointments.find(a=>
-    a.date===updated.date && a.estado!=='Cancelada' && a.estado!=='NoShow' &&
+    a.date>=updated.date && a.date<=lastDate && a.estado!=='Cancelada' && a.estado!=='NoShow' &&
     (updated.specialist===ALL_SPECIALISTS_VALUE || normalizeName(a.specialist)===normalizeName(updated.specialist)) &&
-    minutesFromMidnight(a.start) < minutesFromMidnight(updated.end) &&
-    minutesFromMidnight(updated.start) < minutesFromMidnight(a.end)
+    (updated.allDay || (minutesFromMidnight(a.start) < minutesFromMidnight(updated.end) &&
+    minutesFromMidnight(updated.start) < minutesFromMidnight(a.end)))
   );
   if(clashing){
-    const who = updated.specialist===ALL_SPECIALISTS_VALUE ? `Ya hay al menos una cita agendada (${clashing.client||'sin nombre'}, de ${clashing.start} a ${clashing.end})` : `${blockSpecialistLabel(updated.specialist)} ya tiene una cita agendada de ${clashing.start} a ${clashing.end} (${clashing.client||'sin nombre'})`;
+    const when = lastDate!==updated.date || updated.allDay ? `el ${blockDateLabel(clashing.date)} de ${clashing.start} a ${clashing.end}` : `de ${clashing.start} a ${clashing.end}`;
+    const who = updated.specialist===ALL_SPECIALISTS_VALUE ? `Ya hay al menos una cita agendada (${clashing.client||'sin nombre'}, ${when})` : `${blockSpecialistLabel(updated.specialist)} ya tiene una cita agendada ${when} (${clashing.client||'sin nombre'})`;
     showConfirmDialog(`${who} en ese horario. ¿Bloquear igual? (la cita queda tal cual, solo quedará marcado el choque)`, commit);
   } else {
     commit();

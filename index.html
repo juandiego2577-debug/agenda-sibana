@@ -2888,14 +2888,14 @@ function blocksForDate(dateKey){
   if(ui.specialistFilter==='all') return list;
   return list.filter(b=>b.specialist===ALL_SPECIALISTS_VALUE || normalizeName(b.specialist)===normalizeName(ui.specialistFilter));
 }
-// Si se indica una especialista, solo cuentan sus propios bloqueos y los de
-// todo el estudio (así, que otra especialista esté de viaje no le impide a
-// ella bloquear sus propias horas).
-function blockCoversHour(hour, date, specialist){
+// Con onlyStudio, solo cuentan los bloqueos de todo el estudio (así, que una
+// especialista esté de viaje no le impide a otra tocar esa hora para
+// bloquear la suya).
+function blockCoversHour(hour, date, onlyStudio){
   const dateKey = toKey(date);
   const slotStart = hour*60, slotEnd = (hour+1)*60;
   return allBlocksForDate(dateKey).find(b=>{
-    if(specialist && b.specialist!==ALL_SPECIALISTS_VALUE && normalizeName(b.specialist)!==normalizeName(specialist)) return false;
+    if(onlyStudio && b.specialist!==ALL_SPECIALISTS_VALUE) return false;
     const bs = minutesFromMidnight(b.start), be = minutesFromMidnight(b.end);
     return slotStart < be && bs < slotEnd;
   });
@@ -3843,7 +3843,7 @@ function dayViewHtml(){
       blockedOverlay += `<div class="blocked" style="top:${top}px;height:${SLOT_PX}px"></div>`;
     } else if(ui.mode==='admin') {
       emptyClicks += `<div class="emptyclick" style="top:${top}px" data-act="new-appt-at" data-hour="${h}"></div>`;
-    } else if(!blockCoversHour(h, ui.currentDate, safeGetLocal(STAFF_IDENTITY_KEY))) {
+    } else if(!blockCoversHour(h, ui.currentDate, true)) {
       emptyClicks += `<div class="emptyclick" style="top:${top}px" data-act="new-block-at" data-hour="${h}" title="Bloquear esta hora"></div>`;
     }
   }
@@ -4146,6 +4146,7 @@ function blockModalHtml(){
       <div class="field">
         <label>¿A quién afecta?</label>
         <select id="f-block-specialist">
+          ${d.specialist ? '' : `<option value="" selected disabled>— Elige quién —</option>`}
           <option value="${ALL_SPECIALISTS_VALUE}" ${d.specialist===ALL_SPECIALISTS_VALUE?'selected':''}>Todas (motivo externo — ej: corte de luz)</option>
           ${state.specialists.map(s=>`<option value="${escapeHtml(s.name)}" ${d.specialist===s.name?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
         </select>
@@ -5652,23 +5653,13 @@ function blankAppt(hour){
     cremaComprada:false
   };
 }
-// En el teléfono de una especialista, el bloqueo viene ya con su nombre
-// (el mismo que eligió en "Mis ganancias").
-function defaultBlockSpecialist(){
-  const me = safeGetLocal(STAFF_IDENTITY_KEY);
-  if(me){
-    const sp = state.specialists.find(s=>normalizeName(s.name)===normalizeName(me));
-    if(sp) return sp.name;
-  }
-  return (state.specialists[0]||{}).name || '';
-}
 function blankBlock(hour){
   const h = hour!==undefined ? hour : 10;
   const start = pad(h)+':00';
   return {
     id: uid(), date: toKey(ui.currentDate),
     start, end: addMinutesToHHMM(start, 60),
-    specialist: defaultBlockSpecialist(), reason: ''
+    specialist: '', reason: '' // vacío a propósito: quien bloquea elige el nombre (evita bloquear a otra por error)
   };
 }
 
@@ -6137,7 +6128,7 @@ function saveBlockFromForm(){
   };
   delete updated.allDay; delete updated.dateEnd;
   if(!updated.date){ showAlert('Elige la fecha.'); return; }
-  if(!updated.specialist){ showAlert('Elige qué especialista bloquea ese horario.'); return; }
+  if(!updated.specialist){ showAlert('Elige a quién afecta el bloqueo (tu nombre, o "Todas").'); return; }
   if(kind==='hours'){
     if(updated.end <= updated.start){ showAlert('La hora de fin debe ser posterior a la hora de inicio.'); return; }
   } else {

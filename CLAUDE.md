@@ -187,10 +187,11 @@ replantear salvo que surja algo que realmente lo justifique):
   completo se ven también en las vistas Semana/Mes ("🚫" + punto de color;
   el nombre se oculta en Mes en teléfono). En la vista Día, los de día
   completo van como aviso arriba de la grilla (no tapan las horas); los de
-  unas horas se dibujan lado a lado si se cruzan (`layoutSideBySide`). En
-  modo Especialista, el bloqueo nuevo viene con su nombre
-  (`defaultBlockSpecialist`, usa `STAFF_IDENTITY_KEY`), y puede tocar una
-  hora libre aunque OTRA especialista la tenga bloqueada.
+  unas horas se dibujan lado a lado si se cruzan (`layoutSideBySide`). El
+  bloqueo nuevo viene SIN especialista elegida ("— Elige quién —") —
+  decidido: NO vincularlo al nombre de "Mis ganancias". Todas ven los
+  bloqueos de todas; se puede tocar una hora libre aunque otra especialista
+  la tenga bloqueada (solo un bloqueo de "Todas" la impide).
 - **Etiqueta "Sin abono"**: en la ficha de cada cita del día (vista Admin y
   Especialista), aparece un aviso visual cuando la cita no tiene abono
   cobrado (`abono <= 0`) y no está Cancelada/NoShow — para que la

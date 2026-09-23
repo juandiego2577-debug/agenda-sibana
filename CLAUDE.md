@@ -56,6 +56,29 @@ replantear salvo que surja algo que realmente lo justifique):
   Firestore, no hay backend de autenticación real). Por defecto arranca
   siempre en modo Especialista; el modo Admin, una vez desbloqueado, se
   recuerda por dispositivo vía localStorage.
+- **Seguridad (ya implementada, no hay que rehacerla)**: la app usa Firebase
+  Authentication de verdad, en dos capas:
+  1. Sesión anónima invisible (`signInAnonymously`) apenas carga la página,
+     para que Firestore exija *algún* tipo de sesión.
+  2. Login real del equipo (`showTeamLoginGate()`), con email/password de
+     Firebase Auth, usuario compartido `equipo@sibanasantiago.app` (una sola
+     contraseña para todo el equipo, especialistas y admins). Se pide una
+     sola vez por dispositivo (se recuerda igual que el modo Admin).
+  La regla de Firestore exige `request.auth != null && sign_in_provider !=
+  'anonymous'` para casi todo — la única excepción es la colección
+  `sibana-consentimientos`, donde cualquiera puede `create` (con sesión
+  anónima) pero no leer/editar/borrar, para que el formulario de
+  consentimiento (ver abajo) pueda seguir funcionando sin pedirle login a
+  la clienta. Antes de este cambio la base estaba completamente abierta
+  (`allow read, write: if true`) — se encontró y cerró en una auditoría.
+- **Ficha de consentimiento**: vive en un repo aparte,
+  `juandiego2577-debug/sibana-consentimiento` (GitHub Pages, mismo patrón
+  de archivo único), NO en este repo. Usa el mismo proyecto Firebase
+  (`sibana-santiago`) pero su propia colección (`sibana-consentimientos`).
+  Firma con sesión anónima invisible; el "Panel Sibana" (para ver/borrar
+  fichas) pide la misma contraseña de equipo que la agenda. Si algo de la
+  ficha de consentimiento deja de funcionar, revisar primero las reglas de
+  Firestore de esa colección, no asumir que el bug está en este repo.
 
 ## Lecciones aprendidas (importante no repetir)
 1. **Nunca auto-guardar cuando Firestore reporta que el documento "no
@@ -82,6 +105,70 @@ replantear salvo que surja algo que realmente lo justifique):
 5. El botón "Sincronizar todo con Sheets/Calendar" (en el menú Más) es
    idempotente — nunca duplica filas/eventos, porque cada cita se
    identifica por su `id`. Se puede correr las veces que se quiera.
+6. **El nombre de cada especialista se guarda como texto suelto en cada
+   cita y hora bloqueada** (`a.specialist`, `b.specialist`) — NO es una
+   relación a un ID. Corregirlo solo en `state.specialists` (ej. agregar
+   una tilde) deja las citas ya guardadas con el nombre viejo, rompiendo
+   el filtro por especialista, Finanzas y "Mis ganancias". Cualquier
+   cambio de nombre de una especialista necesita una migración que
+   actualice `state.specialists`, `state.appointments` Y `state.blocks`
+   a la vez (ver `runSalomeRenameIfNeeded` como ejemplo del patrón).
+7. **No asumir reglas de negocio ambiguas — preguntar.** La crema
+   post-tratamiento ($5.000) se suma al precio de la cita, y en un cambio
+   se asumió sin preguntar que la comisión de la especialista se calculaba
+   sobre ese precio completo (incluida la crema). Era incorrecto: la
+   crema es 100% para el dueño, nunca se reparte. Antes de tocar cualquier
+   cálculo de plata que involucre una regla no confirmada explícitamente,
+   preguntar primero.
+8. **No cambiar el % de comisión como un valor único global** — si se
+   pisa `state.settings.comisionPct` directamente, un cambio a futuro
+   recalcula también los meses YA PASADOS al abrir Finanzas. El % vive en
+   `state.settings.comisionHistory` (lista de `{desde:'YYYY-MM', pct}`),
+   y `comisionPctForMonth(year, month)` decide cuál aplica a cada mes sin
+   tocar los anteriores.
+
+## Reglas de negocio de Finanzas (definidas explícitamente, no adivinar)
+- **Comisión de especialistas**: 50% por defecto (variable por mes, ver
+  punto 8 arriba) sobre lo que genera cada cita — pero NUNCA sobre la
+  crema post-tratamiento (ver punto 7) ni sobre el ingreso pasivo del box
+  arrendado (abajo). Ver `apptCommissionBase`.
+- **Cita Cancelada o NoShow**: cuenta solo el abono como ingreso/comisión
+  (si se cobró y no se devolvió) — confirmado explícitamente con el
+  usuario, es la regla correcta, no un bug. Si el abono SÍ se devolvió,
+  se marca el checkbox "Se le devolvió el abono" en esa cita (visible
+  solo en Cancelada/NoShow) — el monto del abono queda igual en el campo
+  (registro histórico de lo cobrado), pero no cuenta como ingreso ni
+  genera comisión (`a.abonoDevuelto`, ver `apptRevenue`).
+- **Ingreso pasivo del box arrendado**: $40.000 por semana (editable en
+  Finanzas → "Ingresos y gastos fijos"), 100% para el negocio/dueño, nunca
+  se reparte en comisión. Se cuenta una vez por cada semana calendario
+  (lunes a domingo) que cae dentro del mes, usando el mismo criterio que
+  ya usa el "Corte semanal" de Finanzas (`weekRangesForMonth`).
+- **Gastos fijos** (arriendo, luz, internet, etc.): se cuentan completos
+  todos los meses, sin importar el día exacto de pago (`diaPago` es solo
+  informativo) — confirmado explícitamente, es la forma correcta de
+  llevar la contabilidad.
+- **Setiembre 2026 fue el mes de transición** de la agenda anterior (en
+  papel/informal) a esta — tiene datos incompletos conocidos (ver el 12
+  de septiembre, pendiente de que el usuario consiga los datos reales).
+  Por eso "Mis ganancias" (el panel que ve cada especialista) no muestra
+  nada de septiembre para atrás hasta `state.settings.misGananciasDesde`
+  (por defecto, el mes siguiente al que se activó esto) — el modo Admin
+  no tiene este candado, siempre ve todo.
+
+## Funciones agregadas (para no reinventar ni duplicar)
+- **"Mis ganancias"**: en modo Especialista, la pestaña de Finanzas muestra
+  esto en vez del panel completo de Admin — cada especialista elige su
+  nombre una vez (se recuerda por dispositivo, `STAFF_IDENTITY_KEY`) y ve
+  solo sus propias citas/ingresos/comisión del mes, nada de las demás.
+- **Etiqueta "Sin abono"**: en la ficha de cada cita del día (vista Admin y
+  Especialista), aparece un aviso visual cuando la cita no tiene abono
+  cobrado (`abono <= 0`) y no está Cancelada/NoShow — para que la
+  especialista lo sepa sin tener que abrir el detalle de la cita.
+- **Código QR y checkbox/validaciones del consentimiento** (RUT chileno,
+  detalle obligatorio si hay alergias, borrar fichas desde el Panel
+  Sibana): todo vive en el repo aparte `sibana-consentimiento` (ver
+  arriba), no en este.
 
 ## Cómo se trabaja en este proyecto
 - **Siempre probar antes de entregar.** Este proyecto se construyó

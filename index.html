@@ -4692,8 +4692,8 @@ function finanzasResumenHtml(year, month){
 
   const espRows = Object.keys(f.porEspecialista).sort((a,b)=>f.porEspecialista[b].ingresos-f.porEspecialista[a].ingresos).map(name=>{
     const e = f.porEspecialista[name];
-    return `<tr><td>${escapeHtml(name)}</td><td>${e.citas}</td><td>${e.personas}</td><td>${fmtCLP(e.ingresos)}</td><td>${fmtCLP(e.comision)}</td></tr>`;
-  }).join('') || `<tr><td colspan="5" class="hint">Sin citas registradas este mes.</td></tr>`;
+    return `<tr><td>${escapeHtml(name)}</td><td>${e.citas}${e.personas!==e.citas?`<div class="hint" style="margin:0;">${e.personas} personas</div>`:''}</td><td>${fmtCLP(e.ingresos)}</td><td>${fmtCLP(e.comision)}</td></tr>`;
+  }).join('') || `<tr><td colspan="4" class="hint">Sin citas registradas este mes.</td></tr>`;
 
   const weekRows = weeks.map((w,i)=>`
     <tr>
@@ -4747,7 +4747,7 @@ function finanzasResumenHtml(year, month){
     </div>
     <div class="hint" style="margin-bottom:8px;">Aplica desde <b>${MONTHS[month]} ${year}</b> en adelante — los meses anteriores se quedan con el % que tenían.</div>
     <table class="fin-table">
-      <thead><tr><th>Especialista</th><th>Citas</th><th>Personas</th><th>Generó</th><th>Comisión</th></tr></thead>
+      <thead><tr><th>Especialista</th><th>Citas</th><th>Generó</th><th>Comisión</th></tr></thead>
       <tbody>${espRows}</tbody>
     </table>
 

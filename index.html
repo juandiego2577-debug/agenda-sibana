@@ -668,7 +668,7 @@ const DEFAULT_SERVICES = [
 ];
 
 const DEFAULT_SPECIALISTS = [
-  {id:'esp1', name:'Salome', color:'#00631E'},
+  {id:'esp1', name:'Salomé', color:'#00631E'},
   {id:'esp2', name:'Melissa', color:'#9FE1E7'},
   {id:'esp3', name:'Jeeymar', color:'#FFEA32'},
 ];
@@ -3367,6 +3367,20 @@ function runPaymentMethodNormalizeIfNeeded(){
   return true;
 }
 
+// El nombre de cada especialista se guarda como texto suelto en cada cita y
+// cada hora bloqueada (no es una conexión automática) — así que corregir la
+// tilde en "Salomé" en la lista de especialistas no le corrige el nombre a
+// las citas ya guardadas. Esto lo corrige todo de una sola vez.
+const SALOME_RENAME_KEY = 'renombreSalome20260923';
+function runSalomeRenameIfNeeded(){
+  if(state.settings[SALOME_RENAME_KEY]) return false;
+  state.specialists.forEach(s=>{ if(s.name==='Salome') s.name='Salomé'; });
+  state.appointments.forEach(a=>{ if(a.specialist==='Salome') a.specialist='Salomé'; });
+  (state.blocks||[]).forEach(b=>{ if(b.specialist==='Salome') b.specialist='Salomé'; });
+  state.settings[SALOME_RENAME_KEY] = true;
+  return true;
+}
+
 // Carga inicial (una sola vez) de la sección Stock, con lo que ya se sabe
 // (definido con Juan Diego y su papá): Filos (1 sola medida), Agujas 1RL y
 // 3RL (avisar con 20 o menos) y Anestesia (una sola). Los colores de
@@ -3471,12 +3485,13 @@ function startFirestoreSync(){
       const paymentNormalize = runPaymentMethodNormalizeIfNeeded();
       const noLunch = runNoLunchIfNeeded();
       const stockSeed = runStockSeedIfNeeded();
+      const salomeRename = runSalomeRenameIfNeeded();
       ui.loaded = true;
       // Si hay un modal abierto (alguien escribiendo), no lo interrumpimos con un
       // re-render completo — los datos ya quedaron actualizados por dentro y se
       // van a ver apenas cierre ese modal.
       if(!ui.modal) render();
-      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed) saveData();
+      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename) saveData();
     } else {
       // No existe ningún documento en la base de datos. Después de la primera
       // vez que se configuró Firebase, esto NUNCA debería volver a pasar — si

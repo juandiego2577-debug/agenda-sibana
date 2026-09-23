@@ -5433,15 +5433,18 @@ function downloadBackupFile(payload, dateKey){
 // intactas. Se guardan los últimos AUTO_BACKUP_KEEP_DAYS días.
 const AUTO_BACKUP_COLLECTION = 'sibana-agenda-respaldos';
 const AUTO_BACKUP_KEEP_DAYS = 60;
-let autoBackupChecked = false;
+// Día (YYYY-MM-DD) para el que ya se revisó el respaldo en esta pestaña. Se
+// guarda el día y no un simple "ya lo hice", porque la agenda puede quedar
+// abierta varios días seguidos (ej. en la laptop de Juan Diego) sin recargar.
+let autoBackupCheckedDay = null;
 function autoBackupSite(){ return (DOC_REF && DOC_REF.id) || 'santiago'; }
 async function runDailyAutoBackupIfNeeded(){
-  if(autoBackupChecked || !db) return;
-  autoBackupChecked = true;
+  const today = toKey(new Date());
+  if(autoBackupCheckedDay===today || !db || !ui.loaded) return;
   // Nunca se respalda una agenda vacía (sería señal de un problema, no de datos reales).
   if(!state.appointments.length) return;
+  autoBackupCheckedDay = today;
   const site = autoBackupSite();
-  const today = toKey(new Date());
   const col = db.collection(AUTO_BACKUP_COLLECTION);
   try{
     const ref = col.doc(`${site}_${today}`);
@@ -5467,6 +5470,10 @@ async function runDailyAutoBackupIfNeeded(){
     console.error('No se pudo crear el respaldo automático del día', e);
   }
 }
+// Si la pestaña queda abierta de un día para otro, revisa cada hora si ya
+// cambió el día para hacer la copia del día nuevo.
+setInterval(()=>{ runDailyAutoBackupIfNeeded(); }, 60*60*1000);
+
 async function loadAutoBackupList(){
   try{
     const snap = await db.collection(AUTO_BACKUP_COLLECTION).doc(`${autoBackupSite()}_indice`).get();

@@ -89,7 +89,14 @@ replantear salvo que surja algo que realmente lo justifique):
    La función `startRealtimeSync()` ahora nunca guarda nada en la rama de
    "no existe"; además hay una red de seguridad en `saveData()` que
    bloquea cualquier guardado que deje la agenda en 0 citas si antes se
-   habían visto varias en la sesión (`lastKnownGoodCount`).
+   habían visto varias en la sesión (`lastKnownGoodCount`). Una segunda red
+   bloquea cualquier guardado que haga desaparecer de golpe más citas de las
+   que se borraron a propósito (`countMissingSyncedAppts` vs. el último
+   snapshot; "Eliminar cliente" pasa `saveData({allowRemoved:n})`).
+   Además hay un **respaldo automático diario** en la colección
+   `sibana-agenda-respaldos` (doc `santiago_YYYY-MM-DD`, nunca se
+   sobrescribe, se guardan 60 días, índice en `santiago_indice`) — se ve y
+   descarga desde Más → "Respaldos automáticos".
 2. **Cambiar la cantidad de un servicio (o el checkbox de la crema) en una
    cita YA EXISTENTE nunca debe pisar el abono ya cobrado** — el abono
    automático por defecto ($5.000 por tratamiento) solo debe sugerirse en
@@ -161,6 +168,11 @@ replantear salvo que surja algo que realmente lo justifique):
   esto en vez del panel completo de Admin — cada especialista elige su
   nombre una vez (se recuerda por dispositivo, `STAFF_IDENTITY_KEY`) y ve
   solo sus propias citas/ingresos/comisión del mes, nada de las demás.
+- **Personas por cita** (`a.personas`, por defecto 1, ver `apptPersonas`):
+  para fichas donde se atienden varias personas juntas (ej. clienta + amiga).
+  Solo se muestra en estadísticas cuando difiere del número de citas. No
+  afecta ningún cálculo de plata. Qué servicio se hizo cada persona NO se
+  registra (decidido: basta con anotarlo en Notas).
 - **Etiqueta "Sin abono"**: en la ficha de cada cita del día (vista Admin y
   Especialista), aparece un aviso visual cuando la cita no tiene abono
   cobrado (`abono <= 0`) y no está Cancelada/NoShow — para que la

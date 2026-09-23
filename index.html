@@ -4428,6 +4428,14 @@ function apptRevenue(a){
   if(a.estado==='Cancelada' || a.estado==='NoShow') return Number(a.abono)||0;
   return Number(a.price)||0;
 }
+// Base sobre la que se calcula la comisión de la especialista: igual que
+// apptRevenue, pero sin los $5.000 de la crema post-tratamiento — esa plata
+// es 100% para el dueño, la especialista no se queda con nada de la crema.
+function apptCommissionBase(a){
+  const rev = apptRevenue(a);
+  if(a.cremaComprada && a.estado!=='Cancelada' && a.estado!=='NoShow') return Math.max(0, rev - CREMA_PRICE);
+  return rev;
+}
 function apptsInMonth(year, month){
   return state.appointments.filter(a=>{
     const dt = parseKey(a.date);
@@ -4458,8 +4466,10 @@ function monthFinancials(year, month){
   const gastosVariables = gastos.filter(g=>g.tipo==='Variable').reduce((s,g)=>s+(Number(g.monto)||0),0);
   const comisionPct = state.settings.comisionPct!=null ? Number(state.settings.comisionPct) : 0.5;
   // La comisión de las especialistas se calcula solo sobre lo que generan las
-  // citas, no sobre el ingreso pasivo del box (ellas no hacen nada por eso).
-  const comisiones = ingresosCitas * comisionPct;
+  // citas (sin contar la crema ni el ingreso pasivo del box) — ver
+  // apptCommissionBase.
+  const comisionBaseTotal = appts.reduce((s,a)=>s+apptCommissionBase(a),0);
+  const comisiones = comisionBaseTotal * comisionPct;
   const gastosTotal = gastosFijos + gastosVariables + comisiones;
   const beneficio = ingresos - gastosTotal;
 
@@ -4468,11 +4478,12 @@ function monthFinancials(year, month){
   const porEspecialista = {};
   appts.forEach(a=>{
     const name = a.specialist || 'Sin asignar';
-    if(!porEspecialista[name]) porEspecialista[name] = {ingresos:0, citas:0};
+    if(!porEspecialista[name]) porEspecialista[name] = {ingresos:0, comisionBase:0, citas:0};
     porEspecialista[name].ingresos += apptRevenue(a);
+    porEspecialista[name].comisionBase += apptCommissionBase(a);
     porEspecialista[name].citas += 1;
   });
-  Object.keys(porEspecialista).forEach(name=>{ porEspecialista[name].comision = porEspecialista[name].ingresos * comisionPct; });
+  Object.keys(porEspecialista).forEach(name=>{ porEspecialista[name].comision = porEspecialista[name].comisionBase * comisionPct; });
 
   return {ingresos, ingresosCitas, ingresosPasivos, gastosFijos, gastosVariables, comisiones, gastosTotal, beneficio, porMetodo, porEspecialista, comisionPct, appts, gastos, cremasVendidas};
 }
@@ -4573,6 +4584,7 @@ function finanzasResumenHtml(year, month){
         <tr><td>🧴 Cremas post-tratamiento vendidas</td><td>${f.cremasVendidas} (${fmtCLP(f.cremasVendidas*CREMA_PRICE)})</td></tr>
       </tbody>
     </table>
+    <div class="hint">La plata de la crema es 100% para el dueño — no entra en el cálculo de la comisión de las especialistas.</div>
 
     <h3 class="fin-sub">Recaudación por método de pago</h3>
     <table class="fin-table"><tbody>${metodoRows}</tbody></table>

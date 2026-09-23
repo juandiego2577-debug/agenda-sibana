@@ -689,6 +689,7 @@ const DEFAULT_SETTINGS = {
   adminPassword: '', // vacío = cualquiera que toque "Modo administrador" entra (configúrala en Más → Seguridad)
   comisionPct: 0.5, // % de comisión de especialistas sobre lo que generan (ej. 0.5 = 50%) — usado solo si no hay historial (ver comisionHistory)
   comisionHistory: [], // [{desde:'YYYY-MM', pct:0.5}, ...] — permite cambiar el % sin afectar meses ya pasados
+  misGananciasDesde: null, // 'YYYY-MM' — antes de este mes, las especialistas no ven "Mis ganancias" (útil mientras se revisan datos de meses de transición)
 };
 
 const HISTORICAL_IMPORT_KEY = 'importedAgostoSeptiembre2026';
@@ -3379,6 +3380,22 @@ function runSalomeRenameIfNeeded(){
   return true;
 }
 
+// Septiembre 2026 fue el mes de transición entre la agenda vieja y esta —
+// se detectaron varios huecos de datos (precios en $0, días sin cargar) que
+// se van revisando de a poco. Mientras tanto, "Mis ganancias" no le muestra
+// nada a las especialistas de septiembre para atrás; arranca solo, sin tocar
+// código, apenas empiece el mes siguiente. Se puede adelantar o atrasar
+// desde Finanzas → Ingresos y gastos fijos (Admin).
+const MIS_GANANCIAS_CUTOFF_KEY = 'misGananciasCutoff20260923';
+function runMisGananciasCutoffIfNeeded(){
+  if(state.settings[MIS_GANANCIAS_CUTOFF_KEY]) return false;
+  const now = new Date();
+  const nextMonth = new Date(now.getFullYear(), now.getMonth()+1, 1);
+  state.settings.misGananciasDesde = `${nextMonth.getFullYear()}-${pad(nextMonth.getMonth()+1)}`;
+  state.settings[MIS_GANANCIAS_CUTOFF_KEY] = true;
+  return true;
+}
+
 // Carga inicial (una sola vez) de la sección Stock, con lo que ya se sabe
 // (definido con Juan Diego y su papá): Filos (1 sola medida), Agujas 1RL y
 // 3RL (avisar con 20 o menos) y Anestesia (una sola). Los colores de
@@ -3484,12 +3501,13 @@ function startFirestoreSync(){
       const noLunch = runNoLunchIfNeeded();
       const stockSeed = runStockSeedIfNeeded();
       const salomeRename = runSalomeRenameIfNeeded();
+      const gananciasCutoff = runMisGananciasCutoffIfNeeded();
       ui.loaded = true;
       // Si hay un modal abierto (alguien escribiendo), no lo interrumpimos con un
       // re-render completo — los datos ya quedaron actualizados por dentro y se
       // van a ver apenas cierre ese modal.
       if(!ui.modal) render();
-      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename) saveData();
+      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff) saveData();
     } else {
       // No existe ningún documento en la base de datos. Después de la primera
       // vez que se configuró Firebase, esto NUNCA debería volver a pasar — si
@@ -4553,6 +4571,21 @@ function misGananciasPageHtml(){
       </div>`;
   }
   const year = ui.reportsDate.getFullYear(), month = ui.reportsDate.getMonth();
+  const viewKey = `${year}-${pad(month+1)}`;
+  const cutoff = state.settings.misGananciasDesde;
+  if(cutoff && viewKey < cutoff){
+    const [cy, cm] = cutoff.split('-').map(Number);
+    return `
+      <div class="fin-page">
+        <div class="fin-monthnav">
+          <button class="arrow" data-act="reports-prev-month">‹</button>
+          <div class="curdate">${MONTHS[month][0].toUpperCase()}${MONTHS[month].slice(1)} ${year}</div>
+          <button class="arrow" data-act="reports-next-month">›</button>
+        </div>
+        <p class="hint" style="margin-top:0;">Hola, <b>${escapeHtml(identity)}</b> — <button type="button" class="linklike" data-act="reset-staff-identity">¿no eres tú?</button></p>
+        <div class="empty-msg">Todavía se están terminando de revisar los datos de este mes.<br>"Mis ganancias" va a estar disponible desde <b>${MONTHS[cm-1]} ${cy}</b> en adelante.</div>
+      </div>`;
+  }
   const f = monthFinancials(year, month);
   const mine = f.porEspecialista[identity] || {ingresos:0, comisionBase:0, citas:0, comision:0};
   return `
@@ -4660,6 +4693,13 @@ function finanzasResumenHtml(year, month){
       <thead><tr><th>Especialista</th><th>Citas</th><th>Generó</th><th>Comisión</th></tr></thead>
       <tbody>${espRows}</tbody>
     </table>
+
+    <div class="field-row" style="align-items:center;gap:8px;margin:16px 0 4px;">
+      <label style="margin:0;font-size:12px;color:var(--ink-soft);">"Mis ganancias" visible desde</label>
+      <input type="month" id="f-mis-ganancias-desde" value="${state.settings.misGananciasDesde||''}" style="width:150px;">
+      <button class="btn btn-ghost" data-act="save-mis-ganancias-desde" style="font-size:12px;padding:6px 12px;">Guardar</button>
+    </div>
+    <div class="hint">Las especialistas no ven "Mis ganancias" de meses anteriores a este — útil mientras terminas de revisar los datos de un mes de transición. Déjalo vacío para no bloquear ningún mes.</div>
 
     <h3 class="fin-sub">Corte semanal</h3>
     <table class="fin-table">
@@ -5368,7 +5408,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-noshows','export-csv','download-backup','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-touchups',
   'copy-touchup-msg','toggle-touchup-avisado',
   'open-reviews','copy-review-msg','toggle-review-avisado',
-  'finance-tab','save-comision-pct',
+  'finance-tab','save-comision-pct','save-mis-ganancias-desde',
   'add-expense','remove-expense','save-expenses',
   'add-recurring-expense','remove-recurring-expense','save-recurring-expenses',
   'add-recurring-income','remove-recurring-income','save-recurring-incomes',
@@ -5588,6 +5628,12 @@ function onAction(e){
       const existing = state.settings.comisionHistory.find(h=>h.desde===desde);
       if(existing) existing.pct = pct/100;
       else state.settings.comisionHistory.push({desde, pct: pct/100});
+      render(); saveData();
+      break;
+    }
+    case 'save-mis-ganancias-desde': {
+      const input = document.getElementById('f-mis-ganancias-desde');
+      state.settings.misGananciasDesde = (input && input.value) ? input.value : null;
       render(); saveData();
       break;
     }

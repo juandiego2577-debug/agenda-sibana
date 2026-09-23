@@ -3015,6 +3015,7 @@ function applyRemoteData(data){
     return a;
   });
   if(state.appointments.length > lastKnownGoodCount) lastKnownGoodCount = state.appointments.length;
+  lastSyncedApptIds = new Set(state.appointments.map(a=>a.id));
   state.services = (data.services && data.services.length) ? data.services : DEFAULT_SERVICES.slice();
   state.services.forEach(s=>{ if(s.duration==null) s.duration = 60; });
   state.services.sort((a,b)=>(a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'}));
@@ -3525,6 +3526,7 @@ function startFirestoreSync(){
       // van a ver apenas cierre ese modal.
       if(!ui.modal) render();
       if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas) saveData();
+      runDailyAutoBackupIfNeeded();
     } else {
       // No existe ningún documento en la base de datos. Después de la primera
       // vez que se configuró Firebase, esto NUNCA debería volver a pasar — si
@@ -3544,8 +3546,22 @@ function startFirestoreSync(){
 }
 
 let lastKnownGoodCount = 0; // la mayor cantidad de citas que se ha visto realmente cargada esta sesión
+let lastSyncedApptIds = null; // IDs de las citas tal como llegaron de la base de datos la última vez
 
-async function saveData(){
+// Cuántas citas que SÍ estaban en la base de datos faltan en lo que se está
+// por guardar.
+function countMissingSyncedAppts(){
+  if(!lastSyncedApptIds) return 0;
+  const current = new Set(state.appointments.map(a=>a.id));
+  let missing = 0;
+  lastSyncedApptIds.forEach(id=>{ if(!current.has(id)) missing++; });
+  return missing;
+}
+
+// opts.allowRemoved: cuántas citas se están borrando A PROPÓSITO en este
+// guardado (por defecto 1 — el botón "Eliminar" de una cita). Solo "Eliminar
+// cliente" borra varias de una vez, y lo avisa explícitamente.
+async function saveData(opts){
   // Red de seguridad: si en algún momento de esta sesión llegamos a ver, por
   // ejemplo, 80 citas reales, y de repente se intenta guardar con 0 (o casi
   // 0), eso es casi siempre síntoma de un error (no de que alguien borró
@@ -3554,6 +3570,18 @@ async function saveData(){
   if(state.appointments.length === 0 && lastKnownGoodCount > 5){
     console.error('Guardado bloqueado por seguridad: se intentó guardar con 0 citas habiendo visto', lastKnownGoodCount, 'antes.');
     showAlert('Por seguridad, no se guardó un cambio que hubiera dejado la agenda vacía (antes había '+lastKnownGoodCount+' citas). Si esto fue intencional, avísale a Juan Diego. Si no lo fue, no toques nada más y avísale también.');
+    return;
+  }
+  // Segunda red de seguridad: la pérdida de datos real que ya pasó una vez no
+  // dejó la agenda en 0 — la reemplazó por otros datos. Así que además se
+  // bloquea cualquier guardado que haga desaparecer de golpe más citas de las
+  // que se borraron a propósito (borrar de a una con "Eliminar" sigue
+  // funcionando normal).
+  const allowedRemoved = (opts && opts.allowRemoved) || 1;
+  const missing = countMissingSyncedAppts();
+  if(missing > allowedRemoved){
+    console.error('Guardado bloqueado por seguridad: desaparecerían', missing, 'citas de golpe.');
+    showAlert('Por seguridad, no se guardó este cambio: habría hecho desaparecer '+missing+' citas de una sola vez. Recarga la página antes de seguir, y si vuelve a pasar, avísale a Juan Diego.');
     return;
   }
   ui.saving = true;
@@ -3694,6 +3722,7 @@ function toolbarHtml(){
             <div class="moremenu-label">Respaldo y datos</div>
             <button data-act="export-csv">Exportar CSV del mes</button>
             <button data-act="download-backup">💾 Descargar respaldo completo (archivo aparte)</button>
+            <button data-act="open-autobackups">🗓️ Respaldos automáticos (diarios)</button>
             <button data-act="sync-all-backup">☁️ Sincronizar todo con Sheets/Calendar</button>
             <hr>
             <button data-act="open-security">Seguridad</button>
@@ -4015,6 +4044,7 @@ function modalHtml(){
   if(ui.modal.type==='touchups') return touchupsModalHtml();
   if(ui.modal.type==='reviews') return reviewsModalHtml();
   if(ui.modal.type==='search') return searchModalHtml();
+  if(ui.modal.type==='autobackups') return autoBackupsModalHtml();
   if(ui.modal.type==='appt' && ui.mode!=='admin') return apptViewOnlyHtml(ui.modal.data);
   return apptModalHtml();
 }
@@ -5363,8 +5393,8 @@ function exportMonthCSV(){
 // bloqueos, gastos y configuración) en un archivo que queda en el dispositivo de
 // quien lo descarga — no depende de Firebase, Sheets ni Calendar, así que un
 // problema en cualquiera de esos tres no se lleva puesta esta copia.
-function downloadFullBackup(){
-  const payload = {
+function fullBackupPayload(){
+  return {
     respaldoDe: 'Sibana Santiago',
     fecha: new Date().toISOString(),
     appointments: state.appointments,
@@ -5378,15 +5408,109 @@ function downloadFullBackup(){
     stockItems: state.stockItems,
     settings: state.settings,
   };
+}
+function downloadFullBackup(){
+  downloadBackupFile(fullBackupPayload(), toKey(new Date()));
+}
+function downloadBackupFile(payload, dateKey){
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `Sibana-Santiago-respaldo-${toKey(new Date())}.json`;
+  link.download = `Sibana-Santiago-respaldo-${dateKey}.json`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   setTimeout(()=>URL.revokeObjectURL(url), 3000);
+}
+
+// ---------------- Respaldo automático diario ----------------
+// Lo mismo que "Descargar respaldo completo", pero automático: la primera vez
+// que alguien del equipo abre la agenda cada día, se guarda una copia completa
+// de todos los datos en una colección aparte de Firebase (un documento por
+// día). Nunca se sobrescribe la copia de un día que ya existe — así, aunque
+// algo saliera mal con la agenda, las copias de los días anteriores quedan
+// intactas. Se guardan los últimos AUTO_BACKUP_KEEP_DAYS días.
+const AUTO_BACKUP_COLLECTION = 'sibana-agenda-respaldos';
+const AUTO_BACKUP_KEEP_DAYS = 60;
+let autoBackupChecked = false;
+function autoBackupSite(){ return (DOC_REF && DOC_REF.id) || 'santiago'; }
+async function runDailyAutoBackupIfNeeded(){
+  if(autoBackupChecked || !db) return;
+  autoBackupChecked = true;
+  // Nunca se respalda una agenda vacía (sería señal de un problema, no de datos reales).
+  if(!state.appointments.length) return;
+  const site = autoBackupSite();
+  const today = toKey(new Date());
+  const col = db.collection(AUTO_BACKUP_COLLECTION);
+  try{
+    const ref = col.doc(`${site}_${today}`);
+    const snap = await ref.get();
+    if(snap.exists) return;
+    await ref.set({
+      site, fecha: today, citas: state.appointments.length,
+      creado: firebase.firestore.FieldValue.serverTimestamp(),
+      data: fullBackupPayload(),
+    });
+    const old = [];
+    for(let d=AUTO_BACKUP_KEEP_DAYS; d<AUTO_BACKUP_KEEP_DAYS+10; d++) old.push(toKey(addDays(new Date(), -d)));
+    await col.doc(`${site}_indice`).set({
+      fechas: firebase.firestore.FieldValue.arrayUnion(today),
+    }, {merge:true});
+    if(old.length){
+      await col.doc(`${site}_indice`).set({
+        fechas: firebase.firestore.FieldValue.arrayRemove(...old),
+      }, {merge:true});
+      old.forEach(k=>col.doc(`${site}_${k}`).delete().catch(()=>{}));
+    }
+  }catch(e){
+    console.error('No se pudo crear el respaldo automático del día', e);
+  }
+}
+async function loadAutoBackupList(){
+  try{
+    const snap = await db.collection(AUTO_BACKUP_COLLECTION).doc(`${autoBackupSite()}_indice`).get();
+    const fechas = (snap.exists && snap.data().fechas) || [];
+    ui.modal.list = fechas.slice().sort().reverse();
+  }catch(e){
+    console.error(e);
+    ui.modal.error = 'No se pudo leer la lista de respaldos automáticos (' + (e.code||e.message||'error') + ').';
+  }
+  ui.modal.loading = false;
+  if(ui.modal && ui.modal.type==='autobackups') render();
+}
+async function downloadAutoBackup(dateKey){
+  try{
+    const snap = await db.collection(AUTO_BACKUP_COLLECTION).doc(`${autoBackupSite()}_${dateKey}`).get();
+    if(!snap.exists){ showAlert('No se encontró el respaldo de ese día.'); return; }
+    downloadBackupFile(snap.data().data, dateKey);
+  }catch(e){
+    console.error(e);
+    showAlert('No se pudo descargar ese respaldo. Revisa tu conexión e inténtalo de nuevo.');
+  }
+}
+function autoBackupsModalHtml(){
+  const m = ui.modal;
+  const body = m.loading ? '<div class="hint">Cargando…</div>'
+    : m.error ? `<div class="hint">${escapeHtml(m.error)}</div>`
+    : !(m.list||[]).length ? '<div class="empty-msg">Todavía no hay respaldos automáticos. El primero se crea solo apenas alguien abra la agenda.</div>'
+    : m.list.map(k=>{
+        const d = parseKey(k);
+        return `<div class="ns-item"><div><div class="ns-name">${DAY_NAMES[d.getDay()]} ${d.getDate()} de ${MONTHS[d.getMonth()]} ${d.getFullYear()}</div></div>
+          <button class="btn btn-ghost" style="font-size:12.5px;" data-act="download-autobackup" data-date="${k}">💾 Descargar</button></div>`;
+      }).join('');
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">Respaldos automáticos</h2>
+      <p class="hint">Cada día, la primera vez que alguien abre la agenda, se guarda sola una copia completa de todos los datos. Se guardan los últimos ${AUTO_BACKUP_KEEP_DAYS} días. Si algún día se pierde algo, con estas copias se puede recuperar.</p>
+      ${body}
+      <div class="modal-actions">
+        <div></div>
+        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
+      </div>
+    </div>
+  </div>`;
 }
 
 // ---------------- Events ----------------
@@ -5476,7 +5600,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-specialists','add-specialist','remove-specialist','save-specialists',
   'open-schedule','toggle-day-closed','save-schedule',
   'open-clients','toggle-client','delete-client',
-  'open-noshows','export-csv','download-backup','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-touchups',
+  'open-noshows','export-csv','download-backup','open-autobackups','download-autobackup','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-touchups',
   'copy-touchup-msg','toggle-touchup-avisado',
   'open-reviews','copy-review-msg','toggle-review-avisado',
   'finance-tab','save-comision-pct','save-mis-ganancias-desde',
@@ -5628,10 +5752,11 @@ function onAction(e){
       const label = c ? c.name : 'este cliente';
       showConfirmDialog(`¿Eliminar a ${label}? Esto borra también su historial de ${c?c.count:0} cita${c&&c.count===1?'':'s'}. No se puede deshacer.`, ()=>{
         state.clients = state.clients.filter(cl=>normalizeName(cl.name)!==key);
+        const before = state.appointments.length;
         state.appointments = state.appointments.filter(a=>normalizeName(a.client)!==key);
         ui.expandedClients.delete(key);
         render();
-        saveData();
+        saveData({allowRemoved: before - state.appointments.length});
       });
       break;
     }
@@ -5639,6 +5764,13 @@ function onAction(e){
       exportMonthCSV(); break;
     case 'download-backup':
       downloadFullBackup(); break;
+    case 'open-autobackups':
+      ui.modal = {type:'autobackups', loading:true};
+      render();
+      loadAutoBackupList();
+      break;
+    case 'download-autobackup':
+      downloadAutoBackup(e.currentTarget.dataset.date); break;
     case 'sync-all-backup':
       runFullBackupSync(); break;
     case 'open-search':

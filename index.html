@@ -237,6 +237,7 @@
   .cobrar-box{background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.35);border-radius:10px;padding:10px 14px;margin:2px 0 16px;}
   .cobrar-box label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:2px;}
   .cobrar-box .cobrar-amount{font-size:22px;font-weight:800;color:var(--wine);}
+  .cobrar-box .cobrar-hint{font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.35;}
   .appt.st-Pendiente{background:var(--pending);border-color:#6459A8;}
   .appt.st-Confirmada{background:var(--wine);border-color:var(--wine-dark);color:#1B1710;}
   .appt.st-Realizada{background:var(--ok);border-color:#295C42;}
@@ -4206,6 +4207,7 @@ function apptViewOnlyHtml(d){
       <div class="cobrar-box">
         <label>Cobrar a la clienta</label>
         <div class="cobrar-amount">${fmtCLP(apptPorCobrar(d))}</div>
+        <div class="cobrar-hint">Este monto ya es el final — si hay un descuento, ya está incluido. Cóbralo tal cual, sin restar nada más.</div>
       </div>` : ''}
       ${d.notas ? `<div class="field"><label>Notas</label><div>${escapeHtml(d.notas)}</div></div>` : ''}
       <div class="modal-actions">

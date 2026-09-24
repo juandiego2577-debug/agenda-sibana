@@ -3013,6 +3013,11 @@ function recomputeServiceFields(){
 
 // ---------------- Carga / guardado (Firestore, en tiempo real) ----------------
 function applyRemoteData(data){
+  // Copia profunda: los arreglos de "data" (data.blocks, etc.) se asignan
+  // por referencia directa a state.* más abajo, así que si no clonáramos
+  // acá, cualquier mutación futura de state.blocks (por ejemplo) corrompería
+  // también esta "foto" guardada de cómo estaba el documento antes.
+  lastRemoteData = JSON.parse(JSON.stringify(data));
   state.appointments = (data.appointments || []).map(a=>{
     if(!Array.isArray(a.services)) a.services = a.service ? [a.service] : [];
     return a;
@@ -3512,7 +3517,7 @@ function startFirestoreSync(){
       // re-render completo — los datos ya quedaron actualizados por dentro y se
       // van a ver apenas cierre ese modal.
       if(!ui.modal) render();
-      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff) saveData();
+      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff) saveData(false);
     } else {
       // No existe ningún documento en la base de datos. Después de la primera
       // vez que se configuró Firebase, esto NUNCA debería volver a pasar — si
@@ -3533,7 +3538,18 @@ function startFirestoreSync(){
 
 let lastKnownGoodCount = 0; // la mayor cantidad de citas que se ha visto realmente cargada esta sesión
 
-async function saveData(){
+// ---------------- Deshacer último cambio ----------------
+// lastRemoteData: una copia de cómo estaba el documento en Firestore la
+// última vez que se leyó (antes de aplicar cualquier cambio nuevo).
+// undoSnapshot: a qué versión anterior volvería "Deshacer" si se aprieta
+// ahora — se arma justo antes de cada guardado real (no en los guardados
+// automáticos de migraciones, para no confundir un "Deshacer" con deshacer
+// una corrección automática que ya se hizo sola).
+let lastRemoteData = null;
+let undoSnapshot = null;
+
+async function saveData(recordUndo){
+  if(recordUndo === undefined) recordUndo = true;
   // Red de seguridad: si en algún momento de esta sesión llegamos a ver, por
   // ejemplo, 80 citas reales, y de repente se intenta guardar con 0 (o casi
   // 0), eso es casi siempre síntoma de un error (no de que alguien borró
@@ -3544,6 +3560,10 @@ async function saveData(){
     showAlert('Por seguridad, no se guardó un cambio que hubiera dejado la agenda vacía (antes había '+lastKnownGoodCount+' citas). Si esto fue intencional, avísale a Juan Diego. Si no lo fue, no toques nada más y avísale también.');
     return;
   }
+  // Justo antes de escribir el cambio nuevo, guardamos cómo estaba el
+  // documento hasta ahora — eso es lo que "Deshacer" restaura si alguien
+  // se equivoca (ej. mover la ficha que no era).
+  if(recordUndo) undoSnapshot = lastRemoteData;
   ui.saving = true;
   try{
     await DOC_REF.set({
@@ -3564,6 +3584,21 @@ async function saveData(){
     showAlert('No se pudo guardar el cambio. Revisa tu conexión e inténtalo de nuevo.');
   }
   ui.saving = false;
+}
+
+function undoLastChange(){
+  if(!undoSnapshot){
+    showAlert('No hay ningún cambio reciente para deshacer.');
+    return;
+  }
+  const restore = undoSnapshot;
+  showConfirmDialog('¿Deshacer el último cambio guardado? La agenda va a volver a como estaba antes de esa última edición.', ()=>{
+    applyRemoteData(restore);
+    undoSnapshot = null; // se usa una sola vez — hasta el próximo cambio real no queda nada más que deshacer
+    ui.modal = null;
+    render();
+    saveData(false).then(()=>showAlert('Listo, se deshizo el último cambio.'));
+  });
 }
 
 function uid(){return 'a'+Date.now()+Math.random().toString(36).slice(2,7);}
@@ -3665,6 +3700,9 @@ function toolbarHtml(){
         <button class="btn btn-ghost" data-act="toggle-menu">⋯ Más</button>
         ${ui.menuOpen ? `
           <div class="moremenu">
+            <div class="moremenu-label">¿Te equivocaste?</div>
+            <button data-act="undo-last-change" ${undoSnapshot ? '' : 'disabled style="opacity:.5;cursor:default;"'}>↩️ Deshacer último cambio${undoSnapshot ? '' : ' (nada que deshacer)'}</button>
+            <hr>
             <div class="moremenu-label">Configuración</div>
             <button data-act="open-services">Servicios</button>
             <button data-act="open-specialists">Especialistas</button>
@@ -5440,6 +5478,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'add-recurring-expense','remove-recurring-expense','save-recurring-expenses',
   'add-recurring-income','remove-recurring-income','save-recurring-incomes',
   'add-stock-item','remove-stock-item',
+  'undo-last-change',
 ]);
 
 function onAction(e){
@@ -5597,6 +5636,8 @@ function onAction(e){
       downloadFullBackup(); break;
     case 'sync-all-backup':
       runFullBackupSync(); break;
+    case 'undo-last-change':
+      undoLastChange(); break;
     case 'open-search':
       ui.modal = {type:'search'}; render(); break;
     case 'open-reminders':

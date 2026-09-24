@@ -172,6 +172,8 @@ replantear salvo que surja algo que realmente lo justifique):
   solo sus propias citas/ingresos/comisión del mes, nada de las demás.
 - **Personas por cita** (`a.personas`, por defecto 1, ver `apptPersonas`):
   para fichas donde se atienden varias personas juntas (ej. clienta + amiga).
+  "Personas atendidas" NO cuenta citas Cancelada/NoShow
+  (`apptPersonasAtendidas`); "Citas" sí cuenta todas las fichas.
   Solo se muestra en estadísticas cuando difiere del número de citas. No
   afecta ningún cálculo de plata. Qué servicio se hizo cada persona NO se
   registra (decidido: basta con anotarlo en Notas). También se probó

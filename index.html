@@ -218,6 +218,9 @@
   .appt.compact .t-time{font-size:9px;flex-shrink:0;white-space:nowrap;}
   .appt.compact .t-name-compact{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;}
   .no-abono-badge{background:rgba(217,106,106,0.28);color:#FFD9D9;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;flex-shrink:0;white-space:nowrap;letter-spacing:.2px;}
+  .cobrar-box{background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.35);border-radius:10px;padding:10px 14px;margin:2px 0 16px;}
+  .cobrar-box label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:2px;}
+  .cobrar-box .cobrar-amount{font-size:22px;font-weight:800;color:var(--wine);}
   .appt.st-Pendiente{background:var(--pending);border-color:#6459A8;}
   .appt.st-Confirmada{background:var(--wine);border-color:var(--wine-dark);color:#1B1710;}
   .appt.st-Realizada{background:var(--ok);border-color:#295C42;}
@@ -4046,6 +4049,15 @@ function apptViewOnlyHtml(d){
       ${d.cremaComprada ? `<div class="field"><label>Crema post-tratamiento</label><div>🧴 Sí, compró (entregar)</div></div>` : ''}
       <div class="field"><label>Especialista</label><div>${escapeHtml(d.specialist||'Sin asignar')}</div></div>
       <div class="field"><label>Estado</label><div>${estadoLabels[d.estado]||d.estado}</div></div>
+      ${(d.estado!=='Cancelada' && d.estado!=='NoShow') ? `
+      <div class="row2">
+        <div class="field"><label>Precio total</label><div>${fmtCLP(d.price)}</div></div>
+        <div class="field"><label>Abono ya pagado</label><div>${d.abono>0?fmtCLP(d.abono):'—'}</div></div>
+      </div>
+      <div class="cobrar-box">
+        <label>Cobrar a la clienta</label>
+        <div class="cobrar-amount">${fmtCLP(apptPorCobrar(d))}</div>
+      </div>` : ''}
       ${d.notas ? `<div class="field"><label>Notas</label><div>${escapeHtml(d.notas)}</div></div>` : ''}
       <div class="modal-actions">
         <div></div>
@@ -4474,6 +4486,13 @@ function apptCommissionBase(a){
   const rev = apptRevenue(a);
   if(a.cremaComprada && a.estado!=='Cancelada' && a.estado!=='NoShow') return Math.max(0, rev - CREMA_PRICE);
   return rev;
+}
+// Lo que falta cobrarle a la clienta en la cita: precio total (ya con
+// cualquier descuento que se haya puesto directo en el campo Precio) menos
+// el abono ya pagado. Así la especialista sabe cuánto pedir sin tener que
+// hacer la resta ella misma ni depender de que quede anotado en las notas.
+function apptPorCobrar(a){
+  return Math.max((Number(a.price)||0) - (Number(a.abono)||0), 0);
 }
 function apptsInMonth(year, month){
   return state.appointments.filter(a=>{

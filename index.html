@@ -4080,7 +4080,7 @@ function summaryHtml(){
   return `
     <footer class="summary">
       <div class="stat"><div class="lbl">Citas (${ui.view==='day'?'día':ui.view==='week'?'semana':'mes'})</div><div class="val">${total}</div></div>
-      ${personas!==total ? `<div class="stat"><div class="lbl">Personas atendidas</div><div class="val">${personas}</div></div>` : ''}
+      ${personasWorthShowing(appts) ? `<div class="stat"><div class="lbl">Personas atendidas</div><div class="val">${personas}</div></div>` : ''}
       ${isAdmin ? `
       <div class="stat"><div class="lbl">Abonos recibidos</div><div class="val">${fmtCLP(abonos)}</div></div>
       <div class="stat"><div class="lbl">Falta por cobrar</div><div class="val">${fmtCLP(saldos)}</div></div>
@@ -4631,14 +4631,24 @@ function apptPersonas(a){
   const n = Math.floor(Number(a && a.personas));
   return n>=1 ? n : 1;
 }
+// Personas que de verdad se atendieron: una cita Cancelada o "No se presentó"
+// no atendió a nadie, así que cuenta 0 (aunque la ficha fuera de 2 personas).
+function apptPersonasAtendidas(a){
+  return (a.estado==='Cancelada' || a.estado==='NoShow') ? 0 : apptPersonas(a);
+}
 function countPersonas(appts){
-  return appts.reduce((s,a)=>s+apptPersonas(a),0);
+  return appts.reduce((s,a)=>s+apptPersonasAtendidas(a),0);
 }
 // Texto corto para mostrar junto al número de citas, solo cuando hay alguna
 // ficha con más de una persona (si no, el número sería el mismo y estorba).
+// Vale la pena mostrar "personas" junto a "citas" solo si hay algo que las
+// haga distintas: una ficha de 2+ personas, o una cita que no se atendió.
+function personasWorthShowing(appts){
+  return appts.some(a=>apptPersonas(a)>1) || countPersonas(appts)!==appts.length;
+}
 function personasSuffix(appts, short){
   const p = countPersonas(appts);
-  if(p===appts.length) return '';
+  if(!personasWorthShowing(appts)) return '';
   return short ? ` · ${p} pers.` : ` · ${p} persona${p===1?'':'s'}`;
 }
 
@@ -4710,11 +4720,12 @@ function monthFinancials(year, month){
   const porEspecialista = {};
   appts.forEach(a=>{
     const name = a.specialist || 'Sin asignar';
-    if(!porEspecialista[name]) porEspecialista[name] = {ingresos:0, comisionBase:0, citas:0, personas:0};
+    if(!porEspecialista[name]) porEspecialista[name] = {ingresos:0, comisionBase:0, citas:0, personas:0, multi:false};
     porEspecialista[name].ingresos += apptRevenue(a);
     porEspecialista[name].comisionBase += apptCommissionBase(a);
     porEspecialista[name].citas += 1;
-    porEspecialista[name].personas += apptPersonas(a);
+    porEspecialista[name].personas += apptPersonasAtendidas(a);
+    if(apptPersonas(a)>1) porEspecialista[name].multi = true;
   });
   Object.keys(porEspecialista).forEach(name=>{ porEspecialista[name].comision = porEspecialista[name].comisionBase * comisionPct; });
 
@@ -4783,7 +4794,7 @@ function misGananciasPageHtml(){
       </div>
       <p class="hint" style="margin-top:0;">Hola, <b>${escapeHtml(identity)}</b> — <button type="button" class="linklike" data-act="reset-staff-identity">¿no eres tú?</button></p>
       <div class="fin-cards">
-        <div class="fin-card"><div class="lbl">Citas del mes</div><div class="val">${mine.citas}</div>${mine.personas!==mine.citas?`<div class="hint" style="margin:2px 0 0;">${mine.personas} personas atendidas</div>`:''}</div>
+        <div class="fin-card"><div class="lbl">Citas del mes</div><div class="val">${mine.citas}</div>${(mine.multi || mine.personas!==mine.citas)?`<div class="hint" style="margin:2px 0 0;">${mine.personas} personas atendidas</div>`:''}</div>
         <div class="fin-card"><div class="lbl">Generaste</div><div class="val">${fmtCLP(mine.ingresos)}</div></div>
         <div class="fin-card highlight"><div class="lbl">Tu comisión (${Math.round(f.comisionPct*100)}%)</div><div class="val">${fmtCLP(mine.comision)}</div></div>
       </div>
@@ -4821,7 +4832,7 @@ function finanzasResumenHtml(year, month){
 
   const espRows = Object.keys(f.porEspecialista).sort((a,b)=>f.porEspecialista[b].ingresos-f.porEspecialista[a].ingresos).map(name=>{
     const e = f.porEspecialista[name];
-    return `<tr><td>${escapeHtml(name)}</td><td>${e.citas}${e.personas!==e.citas?`<div class="hint" style="margin:0;">${e.personas} personas</div>`:''}</td><td>${fmtCLP(e.ingresos)}</td><td>${fmtCLP(e.comision)}</td></tr>`;
+    return `<tr><td>${escapeHtml(name)}</td><td>${e.citas}${(e.multi || e.personas!==e.citas)?`<div class="hint" style="margin:0;">${e.personas} personas</div>`:''}</td><td>${fmtCLP(e.ingresos)}</td><td>${fmtCLP(e.comision)}</td></tr>`;
   }).join('') || `<tr><td colspan="4" class="hint">Sin citas registradas este mes.</td></tr>`;
 
   const weekRows = weeks.map((w,i)=>`

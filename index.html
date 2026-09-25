@@ -2723,6 +2723,15 @@ function linkConsentToAppt(apptId, consentId, consentName){
   const appt = state.appointments.find(a=>a.id===apptId);
   if(!appt){ showAlert('No se encontró la cita para vincular.'); return; }
   appt.consentId = consentId;
+  // El modal de la cita (si sigue abierto detrás de este diálogo) trabaja
+  // sobre una COPIA de la cita, no sobre este mismo objeto — si no
+  // actualizamos también esa copia, tocar "Guardar" ahí pisaría el vínculo
+  // recién hecho con los datos viejos que tenía el formulario antes de
+  // vincular la ficha (bug real: la ficha quedaba "vinculada" un momento y
+  // después desaparecía sola).
+  if(ui.modal && ui.modal.data && ui.modal.data.id===apptId){
+    ui.modal.data.consentId = consentId;
+  }
   saveData();
   showAlert(`Ficha de ${consentName||'la clienta'} vinculada a esta cita. La próxima vez que abras "Ver consentimiento firmado" aquí, se mostrará directo, sin buscar.`);
   if(!ui.modal) return;
@@ -2763,6 +2772,7 @@ function viewConsent(clientName, apptId, knownConsentId){
           showAlert('La ficha vinculada ya no existe. Se buscará de nuevo por nombre.');
           const appt = state.appointments.find(a=>a.id===apptId);
           if(appt) delete appt.consentId;
+          if(ui.modal && ui.modal.data && ui.modal.data.id===apptId) delete ui.modal.data.consentId;
           saveData();
           return loadFullSearch(box, clientName, apptId, close);
         }

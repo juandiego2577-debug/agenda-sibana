@@ -217,6 +217,22 @@
   .appt.compact{display:flex;align-items:center;gap:6px;padding:2px 9px;overflow:hidden;}
   .appt.compact .t-time{font-size:9px;flex-shrink:0;white-space:nowrap;}
   .appt.compact .t-name-compact{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;}
+  .block-appt{background:repeating-linear-gradient(45deg, rgba(0,0,0,.05), rgba(0,0,0,.05) 6px, transparent 6px, transparent 12px);}
+  .block-appt .t-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .day-banners{display:flex;flex-direction:column;gap:6px;margin:0 0 10px;}
+  .day-banner{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;padding:10px 12px;border-radius:10px;background:rgba(178,58,46,0.12);border:1px solid rgba(178,58,46,0.35);border-left:6px solid #B23A2E;cursor:pointer;}
+  .day-banner .db-who{font-weight:700;font-size:13.5px;color:var(--ink);}
+  .day-banner .db-when{font-size:12.5px;color:var(--ink-soft);}
+  .wd-block,.mc-block{font-size:10.5px;color:#E7A39A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:3px;flex-wrap:wrap;}
+  .bk-item{display:inline-flex;align-items:center;gap:3px;min-width:0;}
+  .bk-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .bk-name{overflow:hidden;text-overflow:ellipsis;}
+  @media (max-width:600px){ .mc-block .bk-name{display:none;} .wd-block{flex-direction:column;align-items:flex-start;} }
+  .block-kind{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px;}
+  .block-kind label{flex:1;text-align:center;padding:9px 4px;font-size:13px;cursor:pointer;color:var(--ink-soft);}
+  .block-kind input{display:none;}
+  .block-kind label.on{background:var(--gold);color:#1a140c;font-weight:700;}
+  .personas-badge{background:rgba(30,15,22,0.6);color:#FFF3D6;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;flex-shrink:0;white-space:nowrap;letter-spacing:.2px;margin-left:4px;}
   .no-abono-badge{background:rgba(217,106,106,0.28);color:#FFD9D9;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;flex-shrink:0;white-space:nowrap;letter-spacing:.2px;}
   .cobrar-box{background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.35);border-radius:10px;padding:10px 14px;margin:2px 0 16px;}
   .cobrar-box label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:2px;}
@@ -242,7 +258,7 @@
   .appt:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,0.38);}
 
   /* ---------- Week view ---------- */
-  .weekgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;}
+  .weekgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;}
   .weekday{
     background:var(--panel);border:1px solid var(--line);border-radius:14px;
     padding:12px;cursor:pointer;min-height:120px;display:flex;flex-direction:column;gap:6px;
@@ -257,9 +273,9 @@
 
   /* ---------- Month view ---------- */
   .monthgrid{display:flex;flex-direction:column;gap:6px;}
-  .month-headerrow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:2px;}
+  .month-headerrow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-bottom:2px;}
   .month-headerrow div{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.5px;text-align:center;padding-bottom:4px;}
-  .month-weekrow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .month-weekrow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;}
   .month-cell{
     background:var(--panel);border:1px solid var(--line);border-radius:10px;
     padding:6px 7px;min-height:92px;cursor:pointer;display:flex;flex-direction:column;gap:3px;
@@ -2433,7 +2449,7 @@ let state = {
   services: DEFAULT_SERVICES.slice(),
   specialists: DEFAULT_SPECIALISTS.map(s=>Object.assign({}, s)),
   clients: [], // {id,name,phone,lastService,lastDate} — se usa para el autocompletado
-  blocks: [], // {id,date:'YYYY-MM-DD',start:'HH:MM',end:'HH:MM',specialist,reason} — horas que una especialista bloquea (no puede trabajar)
+  blocks: [], // {id,date:'YYYY-MM-DD',start:'HH:MM',end:'HH:MM',specialist,reason, allDay?, dateEnd?} — horas que una especialista bloquea (no puede trabajar). allDay = el día completo; dateEnd = último día (incluido) si son varios días seguidos (ej. un viaje)
   expenses: [], // {id,date:'YYYY-MM-DD',tipo:'Fijo'|'Variable',categoria,descripcion,monto,metodoPago} — insumos y gastos puntuales
   recurringExpenses: [], // {id,categoria,monto,diaPago,metodoPago} — arriendo, luz, internet: se pagan todos los meses, no hay que volver a anotarlos
   recurringIncomes: [], // {id,categoria,monto,metodoPago} — ingresos pasivos que llegan todas las semanas (ej. arriendo de un box), aparte de las citas
@@ -2588,7 +2604,12 @@ function renderConsentSearch(box, allDocs, initialQuery, close, apptId, linkedCo
     const linkBtn = !apptId ? '' : isLinked
       ? `<span class="hint" style="display:inline-block;margin-top:8px;color:var(--ok);font-weight:600;">✓ Ya vinculada a esta cita</span>`
       : `<button type="button" class="btn btn-ghost" data-consent-link="${escapeHtml(e._id)}" data-consent-name="${escapeHtml(e.nombre||'')}" style="font-size:11.5px;margin-top:8px;">Vincular esta ficha a esta cita</button>`;
-    const deleteBtn = `<button type="button" class="btn btn-ghost" data-consent-delete="${escapeHtml(e._id)}" style="font-size:11.5px;margin-top:8px;margin-left:6px;color:var(--danger);">Eliminar esta ficha</button>`;
+    // Eliminar una ficha de consentimiento es un documento legal, sin
+    // "Deshacer" — se deja solo para Admin. Las especialistas pueden ver y
+    // vincular fichas (lo hacen presencialmente con la clienta), pero si una
+    // clienta firma mal, la solución es rehacerla y vincular la nueva, no
+    // borrar la anterior.
+    const deleteBtn = ui.mode==='admin' ? `<button type="button" class="btn btn-ghost" data-consent-delete="${escapeHtml(e._id)}" style="font-size:11.5px;margin-top:8px;margin-left:6px;color:var(--danger);">Eliminar esta ficha</button>` : '';
     return `
       <div style="border:1px solid rgba(255,255,255,.14);border-radius:4px;padding:12px;margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;gap:8px;">
@@ -2829,18 +2850,72 @@ const ALL_SPECIALISTS_VALUE = '__TODAS__'; // bloqueo general del estudio (ej: c
 function blockSpecialistLabel(specialist){
   return specialist===ALL_SPECIALISTS_VALUE ? 'Todo el estudio' : (specialist||'');
 }
+// Último día que cubre un bloqueo (el mismo día si es de un solo día).
+function blockLastDate(b){
+  return (b.dateEnd && b.dateEnd > b.date) ? b.dateEnd : b.date;
+}
+function blockIsFullDay(b){
+  return !!b.allDay || blockLastDate(b)!==b.date;
+}
+// Los bloqueos de día completo (o de varios días) se muestran de HOUR_START a
+// HOUR_END en la grilla, pero cuentan como bloqueado el día entero.
 function allBlocksForDate(dateKey){
-  return (state.blocks||[]).filter(b=>b.date===dateKey).sort((a,b)=>minutesFromMidnight(a.start)-minutesFromMidnight(b.start));
+  return (state.blocks||[])
+    .filter(b=>b.date<=dateKey && dateKey<=blockLastDate(b))
+    .map(b=>blockIsFullDay(b) ? {...b, start:pad(HOUR_START)+':00', end:pad(HOUR_END)+':00', fullDay:true} : b)
+    .sort((a,b)=>minutesFromMidnight(a.start)-minutesFromMidnight(b.start));
+}
+// Reparte en columnas los elementos que se cruzan en horario (ej. dos
+// especialistas que bloquean la misma hora), para dibujarlos lado a lado.
+// Devuelve, para cada elemento, {col, cols}.
+function layoutSideBySide(items){
+  const order = items.map((it,i)=>i).sort((a,b)=>minutesFromMidnight(items[a].start)-minutesFromMidnight(items[b].start));
+  const result = items.map(()=>({col:0, cols:1}));
+  let cluster = [], colEnds = [], clusterEnd = -1;
+  const close = ()=>{ cluster.forEach(i=>{ result[i].cols = colEnds.length; }); cluster = []; colEnds = []; };
+  order.forEach(i=>{
+    const st = minutesFromMidnight(items[i].start), en = minutesFromMidnight(items[i].end);
+    if(cluster.length && st >= clusterEnd) close();
+    let c = colEnds.findIndex(e=>e <= st);
+    if(c<0){ c = colEnds.length; colEnds.push(en); } else colEnds[c] = en;
+    result[i].col = c;
+    cluster.push(i);
+    clusterEnd = cluster.length===1 ? en : Math.max(clusterEnd, en);
+  });
+  close();
+  return result;
+}
+// Aviso compacto de quién tiene el día completo bloqueado, para las vistas
+// Semana y Mes. En pantallas angostas (teléfono) se ve solo "🚫" + un punto del
+// color de cada especialista; en pantallas anchas, también el nombre.
+function fullDayBlocksMarkup(dateKey, cls){
+  const list = blocksForDate(dateKey).filter(b=>b.fullDay);
+  if(!list.length) return '';
+  const who = list.map(b=>`<span class="bk-item"><span class="bk-dot" style="background:${specialistColor(b.specialist)}"></span><span class="bk-name">${escapeHtml(blockSpecialistLabel(b.specialist))}</span></span>`).join('');
+  return `<div class="${cls}">🚫${who}</div>`;
+}
+function blockDateLabel(key){
+  const d = parseKey(key);
+  return `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}`;
+}
+function blockWhenLabel(b){
+  const last = blockLastDate(b);
+  if(last!==b.date) return `${blockDateLabel(b.date)} al ${blockDateLabel(last)}`;
+  return blockIsFullDay(b) ? 'Todo el día' : `${b.start}–${b.end}`;
 }
 function blocksForDate(dateKey){
   const list = allBlocksForDate(dateKey);
   if(ui.specialistFilter==='all') return list;
   return list.filter(b=>b.specialist===ALL_SPECIALISTS_VALUE || normalizeName(b.specialist)===normalizeName(ui.specialistFilter));
 }
-function blockCoversHour(hour, date){
+// Con onlyStudio, solo cuentan los bloqueos de todo el estudio (así, que una
+// especialista esté de viaje no le impide a otra tocar esa hora para
+// bloquear la suya).
+function blockCoversHour(hour, date, onlyStudio){
   const dateKey = toKey(date);
   const slotStart = hour*60, slotEnd = (hour+1)*60;
   return allBlocksForDate(dateKey).find(b=>{
+    if(onlyStudio && b.specialist!==ALL_SPECIALISTS_VALUE) return false;
     const bs = minutesFromMidnight(b.start), be = minutesFromMidnight(b.end);
     return slotStart < be && bs < slotEnd;
   });
@@ -2850,6 +2925,7 @@ function findCoveringBlock(date, start, end, specialist){
   const startMin = minutesFromMidnight(start), endMin = minutesFromMidnight(end);
   return allBlocksForDate(dateKey).find(b=>{
     if(b.specialist!==ALL_SPECIALISTS_VALUE && specialist!==undefined && normalizeName(b.specialist)!==normalizeName(specialist)) return false;
+    if(b.fullDay) return true;
     const bs = minutesFromMidnight(b.start), be = minutesFromMidnight(b.end);
     return startMin < be && bs < endMin;
   });
@@ -3034,6 +3110,7 @@ function applyRemoteData(data){
     return a;
   });
   if(state.appointments.length > lastKnownGoodCount) lastKnownGoodCount = state.appointments.length;
+  lastSyncedApptIds = new Set(state.appointments.map(a=>a.id));
   state.services = (data.services && data.services.length) ? data.services : DEFAULT_SERVICES.slice();
   state.services.forEach(s=>{ if(s.duration==null) s.duration = 60; });
   state.services.sort((a,b)=>(a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'}));
@@ -3401,6 +3478,20 @@ function runSalomeRenameIfNeeded(){
   return true;
 }
 
+// Antes existía el campo "personas", las fichas donde venían dos personas
+// juntas (ej. una clienta con una amiga) se anotaban solo en las notas, como
+// "(2 personas)". Esto marca esas citas ya guardadas con personas: 2, una sola
+// vez, para que las estadísticas cuenten bien a las personas atendidas.
+const PERSONAS_NOTAS_KEY = 'personasDesdeNotas20260923';
+function runPersonasFromNotesIfNeeded(){
+  if(state.settings[PERSONAS_NOTAS_KEY]) return false;
+  state.appointments.forEach(a=>{
+    if(!a.personas && /\b(2|dos) personas\b/i.test(a.notas||'')) a.personas = 2;
+  });
+  state.settings[PERSONAS_NOTAS_KEY] = true;
+  return true;
+}
+
 // Septiembre 2026 fue el mes de transición entre la agenda vieja y esta —
 // se detectaron varios huecos de datos (precios en $0, días sin cargar) que
 // se van revisando de a poco. Mientras tanto, "Mis ganancias" no le muestra
@@ -3523,12 +3614,14 @@ function startFirestoreSync(){
       const stockSeed = runStockSeedIfNeeded();
       const salomeRename = runSalomeRenameIfNeeded();
       const gananciasCutoff = runMisGananciasCutoffIfNeeded();
+      const personasNotas = runPersonasFromNotesIfNeeded();
       ui.loaded = true;
       // Si hay un modal abierto (alguien escribiendo), no lo interrumpimos con un
       // re-render completo — los datos ya quedaron actualizados por dentro y se
       // van a ver apenas cierre ese modal.
       if(!ui.modal) render();
-      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff) saveData(false);
+      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas) saveData({recordUndo:false});
+      runDailyAutoBackupIfNeeded();
     } else {
       // No existe ningún documento en la base de datos. Después de la primera
       // vez que se configuró Firebase, esto NUNCA debería volver a pasar — si
@@ -3548,6 +3641,7 @@ function startFirestoreSync(){
 }
 
 let lastKnownGoodCount = 0; // la mayor cantidad de citas que se ha visto realmente cargada esta sesión
+let lastSyncedApptIds = null; // IDs de las citas tal como llegaron de la base de datos la última vez
 
 // ---------------- Deshacer último cambio ----------------
 // lastRemoteData: una copia de cómo estaba el documento en Firestore la
@@ -3559,8 +3653,25 @@ let lastKnownGoodCount = 0; // la mayor cantidad de citas que se ha visto realme
 let lastRemoteData = null;
 let undoSnapshot = null;
 
-async function saveData(recordUndo){
-  if(recordUndo === undefined) recordUndo = true;
+// Cuántas citas que SÍ estaban en la base de datos faltan en lo que se está
+// por guardar.
+function countMissingSyncedAppts(){
+  if(!lastSyncedApptIds) return 0;
+  const current = new Set(state.appointments.map(a=>a.id));
+  let missing = 0;
+  lastSyncedApptIds.forEach(id=>{ if(!current.has(id)) missing++; });
+  return missing;
+}
+
+// opts.allowRemoved: cuántas citas se están borrando A PROPÓSITO en este
+// guardado (por defecto 1 — el botón "Eliminar" de una cita). Solo "Eliminar
+// cliente" borra varias de una vez, y lo avisa explícitamente.
+// opts.recordUndo: por defecto true — en false en los guardados automáticos
+// de migraciones, para que "Deshacer" nunca apunte a deshacer una corrección
+// que se aplicó sola (ver más abajo).
+async function saveData(opts){
+  opts = opts || {};
+  const recordUndo = opts.recordUndo !== undefined ? opts.recordUndo : true;
   // Red de seguridad: si en algún momento de esta sesión llegamos a ver, por
   // ejemplo, 80 citas reales, y de repente se intenta guardar con 0 (o casi
   // 0), eso es casi siempre síntoma de un error (no de que alguien borró
@@ -3569,6 +3680,18 @@ async function saveData(recordUndo){
   if(state.appointments.length === 0 && lastKnownGoodCount > 5){
     console.error('Guardado bloqueado por seguridad: se intentó guardar con 0 citas habiendo visto', lastKnownGoodCount, 'antes.');
     showAlert('Por seguridad, no se guardó un cambio que hubiera dejado la agenda vacía (antes había '+lastKnownGoodCount+' citas). Si esto fue intencional, avísale a Juan Diego. Si no lo fue, no toques nada más y avísale también.');
+    return;
+  }
+  // Segunda red de seguridad: la pérdida de datos real que ya pasó una vez no
+  // dejó la agenda en 0 — la reemplazó por otros datos. Así que además se
+  // bloquea cualquier guardado que haga desaparecer de golpe más citas de las
+  // que se borraron a propósito (borrar de a una con "Eliminar" sigue
+  // funcionando normal).
+  const allowedRemoved = (opts && opts.allowRemoved) || 1;
+  const missing = countMissingSyncedAppts();
+  if(missing > allowedRemoved){
+    console.error('Guardado bloqueado por seguridad: desaparecerían', missing, 'citas de golpe.');
+    showAlert('Por seguridad, no se guardó este cambio: habría hecho desaparecer '+missing+' citas de una sola vez. Recarga la página antes de seguir, y si vuelve a pasar, avísale a Juan Diego.');
     return;
   }
   // Justo antes de escribir el cambio nuevo, guardamos cómo estaba el
@@ -3608,7 +3731,7 @@ function undoLastChange(){
     undoSnapshot = null; // se usa una sola vez — hasta el próximo cambio real no queda nada más que deshacer
     ui.modal = null;
     render();
-    saveData(false).then(()=>showAlert('Listo, se deshizo el último cambio.'));
+    saveData({recordUndo:false}).then(()=>showAlert('Listo, se deshizo el último cambio.'));
   });
 }
 
@@ -3728,11 +3851,7 @@ function toolbarHtml(){
             <button data-act="open-touchups">💆 Retoques pendientes (30–45 días)</button>
             <button data-act="open-reviews">🌟 Reseñas pendientes</button>
             <hr>
-            <div class="moremenu-label">Respaldo y datos</div>
-            <button data-act="export-csv">Exportar CSV del mes</button>
-            <button data-act="download-backup">💾 Descargar respaldo completo (archivo aparte)</button>
-            <button data-act="sync-all-backup">☁️ Sincronizar todo con Sheets/Calendar</button>
-            <hr>
+            <button data-act="open-autobackups">🗓️ Respaldos</button>
             <button data-act="open-security">Seguridad</button>
           </div>` : ''}
       </div>` : ''}
@@ -3786,28 +3905,49 @@ function dayViewHtml(){
       blockedOverlay += `<div class="blocked" style="top:${top}px;height:${SLOT_PX}px"></div>`;
     } else if(ui.mode==='admin') {
       emptyClicks += `<div class="emptyclick" style="top:${top}px" data-act="new-appt-at" data-hour="${h}"></div>`;
-    } else if(!blockCoversHour(h, ui.currentDate)) {
+    } else if(!blockCoversHour(h, ui.currentDate, true)) {
       emptyClicks += `<div class="emptyclick" style="top:${top}px" data-act="new-block-at" data-hour="${h}" title="Bloquear esta hora"></div>`;
     }
   }
 
+  // Los bloqueos de día completo (o de varios días) no se dibujan en la
+  // grilla — van como un aviso arriba (ver fullDayBanners), así no tapan todo
+  // el día ni se encima uno con otro. Las citas y los bloqueos de unas horas
+  // se reparten lado a lado cuando se cruzan (ej. una cita de Jeeymar a la
+  // misma hora en que Salomé bloqueó), para que ninguno quede tapado.
+  const partBlocks = dayBlocks.filter(b=>!b.fullDay);
+  const sideCols = layoutSideBySide([...appts, ...partBlocks]);
+  const apptCols = sideCols.slice(0, appts.length);
+  const blockCols = sideCols.slice(appts.length);
+  const sidePos = ({col, cols})=> cols>1 ? `left:calc(6px + (100% - 12px) * ${col} / ${cols});right:auto;width:calc((100% - 12px) / ${cols} - 3px);` : '';
   let specialistBlocks = '';
-  dayBlocks.forEach(b=>{
+  partBlocks.forEach((b,i)=>{
     const startMin = minutesFromMidnight(b.start) - rangeStart*60;
     const endMin = minutesFromMidnight(b.end) - rangeStart*60;
     const top = (startMin/60)*SLOT_PX;
     const height = Math.max(((endMin-startMin)/60)*SLOT_PX, 26);
     const col = specialistColor(b.specialist);
+    const n = blockCols[i].cols;
+    const pos = sidePos(blockCols[i]);
+    const who = `🚫 ${escapeHtml(blockSpecialistLabel(b.specialist))}`;
+    const isCompact = height < 40;
     specialistBlocks += `
-      <div class="appt st-Cancelada" style="top:${top}px;height:${height}px;border-left-color:${col};background:repeating-linear-gradient(45deg, rgba(0,0,0,.05), rgba(0,0,0,.05) 6px, transparent 6px, transparent 12px)" data-act="edit-block" data-id="${b.id}">
-        <div class="t-time">${b.start}–${b.end}<span class="spec-dot" style="background:${col}"></span></div>
-        <div class="t-name">🚫 ${escapeHtml(blockSpecialistLabel(b.specialist))} no disponible</div>
-        ${b.reason ? `<div class="t-service">${escapeHtml(b.reason)}</div>` : ''}
+      <div class="appt st-Cancelada block-appt${isCompact?' compact':''}" style="top:${top}px;height:${height}px;${pos}border-left-color:${col};" data-act="edit-block" data-id="${b.id}">
+        ${isCompact
+          ? `<div class="t-time">${b.start}–${b.end}</div><div class="t-name-compact">${who}${b.reason?' · '+escapeHtml(b.reason):''}</div>`
+          : `<div class="t-time">${b.start}–${b.end}</div>
+             <div class="t-name">${who}${n>1?'':' no disponible'}</div>
+             ${b.reason ? `<div class="t-service">${escapeHtml(b.reason)}</div>` : ''}`}
       </div>`;
   });
+  const fullDayBanners = dayBlocks.filter(b=>b.fullDay).map(b=>`
+    <div class="day-banner" style="border-left-color:${specialistColor(b.specialist)}" data-act="edit-block" data-id="${b.id}">
+      <span class="db-who">🚫 ${escapeHtml(blockSpecialistLabel(b.specialist))} no disponible</span>
+      <span class="db-when">${escapeHtml(blockWhenLabel(b))}${b.reason?' · '+escapeHtml(b.reason):''}</span>
+    </div>`).join('');
 
   let apptBlocks = '';
-  appts.forEach(a=>{
+  appts.forEach((a,ai)=>{
     const startMin = minutesFromMidnight(a.start) - rangeStart*60;
     const endMin = minutesFromMidnight(a.end) - rangeStart*60;
     const top = (startMin/60)*SLOT_PX;
@@ -3824,18 +3964,20 @@ function dayViewHtml(){
     // especialista podía no enterarse si no abría la ficha.
     const noAbono = !(Number(a.abono)>0) && a.estado!=='Cancelada' && a.estado!=='NoShow';
     const noAbonoBadge = noAbono ? `<span class="no-abono-badge">Sin abono</span>` : '';
+    const personasBadge = apptPersonas(a)>1 ? `<span class="personas-badge">👥 ${apptPersonas(a)}</span>` : '';
     const nameServiceHtml = isCompact
-      ? `<div class="t-name-compact">${escapeHtml(a.client||'Sin nombre')}${(a.services&&a.services.length)?' · '+escapeHtml(summarizeServices(a.services||[])):''}</div>${noAbonoBadge}`
-      : `<div class="t-name">${escapeHtml(a.client||'Sin nombre')}</div>
+      ? `<div class="t-name-compact">${escapeHtml(a.client||'Sin nombre')}${(a.services&&a.services.length)?' · '+escapeHtml(summarizeServices(a.services||[])):''}</div>${personasBadge}${noAbonoBadge}`
+      : `<div class="t-name">${escapeHtml(a.client||'Sin nombre')}${personasBadge}</div>
         <div class="t-service">${escapeHtml(summarizeServices(a.services||[]))}</div>`;
     apptBlocks += `
-      <div class="appt ${stClass}${isCompact?' compact':''}" style="top:${top}px;height:${height}px;${specBorder}" data-act="edit-appt" data-id="${a.id}">
+      <div class="appt ${stClass}${isCompact?' compact':''}" style="top:${top}px;height:${height}px;${specBorder}${sidePos(apptCols[ai])}" data-act="edit-appt" data-id="${a.id}">
         <div class="t-time">${a.start}–${a.end}${a.specialist?`<span class="spec-dot" style="background:${dotColor}"></span>`:''}${!isCompact?noAbonoBadge:''}</div>
         ${nameServiceHtml}
       </div>`;
   });
 
   return `
+    ${fullDayBanners ? `<div class="day-banners">${fullDayBanners}</div>` : ''}
     <div class="dayrow" style="height:${gridHeight}px">
       <div class="timecol">${timeCol}</div>
       <div class="gridcol" style="height:${gridHeight}px">
@@ -3863,7 +4005,8 @@ function weekViewHtml(){
       <div class="weekday ${sameDay(d,today)?'today':''}" data-act="goto-day" data-date="${key}">
         <div class="wd-label">${DAY_NAMES[d.getDay()]}</div>
         <div class="wd-num">${d.getDate()}</div>
-        <div class="wd-count">${appts.length} cita${appts.length===1?'':'s'}</div>
+        <div class="wd-count">${appts.length} cita${appts.length===1?'':'s'}${personasSuffix(appts, true)}</div>
+        ${fullDayBlocksMarkup(key, 'wd-block')}
         ${(ui.mode==='admin' && revenue>0) ? `<div class="wd-rev">${fmtCLP(revenue)}</div>` : ''}
       </div>`;
   }
@@ -3902,7 +4045,8 @@ function monthViewHtml(){
       rowHtml += `
         <div class="month-cell ${isOther?'other-month':''} ${sameDay(d,today)?'today':''}" data-act="goto-day" data-date="${key}">
           <div class="mc-num">${d.getDate()}</div>
-          <div class="mc-count">${appts.length?`${appts.length} cita${appts.length===1?'':'s'}`:''}</div>
+          ${fullDayBlocksMarkup(key, 'mc-block')}
+          <div class="mc-count">${appts.length?`${appts.length} cita${appts.length===1?'':'s'}${personasSuffix(appts, true)}`:''}</div>
           ${shown.map(a=>`<div class="mc-event"><span class="dot" style="background:${specialistColor(a.specialist)}"></span>${a.start} ${escapeHtml(a.client||'')}</div>`).join('')}
           ${extra>0?`<div class="mc-more">+${extra} más</div>`:''}
           ${(ui.mode==='admin' && revenue>0) ? `<div class="mc-rev">${fmtCLP(revenue)}</div>` : ''}
@@ -3976,6 +4120,7 @@ function summaryHtml(){
     })()
   );
   const total = appts.length;
+  const personas = countPersonas(appts);
   // El abono se lo quedan aunque la cita se cancele o la clienta no llegue, así que
   // siempre cuenta como plata recibida — excepto si ya se contó antes en la cita
   // original que se reagendó (abonoPrevio), porque ahí no entró plata nueva.
@@ -3997,6 +4142,7 @@ function summaryHtml(){
   return `
     <footer class="summary">
       <div class="stat"><div class="lbl">Citas (${ui.view==='day'?'día':ui.view==='week'?'semana':'mes'})</div><div class="val">${total}</div></div>
+      ${personasWorthShowing(appts) ? `<div class="stat"><div class="lbl">Personas atendidas</div><div class="val">${personas}</div></div>` : ''}
       ${isAdmin ? `
       <div class="stat"><div class="lbl">Abonos recibidos</div><div class="val">${fmtCLP(abonos)}</div></div>
       <div class="stat"><div class="lbl">Falta por cobrar</div><div class="val">${fmtCLP(saldos)}</div></div>
@@ -4049,6 +4195,7 @@ function modalHtml(){
   if(ui.modal.type==='touchups') return touchupsModalHtml();
   if(ui.modal.type==='reviews') return reviewsModalHtml();
   if(ui.modal.type==='search') return searchModalHtml();
+  if(ui.modal.type==='autobackups') return autoBackupsModalHtml();
   if(ui.modal.type==='appt' && ui.mode!=='admin') return apptViewOnlyHtml(ui.modal.data);
   return apptModalHtml();
 }
@@ -4056,24 +4203,34 @@ function modalHtml(){
 function blockModalHtml(){
   const d = ui.modal.data;
   const isEdit = ui.modal.mode==='edit';
+  const kind = blockLastDate(d)!==d.date ? 'days' : (d.allDay ? 'day' : 'hours');
   return `
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
       <h2 class="serif">${isEdit ? 'Editar bloqueo' : 'Bloquear un horario'}</h2>
-      <div class="hint">Marca un horario en el que una especialista no puede atender (por ejemplo, una hora médica), o un bloqueo general del estudio por una causa externa (por ejemplo, un corte de luz). Mientras esté bloqueado, no se pueden agendar citas ahí sin confirmar.</div>
+      <div class="hint">Marca cuándo una especialista no puede atender (una hora médica, un día libre, un viaje), o un bloqueo general del estudio por una causa externa (por ejemplo, un corte de luz). Mientras esté bloqueado, no se pueden agendar citas ahí.</div>
       <div class="field">
         <label>¿A quién afecta?</label>
         <select id="f-block-specialist">
+          ${d.specialist ? '' : `<option value="" selected disabled>— Elige quién —</option>`}
           <option value="${ALL_SPECIALISTS_VALUE}" ${d.specialist===ALL_SPECIALISTS_VALUE?'selected':''}>Todas (motivo externo — ej: corte de luz)</option>
           ${state.specialists.map(s=>`<option value="${escapeHtml(s.name)}" ${d.specialist===s.name?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
         </select>
       </div>
-      <div class="field"><label>Fecha</label><input type="date" id="f-block-date" value="${d.date}"></div>
-      <div class="field-row">
+      <div class="block-kind" id="block-kind">
+        <label class="${kind==='hours'?'on':''}"><input type="radio" name="block-kind" value="hours" ${kind==='hours'?'checked':''}>Unas horas</label>
+        <label class="${kind==='day'?'on':''}"><input type="radio" name="block-kind" value="day" ${kind==='day'?'checked':''}>Día completo</label>
+        <label class="${kind==='days'?'on':''}"><input type="radio" name="block-kind" value="days" ${kind==='days'?'checked':''}>Varios días</label>
+      </div>
+      <div class="row2">
+        <div class="field"><label id="f-block-date-label">${kind==='days'?'Desde el día':'Fecha'}</label><input type="date" id="f-block-date" value="${d.date}"></div>
+        <div class="field" id="block-dateend-field" style="display:${kind==='days'?'block':'none'};"><label>Hasta el día (incluido)</label><input type="date" id="f-block-dateEnd" value="${d.dateEnd && d.dateEnd>d.date ? d.dateEnd : toKey(addDays(parseKey(d.date),1))}"></div>
+      </div>
+      <div class="row2" id="block-hours-fields" style="display:${kind==='hours'?'grid':'none'};">
         <div class="field"><label>Desde</label><input type="time" id="f-block-start" value="${d.start}"></div>
         <div class="field"><label>Hasta</label><input type="time" id="f-block-end" value="${d.end}"></div>
       </div>
-      <div class="field"><label>Motivo (opcional)</label><input type="text" id="f-block-reason" placeholder="Ej: hora médica" value="${escapeHtml(d.reason||'')}"></div>
+      <div class="field"><label>Motivo (opcional)</label><input type="text" id="f-block-reason" placeholder="Ej: hora médica, viaje" value="${escapeHtml(d.reason||'')}"></div>
       <div class="modal-actions">
         <div>${isEdit ? `<button class="btn btn-ghost" data-act="delete-block" data-id="${d.id}">Quitar bloqueo</button>` : ''}</div>
         <div class="right">
@@ -4096,6 +4253,7 @@ function apptViewOnlyHtml(d){
       ${d.client && d.client.trim() ? `<button type="button" class="btn btn-ghost" style="margin:0 0 14px;font-size:12.5px;" data-act="view-consent" data-client="${escapeHtml(d.client)}" data-appt-id="${escapeHtml(d.id||'')}" data-consent-id="${escapeHtml(d.consentId||'')}">${d.consentId ? 'Ver consentimiento firmado ✓' : 'Ver consentimiento firmado'}</button>` : ''}
       ${d.phone ? `<div class="field"><label>Teléfono</label><div>${escapeHtml(d.phone)}</div></div>` : ''}
       <div class="field"><label>Servicio</label><div>${escapeHtml(summarizeServices(d.services||[])) || '—'}</div></div>
+      ${apptPersonas(d)>1 ? `<div class="field"><label>Personas</label><div>👥 ${apptPersonas(d)} personas en esta ficha</div></div>` : ''}
       ${d.cremaComprada ? `<div class="field"><label>Crema post-tratamiento</label><div>🧴 Sí, compró (entregar)</div></div>` : ''}
       <div class="field"><label>Especialista</label><div>${escapeHtml(d.specialist||'Sin asignar')}</div></div>
       <div class="field"><label>Estado</label><div>${estadoLabels[d.estado]||d.estado}</div></div>
@@ -4108,7 +4266,11 @@ function apptViewOnlyHtml(d){
         <label>Cobrar a la clienta</label>
         <div class="cobrar-amount">${fmtCLP(apptPorCobrar(d))}</div>
         <div class="cobrar-hint">Este monto ya es el final — si hay un descuento, ya está incluido. Cóbralo tal cual, sin restar nada más.</div>
-      </div>` : ''}
+      </div>
+      <div class="field"><label>Método de pago del saldo</label>
+        <select id="f-staff-metodoSaldo">${paymentSelectOptions(d.metodoSaldo)}</select>
+      </div>
+      <button type="button" class="btn btn-primary" style="width:100%;margin:0 0 14px;" data-act="staff-mark-realizada" data-id="${escapeHtml(d.id)}">${d.estado==='Realizada' ? '💾 Guardar método de pago' : '✅ Marcar como realizada y guardar el pago'}</button>` : ''}
       ${d.notas ? `<div class="field"><label>Notas</label><div>${escapeHtml(d.notas)}</div></div>` : ''}
       <div class="modal-actions">
         <div></div>
@@ -4179,6 +4341,18 @@ function apptModalHtml(){
         <div class="svc-picker" id="svc-picker">${svcRows}</div>
         <div class="svc-chips" id="svc-chips">${renderServiceChipsMarkup(initialEntries)}</div>
         <div class="svc-summary" id="svc-summary">${serviceSummaryHtml(initialTotalCount, initialTotalDuration, initialTotalPrice)}</div>
+      </div>
+      <div class="field">
+        <label>¿Cuántas personas se atienden en esta cita?</label>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="svc-qty">
+            <button type="button" class="svc-qty-btn" data-personas-dec="1" ${apptPersonas(d)<=1?'disabled':''} aria-label="Una persona menos">−</button>
+            <span class="svc-qty-num" id="f-personas-num">${apptPersonas(d)}</span>
+            <button type="button" class="svc-qty-btn" data-personas-inc="1" aria-label="Una persona más">+</button>
+          </span>
+          <input type="hidden" id="f-personas" value="${apptPersonas(d)}">
+          <span class="hint" style="margin:0;flex:1;">Ej.: viene con una amiga y se atienden las dos → pon 2</span>
+        </div>
       </div>
       <label style="display:flex;align-items:center;gap:8px;margin:-6px 0 16px;font-size:13px;color:var(--ink);cursor:pointer;">
         <input type="checkbox" id="f-crema" ${d.cremaComprada?'checked':''} style="width:16px;height:16px;accent-color:var(--wine);">
@@ -4526,6 +4700,34 @@ function gotoApptFromSearch(id){
 // Ingreso real de una cita: si se realizó, el precio completo; si se canceló o
 // no se presentó, solo el abono (no se devuelve). Mismo criterio que ya usa el
 // resto de la agenda en el resumen de arriba.
+// Cuántas personas se atendieron en una misma ficha (ej. una clienta que
+// viene con una amiga y se hacen las dos el delineado, anotado en una sola
+// cita). Las citas antiguas no tienen este dato: cuentan como 1 persona.
+function apptPersonas(a){
+  const n = Math.floor(Number(a && a.personas));
+  return n>=1 ? n : 1;
+}
+// Personas que de verdad se atendieron: una cita Cancelada o "No se presentó"
+// no atendió a nadie, así que cuenta 0 (aunque la ficha fuera de 2 personas).
+function apptPersonasAtendidas(a){
+  return (a.estado==='Cancelada' || a.estado==='NoShow') ? 0 : apptPersonas(a);
+}
+function countPersonas(appts){
+  return appts.reduce((s,a)=>s+apptPersonasAtendidas(a),0);
+}
+// Texto corto para mostrar junto al número de citas, solo cuando hay alguna
+// ficha con más de una persona (si no, el número sería el mismo y estorba).
+// Vale la pena mostrar "personas" junto a "citas" solo si hay algo que las
+// haga distintas: una ficha de 2+ personas, o una cita que no se atendió.
+function personasWorthShowing(appts){
+  return appts.some(a=>apptPersonas(a)>1) || countPersonas(appts)!==appts.length;
+}
+function personasSuffix(appts, short){
+  const p = countPersonas(appts);
+  if(!personasWorthShowing(appts)) return '';
+  return short ? ` · ${p} pers.` : ` · ${p} persona${p===1?'':'s'}`;
+}
+
 function apptRevenue(a){
   if(a.estado==='Cancelada' || a.estado==='NoShow') return a.abonoDevuelto ? 0 : (Number(a.abono)||0);
   return Number(a.price)||0;
@@ -4601,10 +4803,12 @@ function monthFinancials(year, month){
   const porEspecialista = {};
   appts.forEach(a=>{
     const name = a.specialist || 'Sin asignar';
-    if(!porEspecialista[name]) porEspecialista[name] = {ingresos:0, comisionBase:0, citas:0};
+    if(!porEspecialista[name]) porEspecialista[name] = {ingresos:0, comisionBase:0, citas:0, personas:0, multi:false};
     porEspecialista[name].ingresos += apptRevenue(a);
     porEspecialista[name].comisionBase += apptCommissionBase(a);
     porEspecialista[name].citas += 1;
+    porEspecialista[name].personas += apptPersonasAtendidas(a);
+    if(apptPersonas(a)>1) porEspecialista[name].multi = true;
   });
   Object.keys(porEspecialista).forEach(name=>{ porEspecialista[name].comision = porEspecialista[name].comisionBase * comisionPct; });
 
@@ -4663,7 +4867,7 @@ function misGananciasPageHtml(){
       </div>`;
   }
   const f = monthFinancials(year, month);
-  const mine = f.porEspecialista[identity] || {ingresos:0, comisionBase:0, citas:0, comision:0};
+  const mine = f.porEspecialista[identity] || {ingresos:0, comisionBase:0, citas:0, personas:0, comision:0};
   return `
     <div class="fin-page">
       <div class="fin-monthnav">
@@ -4673,7 +4877,7 @@ function misGananciasPageHtml(){
       </div>
       <p class="hint" style="margin-top:0;">Hola, <b>${escapeHtml(identity)}</b> — <button type="button" class="linklike" data-act="reset-staff-identity">¿no eres tú?</button></p>
       <div class="fin-cards">
-        <div class="fin-card"><div class="lbl">Citas del mes</div><div class="val">${mine.citas}</div></div>
+        <div class="fin-card"><div class="lbl">Citas del mes</div><div class="val">${mine.citas}</div>${(mine.multi || mine.personas!==mine.citas)?`<div class="hint" style="margin:2px 0 0;">${mine.personas} personas atendidas</div>`:''}</div>
         <div class="fin-card"><div class="lbl">Generaste</div><div class="val">${fmtCLP(mine.ingresos)}</div></div>
         <div class="fin-card highlight"><div class="lbl">Tu comisión (${Math.round(f.comisionPct*100)}%)</div><div class="val">${fmtCLP(mine.comision)}</div></div>
       </div>
@@ -4711,7 +4915,7 @@ function finanzasResumenHtml(year, month){
 
   const espRows = Object.keys(f.porEspecialista).sort((a,b)=>f.porEspecialista[b].ingresos-f.porEspecialista[a].ingresos).map(name=>{
     const e = f.porEspecialista[name];
-    return `<tr><td>${escapeHtml(name)}</td><td>${e.citas}</td><td>${fmtCLP(e.ingresos)}</td><td>${fmtCLP(e.comision)}</td></tr>`;
+    return `<tr><td>${escapeHtml(name)}</td><td>${e.citas}${(e.multi || e.personas!==e.citas)?`<div class="hint" style="margin:0;">${e.personas} personas</div>`:''}</td><td>${fmtCLP(e.ingresos)}</td><td>${fmtCLP(e.comision)}</td></tr>`;
   }).join('') || `<tr><td colspan="4" class="hint">Sin citas registradas este mes.</td></tr>`;
 
   const weekRows = weeks.map((w,i)=>`
@@ -5063,7 +5267,7 @@ function finanzasGraficosHtml(year, month){
 
   const f = monthFinancials(year, month);
   const espByRevenue = Object.keys(f.porEspecialista).map(k=>({label:k, value:f.porEspecialista[k].ingresos})).sort((a,b)=>b.value-a.value);
-  const espByCitas = Object.keys(f.porEspecialista).map(k=>({label:k, value:f.porEspecialista[k].citas})).sort((a,b)=>b.value-a.value);
+  const espByCitas = Object.keys(f.porEspecialista).map(k=>({label:k, value:f.porEspecialista[k].personas})).sort((a,b)=>b.value-a.value);
 
   return `
     <h3 class="fin-sub">Ingresos — últimos 6 meses</h3>
@@ -5075,12 +5279,11 @@ function finanzasGraficosHtml(year, month){
     <h3 class="fin-sub">Ingresos por especialista este mes</h3>
     ${espByRevenue.length ? `<div class="chart-box">${svgHBarChart(espByRevenue, {formatValue: v=>fmtCLPShort(v)})}</div>` : '<div class="hint">Sin citas este mes.</div>'}
 
-    <h3 class="fin-sub">Citas atendidas por especialista este mes</h3>
+    <h3 class="fin-sub">Personas atendidas por especialista este mes</h3>
     ${espByCitas.length ? `<div class="chart-box">${svgHBarChart(espByCitas)}</div>` : '<div class="hint">Sin citas este mes.</div>'}
   `;
 }
 
-// ---------------- Exportar CSV ----------------
 // ---------------- Recordatorios de WhatsApp (día siguiente) ----------------
 function buildReminderMsg(a){
   const name = (a.client||'').trim().split(' ')[0] || '';
@@ -5363,53 +5566,12 @@ function reviewsModalHtml(){
   </div>`;
 }
 
-function exportMonthCSV(){
-  const year = ui.currentDate.getFullYear();
-  const month = ui.currentDate.getMonth();
-  const monthAppts = state.appointments
-    .filter(a=>{ const dt = parseKey(a.date); return dt.getFullYear()===year && dt.getMonth()===month; })
-    .sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
-
-  if(!monthAppts.length){
-    showAlert('No hay citas registradas en ' + MONTHS[month] + ' de ' + year + ' para exportar.');
-    return;
-  }
-
-  const headers = ['Fecha','Hora inicio','Hora fin','Cliente','Teléfono','Servicio','Especialista','Estado','Precio','Abono','Método abono','Saldo','Método saldo','Notas'];
-  const estadoLabels = {Pendiente:'Pendiente',Confirmada:'Confirmada',Realizada:'Realizada',Cancelada:'Cancelada',NoShow:'No se presentó'};
-  const csvEscape = v=>{
-    const s = (v==null?'':v).toString();
-    return '"' + s.replace(/"/g,'""') + '"';
-  };
-  const lines = [headers.map(csvEscape).join(';')];
-  monthAppts.forEach(a=>{
-    lines.push([
-      a.date, a.start, a.end, a.client, a.phone, summarizeServices(a.services||[]), a.specialist,
-      estadoLabels[a.estado]||a.estado, a.price, a.abono,
-      a.abonoPrevio ? 'Abono previo (ya pagado antes, no es plata nueva)' : paymentMethodSummary(a.metodoAbono, Number(a.abono)||0, a.metodoAbono2, a.montoAbono2),
-      a.saldo,
-      paymentMethodSummary(a.metodoSaldo, Number(a.saldo)||0, a.metodoSaldo2, a.montoSaldo2),
-      a.notas
-    ].map(csvEscape).join(';'));
-  });
-  const csvContent = '\uFEFF' + lines.join('\r\n');
-  const blob = new Blob([csvContent], {type:'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `Sibana-Santiago-${MONTHS[month]}-${year}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  setTimeout(()=>URL.revokeObjectURL(url), 3000);
-}
 
 // Copia completa de TODOS los datos (citas, servicios, especialistas, clientes,
-// bloqueos, gastos y configuración) en un archivo que queda en el dispositivo de
-// quien lo descarga — no depende de Firebase, Sheets ni Calendar, así que un
-// problema en cualquiera de esos tres no se lleva puesta esta copia.
-function downloadFullBackup(){
-  const payload = {
+// bloqueos, gastos y configuración) — es lo que guarda el respaldo automático
+// diario, y lo que se descarga desde Más → Respaldos.
+function fullBackupPayload(){
+  return {
     respaldoDe: 'Sibana Santiago',
     fecha: new Date().toISOString(),
     appointments: state.appointments,
@@ -5423,15 +5585,115 @@ function downloadFullBackup(){
     stockItems: state.stockItems,
     settings: state.settings,
   };
+}
+function downloadBackupFile(payload, dateKey){
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `Sibana-Santiago-respaldo-${toKey(new Date())}.json`;
+  link.download = `Sibana-Santiago-respaldo-${dateKey}.json`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   setTimeout(()=>URL.revokeObjectURL(url), 3000);
+}
+
+// ---------------- Respaldo automático diario ----------------
+// Lo mismo que "Descargar respaldo completo", pero automático: la primera vez
+// que alguien del equipo abre la agenda cada día, se guarda una copia completa
+// de todos los datos en una colección aparte de Firebase (un documento por
+// día). Nunca se sobrescribe la copia de un día que ya existe — así, aunque
+// algo saliera mal con la agenda, las copias de los días anteriores quedan
+// intactas. Se guardan los últimos AUTO_BACKUP_KEEP_DAYS días.
+const AUTO_BACKUP_COLLECTION = 'sibana-agenda-respaldos';
+const AUTO_BACKUP_KEEP_DAYS = 60;
+// Día (YYYY-MM-DD) para el que ya se revisó el respaldo en esta pestaña. Se
+// guarda el día y no un simple "ya lo hice", porque la agenda puede quedar
+// abierta varios días seguidos (ej. en la laptop de Juan Diego) sin recargar.
+let autoBackupCheckedDay = null;
+function autoBackupSite(){ return (DOC_REF && DOC_REF.id) || 'santiago'; }
+async function runDailyAutoBackupIfNeeded(){
+  const today = toKey(new Date());
+  if(autoBackupCheckedDay===today || !db || !ui.loaded) return;
+  // Nunca se respalda una agenda vacía (sería señal de un problema, no de datos reales).
+  if(!state.appointments.length) return;
+  autoBackupCheckedDay = today;
+  const site = autoBackupSite();
+  const col = db.collection(AUTO_BACKUP_COLLECTION);
+  try{
+    const ref = col.doc(`${site}_${today}`);
+    const snap = await ref.get();
+    if(snap.exists) return;
+    await ref.set({
+      site, fecha: today, citas: state.appointments.length,
+      creado: firebase.firestore.FieldValue.serverTimestamp(),
+      data: fullBackupPayload(),
+    });
+    const old = [];
+    for(let d=AUTO_BACKUP_KEEP_DAYS; d<AUTO_BACKUP_KEEP_DAYS+10; d++) old.push(toKey(addDays(new Date(), -d)));
+    await col.doc(`${site}_indice`).set({
+      fechas: firebase.firestore.FieldValue.arrayUnion(today),
+    }, {merge:true});
+    if(old.length){
+      await col.doc(`${site}_indice`).set({
+        fechas: firebase.firestore.FieldValue.arrayRemove(...old),
+      }, {merge:true});
+      old.forEach(k=>col.doc(`${site}_${k}`).delete().catch(()=>{}));
+    }
+  }catch(e){
+    console.error('No se pudo crear el respaldo automático del día', e);
+  }
+}
+// Si la pestaña queda abierta de un día para otro, revisa cada hora si ya
+// cambió el día para hacer la copia del día nuevo.
+setInterval(()=>{ runDailyAutoBackupIfNeeded(); }, 60*60*1000);
+
+async function loadAutoBackupList(){
+  try{
+    const snap = await db.collection(AUTO_BACKUP_COLLECTION).doc(`${autoBackupSite()}_indice`).get();
+    const fechas = (snap.exists && snap.data().fechas) || [];
+    ui.modal.list = fechas.slice().sort().reverse();
+  }catch(e){
+    console.error(e);
+    ui.modal.error = 'No se pudo leer la lista de respaldos automáticos (' + (e.code||e.message||'error') + ').';
+  }
+  ui.modal.loading = false;
+  if(ui.modal && ui.modal.type==='autobackups') render();
+}
+async function downloadAutoBackup(dateKey){
+  try{
+    const snap = await db.collection(AUTO_BACKUP_COLLECTION).doc(`${autoBackupSite()}_${dateKey}`).get();
+    if(!snap.exists){ showAlert('No se encontró el respaldo de ese día.'); return; }
+    downloadBackupFile(snap.data().data, dateKey);
+  }catch(e){
+    console.error(e);
+    showAlert('No se pudo descargar ese respaldo. Revisa tu conexión e inténtalo de nuevo.');
+  }
+}
+function autoBackupsModalHtml(){
+  const m = ui.modal;
+  const body = m.loading ? '<div class="hint">Cargando…</div>'
+    : m.error ? `<div class="hint">${escapeHtml(m.error)}</div>`
+    : !(m.list||[]).length ? '<div class="empty-msg">Todavía no hay respaldos automáticos. El primero se crea solo apenas alguien abra la agenda.</div>'
+    : m.list.map(k=>{
+        const d = parseKey(k);
+        return `<div class="ns-item"><div><div class="ns-name">${DAY_NAMES[d.getDay()]} ${d.getDate()} de ${MONTHS[d.getMonth()]} ${d.getFullYear()}</div></div>
+          <button class="btn btn-ghost" style="font-size:12.5px;" data-act="download-autobackup" data-date="${k}">💾 Descargar</button></div>`;
+      }).join('');
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">Respaldos</h2>
+      <p class="hint">Cada día, la primera vez que alguien abre la agenda, se guarda sola una copia completa de todos los datos. Se guardan los últimos ${AUTO_BACKUP_KEEP_DAYS} días. Si algún día se pierde algo, con estas copias se puede recuperar.</p>
+      ${body}
+      <p class="hint" style="margin:18px 0 8px;">Cada cita también se copia sola a la Hoja de Google y a Google Calendar. Si alguna no aparece allá (por ejemplo, porque justo falló internet), esto las vuelve a mandar todas — nunca duplica nada.</p>
+      <button type="button" class="btn btn-ghost" style="font-size:12.5px;" data-act="sync-all-backup">☁️ Reenviar todo a Sheets/Calendar</button>
+      <div class="modal-actions">
+        <div></div>
+        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
+      </div>
+    </div>
+  </div>`;
 }
 
 // ---------------- Events ----------------
@@ -5473,6 +5735,30 @@ function attachEvents(){
       }
     });
   }
+  const blockKind = document.getElementById('block-kind');
+  if(blockKind){
+    blockKind.addEventListener('change', ()=>{
+      const kind = (blockKind.querySelector('input:checked')||{}).value || 'hours';
+      blockKind.querySelectorAll('label').forEach(l=>l.classList.toggle('on', l.querySelector('input').checked));
+      document.getElementById('block-hours-fields').style.display = kind==='hours' ? 'grid' : 'none';
+      document.getElementById('block-dateend-field').style.display = kind==='days' ? 'block' : 'none';
+      document.getElementById('f-block-date-label').textContent = kind==='days' ? 'Desde el día' : 'Fecha';
+    });
+  }
+  const personasInput = document.getElementById('f-personas');
+  if(personasInput){
+    const wrap = personasInput.parentElement;
+    wrap.addEventListener('click', e=>{
+      const inc = e.target.closest('[data-personas-inc]');
+      const dec = e.target.closest('[data-personas-dec]');
+      if(!inc && !dec) return;
+      const n = Math.max(1, Math.min(9, (Number(personasInput.value)||1) + (inc?1:-1)));
+      personasInput.value = n;
+      document.getElementById('f-personas-num').textContent = n;
+      wrap.querySelector('[data-personas-dec]').disabled = n<=1;
+      wrap.querySelector('[data-personas-inc]').disabled = n>=9;
+    });
+  }
 }
 
 function blankAppt(hour){
@@ -5497,7 +5783,7 @@ function blankBlock(hour){
   return {
     id: uid(), date: toKey(ui.currentDate),
     start, end: addMinutesToHHMM(start, 60),
-    specialist: (state.specialists[0]||{}).name || '', reason: ''
+    specialist: '', reason: '' // vacío a propósito: quien bloquea elige el nombre (evita bloquear a otra por error)
   };
 }
 
@@ -5507,7 +5793,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-specialists','add-specialist','remove-specialist','save-specialists',
   'open-schedule','toggle-day-closed','save-schedule',
   'open-clients','toggle-client','delete-client',
-  'open-noshows','export-csv','download-backup','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-touchups',
+  'open-noshows','open-autobackups','download-autobackup','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-touchups',
   'copy-touchup-msg','toggle-touchup-avisado',
   'open-reviews','copy-checkin-msg','copy-review-msg','toggle-review-avisado',
   'finance-tab','save-comision-pct','save-mis-ganancias-desde',
@@ -5620,6 +5906,23 @@ function onAction(e){
       viewConsent(clientName, apptId, knownConsentId);
       break;
     }
+    case 'staff-mark-realizada': {
+      const id = e.currentTarget.dataset.id;
+      const appt = state.appointments.find(a=>a.id===id);
+      if(!appt) break;
+      const select = document.getElementById('f-staff-metodoSaldo');
+      const metodo = select ? select.value : '';
+      if(!metodo){
+        showAlert('Elegí primero el método de pago antes de guardar.');
+        break;
+      }
+      appt.metodoSaldo = metodo;
+      appt.estado = 'Realizada';
+      ui.modal = null;
+      render();
+      saveData();
+      break;
+    }
     case 'edit-appt': {
       const id = e.currentTarget.dataset.id;
       const found = state.appointments.find(a=>a.id===id);
@@ -5660,17 +5963,21 @@ function onAction(e){
       const label = c ? c.name : 'este cliente';
       showConfirmDialog(`¿Eliminar a ${label}? Esto borra también su historial de ${c?c.count:0} cita${c&&c.count===1?'':'s'}. No se puede deshacer.`, ()=>{
         state.clients = state.clients.filter(cl=>normalizeName(cl.name)!==key);
+        const before = state.appointments.length;
         state.appointments = state.appointments.filter(a=>normalizeName(a.client)!==key);
         ui.expandedClients.delete(key);
         render();
-        saveData();
+        saveData({allowRemoved: before - state.appointments.length});
       });
       break;
     }
-    case 'export-csv':
-      exportMonthCSV(); break;
-    case 'download-backup':
-      downloadFullBackup(); break;
+    case 'open-autobackups':
+      ui.modal = {type:'autobackups', loading:true};
+      render();
+      loadAutoBackupList();
+      break;
+    case 'download-autobackup':
+      downloadAutoBackup(e.currentTarget.dataset.date); break;
     case 'sync-all-backup':
       runFullBackupSync(); break;
     case 'undo-last-change':
@@ -5834,7 +6141,9 @@ function onAction(e){
       saveBlockFromForm(); break;
     case 'delete-block': {
       const id = e.currentTarget.dataset.id;
-      showConfirmDialog('¿Quitar este bloqueo de horario?', ()=>{
+      const toRemove = (state.blocks||[]).find(b=>b.id===id);
+      const many = toRemove && blockLastDate(toRemove)!==toRemove.date;
+      showConfirmDialog(many ? `¿Quitar este bloqueo? Se quitan todos sus días (${blockWhenLabel(toRemove)}).` : '¿Quitar este bloqueo de horario?', ()=>{
         state.blocks = (state.blocks||[]).filter(b=>b.id!==id);
         ui.modal = null; render(); saveData();
       });
@@ -5917,6 +6226,7 @@ function saveApptFromForm(){
     cremaComprada: !!(document.getElementById('f-crema') && document.getElementById('f-crema').checked),
     abonoPrevio: !!(document.getElementById('f-abonoPrevio') && document.getElementById('f-abonoPrevio').checked),
     abonoDevuelto: !!(document.getElementById('f-abonoDevuelto') && document.getElementById('f-abonoDevuelto').checked),
+    personas: Math.max(1, Math.min(9, Math.floor(Number(document.getElementById('f-personas') ? get('f-personas') : 1))||1)),
   };
   delete updated.service;
   if(!updated.client){ showAlert('Ingresa el nombre del cliente.'); return; }
@@ -5959,13 +6269,28 @@ function saveApptFromForm(){
 function saveBlockFromForm(){
   const d = ui.modal.data;
   const get = id=>document.getElementById(id).value;
+  const kindInput = document.querySelector('input[name="block-kind"]:checked');
+  const kind = kindInput ? kindInput.value : 'hours';
   const updated = {
     ...d,
     date: get('f-block-date'), start: get('f-block-start'), end: get('f-block-end'),
     specialist: get('f-block-specialist'), reason: get('f-block-reason').trim(),
   };
-  if(!updated.specialist){ showAlert('Elige qué especialista bloquea ese horario.'); return; }
-  if(updated.end <= updated.start){ showAlert('La hora de fin debe ser posterior a la hora de inicio.'); return; }
+  delete updated.allDay; delete updated.dateEnd;
+  if(!updated.date){ showAlert('Elige la fecha.'); return; }
+  if(!updated.specialist){ showAlert('Elige a quién afecta el bloqueo (tu nombre, o "Todas").'); return; }
+  if(kind==='hours'){
+    if(updated.end <= updated.start){ showAlert('La hora de fin debe ser posterior a la hora de inicio.'); return; }
+  } else {
+    updated.allDay = true;
+    updated.start = pad(HOUR_START)+':00'; updated.end = pad(HOUR_END)+':00';
+    if(kind==='days'){
+      const dateEnd = get('f-block-dateEnd');
+      if(!dateEnd || dateEnd <= updated.date){ showAlert('El último día tiene que ser después del primero. (Si es un solo día, elige "Día completo".)'); return; }
+      updated.dateEnd = dateEnd;
+    }
+  }
+  const lastDate = blockLastDate(updated);
 
   const commit = ()=>{
     const idx = (state.blocks||[]).findIndex(b=>b.id===updated.id);
@@ -5977,13 +6302,14 @@ function saveBlockFromForm(){
   };
 
   const clashing = state.appointments.find(a=>
-    a.date===updated.date && a.estado!=='Cancelada' && a.estado!=='NoShow' &&
+    a.date>=updated.date && a.date<=lastDate && a.estado!=='Cancelada' && a.estado!=='NoShow' &&
     (updated.specialist===ALL_SPECIALISTS_VALUE || normalizeName(a.specialist)===normalizeName(updated.specialist)) &&
-    minutesFromMidnight(a.start) < minutesFromMidnight(updated.end) &&
-    minutesFromMidnight(updated.start) < minutesFromMidnight(a.end)
+    (updated.allDay || (minutesFromMidnight(a.start) < minutesFromMidnight(updated.end) &&
+    minutesFromMidnight(updated.start) < minutesFromMidnight(a.end)))
   );
   if(clashing){
-    const who = updated.specialist===ALL_SPECIALISTS_VALUE ? `Ya hay al menos una cita agendada (${clashing.client||'sin nombre'}, de ${clashing.start} a ${clashing.end})` : `${blockSpecialistLabel(updated.specialist)} ya tiene una cita agendada de ${clashing.start} a ${clashing.end} (${clashing.client||'sin nombre'})`;
+    const when = lastDate!==updated.date || updated.allDay ? `el ${blockDateLabel(clashing.date)} de ${clashing.start} a ${clashing.end}` : `de ${clashing.start} a ${clashing.end}`;
+    const who = updated.specialist===ALL_SPECIALISTS_VALUE ? `Ya hay al menos una cita agendada (${clashing.client||'sin nombre'}, ${when})` : `${blockSpecialistLabel(updated.specialist)} ya tiene una cita agendada ${when} (${clashing.client||'sin nombre'})`;
     showConfirmDialog(`${who} en ese horario. ¿Bloquear igual? (la cita queda tal cual, solo quedará marcado el choque)`, commit);
   } else {
     commit();

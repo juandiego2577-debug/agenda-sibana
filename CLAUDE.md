@@ -157,6 +157,13 @@ replantear salvo que surja algo que realmente lo justifique):
   todos los meses, sin importar el día exacto de pago (`diaPago` es solo
   informativo) — confirmado explícitamente, es la forma correcta de
   llevar la contabilidad.
+- **Cursos** (clases grupales, ver más abajo): cada inscrito cuenta en
+  Finanzas exactamente igual que una cita normal — mismo `apptRevenue`,
+  `apptCommissionBase`, etc. Si el curso tiene una especialista asignada,
+  ella se lleva comisión normal por cada inscrito (confirmado
+  explícitamente: NO es como el box, que nunca reparte comisión). El
+  precio es uno solo, fijo por curso, igual para todos los inscritos (no
+  hay precio distinto por persona).
 - **Setiembre 2026 fue el mes de transición** de la agenda anterior (en
   papel/informal) a esta — tiene datos incompletos conocidos (ver el 12
   de septiembre, pendiente de que el usuario consiga los datos reales).
@@ -202,6 +209,51 @@ replantear salvo que surja algo que realmente lo justifique):
   detalle obligatorio si hay alergias, borrar fichas desde el Panel
   Sibana): todo vive en el repo aparte `sibana-consentimiento` (ver
   arriba), no en este.
+- **Vincular/borrar consentimiento desde la agenda**: dentro de una cita se
+  puede buscar y vincular la ficha de consentimiento firmada de esa
+  clienta (`renderConsentSearch`). Borrarla desde ahí es **solo Admin**
+  (decidido a propósito: si una clienta firmó mal, la solución es volver a
+  firmar y vincular la ficha correcta, no borrar la anterior — evita que
+  una especialista borre por error una ficha que sí sirve). Borrar una
+  ficha desde la agenda o desde el Panel Sibana del repo de consentimiento
+  se refleja en ambos lados solo, porque los dos leen/escriben la misma
+  colección de Firestore.
+- **"Deshacer último cambio"** (Más → "¿Te equivocaste?", solo Admin): un
+  solo nivel de deshacer, restaura el documento a como estaba justo antes
+  del último guardado real. Nunca queda algo para deshacer después de un
+  guardado automático de migración (`saveData({recordUndo:false})`) — ver
+  `undoSnapshot`/`lastRemoteData`.
+- **Especialistas pueden marcar una cita como pagada/realizada**: desde la
+  vista de solo-lectura de su propia cita, pueden elegir el método de pago
+  del **saldo** (no del abono) y tocar "Marcar como realizada y guardar el
+  pago" — así dejan de tener que avisarle a Juan Diego a mano (cuaderno/
+  WhatsApp) para que él lo tipee. No pueden tocar precio, abono ni ningún
+  otro campo — solo método de pago del saldo + el estado a "Realizada".
+- **Retoques pendientes** y **Reseñas pendientes** funcionan igual: al
+  marcar la casilla ("avisada"), la clienta desaparece de la lista para
+  siempre (no queda tildada y visible). Reseñas pide primero un mensaje
+  "Paso 1" (preguntar cómo le fue, genérico, sin pedir nada) antes del
+  "Paso 2" (pedir la reseña en Google) — a propósito, para no pedirle una
+  reseña pública a alguien que podría tener un reclamo sin resolver.
+- **Cursos** (`state.courses` + `a.cursoId`/`a.cursoNombre` en las citas):
+  para clases grupales de un solo día/horario (ej. un curso de
+  micropigmentación), NO citas individuales. Un curso es un bloque de
+  fecha/hora + nombre + especialista opcional + precio por persona (fijo
+  para todos los inscritos). Cada inscrito (nombre, RUT, correo, teléfono
+  opcional, abono/saldo/método de pago/estado) se guarda como una cita más
+  en `state.appointments`, marcada con `cursoId`/`cursoNombre` — así
+  Finanzas, comisión, "Mis ganancias" y el respaldo a Sheets/Calendar la
+  toman automático, sin duplicar ningún cálculo. En la vista de Día, todos
+  los inscritos de un mismo curso se agrupan en UN solo bloque ("📚 Nombre
+  — N inscritos", `.curso-block`) en vez de mostrarse uno al lado del
+  otro — al tocarlo se abre la lista de inscritos (`cursoModalHtml`). Ver
+  y tocar el bloque lo puede hacer cualquiera (Admin o Especialista), pero
+  agregar/editar/borrar inscritos o el curso mismo es **solo Admin**
+  (decidido explícitamente). Reutilizable: se crea uno nuevo por cada
+  curso futuro con "📚 Nuevo curso" (toolbar) o Más → "Ver cursos". Si se
+  edita el nombre/fecha/hora/especialista del curso, se propaga a todos
+  sus inscritos ya guardados. Borrar el curso borra también todos sus
+  inscritos de una vez (avisa cuántos antes de confirmar).
 
 ## Cómo se trabaja en este proyecto
 - **Siempre probar antes de entregar.** Este proyecto se construyó

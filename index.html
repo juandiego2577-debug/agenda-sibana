@@ -4519,6 +4519,10 @@ function courseEditModalHtml(){
         <div class="hint">Si asignás una especialista, se lleva su comisión normal por cada inscrito — igual que en una cita cualquiera.</div>
       </div>
       <div class="field"><label>Precio por persona</label><input type="number" id="f-course-price" value="${d.price}"></div>
+      <div class="field"><label>Lugar / temario / notas (opcional)</label>
+        <textarea id="f-course-notas" rows="4" placeholder="Ej.: dirección donde se dicta, qué incluye, etc.">${escapeHtml(d.notas||'')}</textarea>
+        <div class="hint">Se ve dentro del curso, como recordatorio — no se manda a nadie.</div>
+      </div>
       <div class="modal-actions">
         <div></div>
         <div class="right">
@@ -4550,6 +4554,7 @@ function cursoModalHtml(){
       <h2 class="serif">📚 ${escapeHtml(c.nombre||'Curso')}</h2>
       <div class="hint">${courseDateLabel(c.date)} · ${c.start}–${c.end}${c.specialist?' · '+escapeHtml(c.specialist):''} · ${fmtCLP(c.price)} por persona</div>
       <div class="hint" style="margin-top:-6px;">${attendees.length} inscrito${attendees.length===1?'':'s'} · ingreso total ${fmtCLP(totalRevenue)}</div>
+      ${c.notas ? `<div style="white-space:pre-wrap;font-size:12.5px;color:var(--ink-soft);background:rgba(255,255,255,0.04);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:8px;">${escapeHtml(c.notas)}</div>` : ''}
       <div style="margin-top:10px;">${rows || `<div class="empty-msg">Todavía no hay nadie inscrito.</div>`}</div>
       ${isAdmin ? `<button type="button" class="btn btn-ghost" style="margin-top:10px;" data-act="curso-add-attendee" data-id="${c.id}">+ Agregar inscrito</button>` : ''}
       <div class="modal-actions">
@@ -5981,7 +5986,7 @@ function blankBlock(hour){
 function blankCourse(){
   return {
     id: cuid(), nombre: '', date: toKey(ui.currentDate),
-    start: '10:00', end: '18:00', specialist: '', price: 0,
+    start: '10:00', end: '18:00', specialist: '', price: 0, notas: '',
   };
 }
 function coursesForDate(dateKey){
@@ -6603,6 +6608,7 @@ function saveCourseFromForm(){
     date: get('f-course-date'), start: get('f-course-start'), end: get('f-course-end'),
     specialist: get('f-course-specialist'),
     price: Number(get('f-course-price'))||0,
+    notas: get('f-course-notas'),
   };
   if(!updated.nombre){ showAlert('Ponle un nombre al curso.'); return; }
   if(!updated.date){ showAlert('Elige la fecha del curso.'); return; }

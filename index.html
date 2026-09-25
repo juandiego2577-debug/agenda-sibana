@@ -3515,6 +3515,28 @@ function runMisGananciasCutoffIfNeeded(){
   return true;
 }
 
+// Carga única del curso "Capacitación Técnico en Micropigmentación de Cejas
+// y Labios" del 25 de octubre de 2026 (dictado por Salomé), a pedido de
+// Juan Diego. Si para cuando esto corre ya existe algún curso en esa fecha
+// (porque se cargó a mano mientras tanto), NO se duplica — solo se marca
+// como hecho y no pasa nada más.
+const CURSO_MICROPIGMENTACION_20261025_KEY = 'cursoMicropigmentacion20261025';
+function runCursoMicropigmentacion20261025IfNeeded(){
+  if(state.settings[CURSO_MICROPIGMENTACION_20261025_KEY]) return false;
+  state.settings[CURSO_MICROPIGMENTACION_20261025_KEY] = true;
+  const yaExiste = (state.courses||[]).some(c=>c.date==='2026-10-25');
+  if(yaExiste) return true;
+  if(!state.courses) state.courses = [];
+  state.courses.push({
+    id: 'curso_micropigmentacion_20261025',
+    nombre: 'Capacitación Técnico en Micropigmentación de Cejas y Labios',
+    date: '2026-10-25', start: '10:00', end: '17:00',
+    specialist: 'Salomé', price: 150000,
+    notas: 'Lota 2267, Edificio Columbia, Providencia.\n\nQué aprenderás:\n- Diseño y visagismo de cejas y labios\n- Colorimetría\n- Asepsia y antisepsia\n- Micropigmentación de labios y cejas\n\nIncluye una práctica en persona.\nAbono para apartar el cupo: $25.000.',
+  });
+  return true;
+}
+
 // Carga inicial (una sola vez) de la sección Stock, con lo que ya se sabe
 // (definido con Juan Diego y su papá): Filos (1 sola medida), Agujas 1RL y
 // 3RL (avisar con 20 o menos) y Anestesia (una sola). Los colores de
@@ -3622,12 +3644,13 @@ function startFirestoreSync(){
       const salomeRename = runSalomeRenameIfNeeded();
       const gananciasCutoff = runMisGananciasCutoffIfNeeded();
       const personasNotas = runPersonasFromNotesIfNeeded();
+      const cursoMicropigmentacion = runCursoMicropigmentacion20261025IfNeeded();
       ui.loaded = true;
       // Si hay un modal abierto (alguien escribiendo), no lo interrumpimos con un
       // re-render completo — los datos ya quedaron actualizados por dentro y se
       // van a ver apenas cierre ese modal.
       if(!ui.modal) render();
-      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas) saveData({recordUndo:false});
+      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas || cursoMicropigmentacion) saveData({recordUndo:false});
       runDailyAutoBackupIfNeeded();
     } else {
       // No existe ningún documento en la base de datos. Después de la primera

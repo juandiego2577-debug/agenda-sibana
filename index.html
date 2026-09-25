@@ -2579,12 +2579,15 @@ function consentMatchScore(query, entry){
   return shared>0 ? 10*shared : 0;
 }
 
-function renderConsentSearch(box, allDocs, initialQuery, close, apptId){
+function renderConsentSearch(box, allDocs, initialQuery, close, apptId, linkedConsentId){
   const fmt = iso=>{ if(!iso) return ''; const dt=new Date(iso); return dt.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'}) + ' · ' + dt.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}); };
   const yn = v=> v===true?'Sí':(v===false?'No':'—');
 
   function entryHtml(e){
-    const linkBtn = apptId ? `<button type="button" class="btn btn-ghost" data-consent-link="${escapeHtml(e._id)}" data-consent-name="${escapeHtml(e.nombre||'')}" style="font-size:11.5px;margin-top:8px;">Vincular esta ficha a esta cita</button>` : '';
+    const isLinked = !!(linkedConsentId && e._id===linkedConsentId);
+    const linkBtn = !apptId ? '' : isLinked
+      ? `<span class="hint" style="display:inline-block;margin-top:8px;color:var(--ok);font-weight:600;">✓ Ya vinculada a esta cita</span>`
+      : `<button type="button" class="btn btn-ghost" data-consent-link="${escapeHtml(e._id)}" data-consent-name="${escapeHtml(e.nombre||'')}" style="font-size:11.5px;margin-top:8px;">Vincular esta ficha a esta cita</button>`;
     const deleteBtn = `<button type="button" class="btn btn-ghost" data-consent-delete="${escapeHtml(e._id)}" style="font-size:11.5px;margin-top:8px;margin-left:6px;color:var(--danger);">Eliminar esta ficha</button>`;
     return `
       <div style="border:1px solid rgba(255,255,255,.14);border-radius:4px;padding:12px;margin-bottom:10px;">
@@ -2632,13 +2635,29 @@ function renderConsentSearch(box, allDocs, initialQuery, close, apptId){
       });
     });
   };
+  // Al eliminar, en vez de un botón que hay que apretar dos veces (fácil de
+  // no notar), se reemplaza por una pregunta explícita con "Cancelar" y
+  // "Sí, eliminar" — igual de clara que la del Panel Sibana, pero sin abrir
+  // un diálogo nuevo (eso reusaría el mismo id "custom-dialog" de este
+  // mismo diálogo y lo cerraría de golpe).
   const wireDeleteButtons = ()=>{
     box.querySelectorAll('[data-consent-delete]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        if(btn.dataset.confirming){
-          const id = btn.dataset.consentDelete;
-          btn.disabled = true;
-          btn.textContent = 'Eliminando…';
+        const id = btn.dataset.consentDelete;
+        const holder = document.createElement('span');
+        holder.style.cssText = 'display:inline-flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:8px;margin-left:6px;';
+        holder.innerHTML = `
+          <span style="font-size:11.5px;color:var(--danger);">¿Eliminar esta ficha? No se puede deshacer.</span>
+          <button type="button" class="btn btn-ghost" style="font-size:11.5px;">Cancelar</button>
+          <button type="button" class="btn btn-primary" style="font-size:11.5px;background:var(--danger);border-color:var(--danger);">Sí, eliminar</button>
+        `;
+        const [cancelBtn, okBtn] = holder.querySelectorAll('button');
+        btn.replaceWith(holder);
+        cancelBtn.addEventListener('click', ()=> holder.replaceWith(btn));
+        okBtn.addEventListener('click', ()=>{
+          okBtn.disabled = true;
+          cancelBtn.disabled = true;
+          okBtn.textContent = 'Eliminando…';
           db.collection('sibana-consentimientos').doc(id).delete()
             .then(()=>{
               const idx = allDocs.findIndex(d=>d._id===id);
@@ -2652,20 +2671,12 @@ function renderConsentSearch(box, allDocs, initialQuery, close, apptId){
             .catch(err=>{
               console.error(err);
               showAlert('No se pudo eliminar la ficha. Revisa tu conexión e inténtalo de nuevo.');
-              btn.disabled = false;
-              btn.textContent = 'Eliminar esta ficha';
-              delete btn.dataset.confirming;
+              if(holder.isConnected) holder.replaceWith(btn);
+              okBtn.disabled = false;
+              cancelBtn.disabled = false;
+              okBtn.textContent = 'Sí, eliminar';
             });
-        } else {
-          btn.dataset.confirming = '1';
-          btn.textContent = '¿Seguro? Confirmar';
-          setTimeout(()=>{
-            if(btn.isConnected && btn.dataset.confirming){
-              delete btn.dataset.confirming;
-              btn.textContent = 'Eliminar esta ficha';
-            }
-          }, 4000); // si no confirma en unos segundos, el botón vuelve solo a su estado normal
-        }
+        });
       });
     });
   };
@@ -2729,10 +2740,10 @@ function viewConsent(clientName, apptId, knownConsentId){
           return loadFullSearch(box, clientName, apptId, close);
         }
         const e = Object.assign({_id:doc.id}, doc.data());
-        renderConsentSearch(box, [e], '', close, apptId);
+        renderConsentSearch(box, [e], '', close, apptId, knownConsentId);
         box.insertAdjacentHTML('afterbegin', `<p class="hint" style="margin:0 0 8px;">Vinculada a esta cita. <button type="button" class="btn btn-ghost" id="btn-change-link" style="font-size:11px;">Buscar otra / cambiar vínculo</button></p>`);
         const changeBtn = box.querySelector('#btn-change-link');
-        if(changeBtn) changeBtn.addEventListener('click', ()=> loadFullSearch(box, clientName, apptId, close));
+        if(changeBtn) changeBtn.addEventListener('click', ()=> loadFullSearch(box, clientName, apptId, close, knownConsentId));
       })
       .catch(err=>{
         console.error(err);
@@ -2745,13 +2756,13 @@ function viewConsent(clientName, apptId, knownConsentId){
   loadFullSearch(wrap.querySelector('.confirm-box'), clientName, apptId, close);
 }
 
-function loadFullSearch(box, clientName, apptId, close){
+function loadFullSearch(box, clientName, apptId, close, linkedConsentId){
   box.innerHTML = `<p style="margin-top:0">Cargando fichas de consentimiento…</p>`;
   db.collection('sibana-consentimientos').orderBy('submittedAtClient','desc').limit(500).get()
     .then(snap=>{
       if(!box.isConnected) return; // el diálogo ya se cerró
       const allDocs = snap.docs.map(d=> Object.assign({_id:d.id}, d.data()));
-      renderConsentSearch(box, allDocs, clientName, close, apptId);
+      renderConsentSearch(box, allDocs, clientName, close, apptId, linkedConsentId);
     })
     .catch(err=>{
       console.error(err);
@@ -5163,6 +5174,18 @@ function remindersModalHtml(){
 function isRetoqueAppt(a){
   return (a.services||[]).some(s=>/retoque/i.test(s||''));
 }
+// Una "Evaluación" es solo una consulta previa (gratis, sin tratamiento
+// aplicado todavía) — no tiene sentido ofrecerle un retoque a alguien que
+// todavía no se hizo nada.
+function isEvaluacionAppt(a){
+  return (a.services||[]).some(s=>/evaluaci[oó]n/i.test(s||''));
+}
+// Lo mismo con "Garantía de servicio": es una visita para corregir algo de
+// un tratamiento anterior (gratis), no una sesión inicial nueva — tampoco
+// le corresponde un "retoque" de la garantía en sí.
+function isGarantiaAppt(a){
+  return (a.services||[]).some(s=>/garant[ií]a/i.test(s||''));
+}
 // Si la clienta ya tiene una cita posterior a la sesión inicial (no cancelada),
 // ya no hace falta avisarle: significa que ya volvió o que ya está agendada.
 function touchupCandidates(){
@@ -5172,7 +5195,10 @@ function touchupCandidates(){
   const byClient = new Map();
   state.appointments.forEach(a=>{
     if(a.estado!=='Realizada' || !a.client) return;
+    if(a.retoqueAvisado) return; // ya se le avisó: desaparece de la lista, igual que en "Reseñas pendientes"
     if(isRetoqueAppt(a)) return; // ya es un retoque, no una sesión inicial
+    if(isEvaluacionAppt(a)) return; // una evaluación no es un tratamiento, no le corresponde retoque
+    if(isGarantiaAppt(a)) return; // una garantía tampoco es una sesión inicial nueva
     const dt = parseKey(a.date);
     if(dt < minDate || dt > maxDate) return;
     const key = normalizeName(a.client);
@@ -5217,7 +5243,6 @@ Te esperamos ❤️`;
 }
 function touchupsModalHtml(){
   const list = touchupCandidates();
-  const pendingCount = list.filter(({appt:a})=>!a.retoqueAvisado).length;
   return `
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
@@ -5229,15 +5254,15 @@ function touchupsModalHtml(){
       </div>
       <button type="button" class="btn btn-ghost" style="margin:-8px 0 14px;" data-act="copy-touchup-msg">📋 Copiar mensaje</button>
       ${list.length===0 ? `<div class="empty-msg">No hay clientas en ese rango por ahora.</div>` : `
-      <div class="hint">${pendingCount} de ${list.length} sin marcar como avisadas. Marcá la casilla apenas le escribas a cada una, para no perder el hilo.</div>
+      <div class="hint">${list.length} clienta${list.length===1?'':'s'} por contactar. Marcá la casilla apenas le escribas a cada una — desaparece de la lista, igual que en "Reseñas pendientes".</div>
       <div class="table-scroll"><table class="reminders-table">
         <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th></th><th>Avisada</th></tr></thead>
         <tbody>
           ${list.map(({appt:a,diffDays})=>`
-            <tr style="${a.retoqueAvisado?'opacity:.5;':''}">
+            <tr>
               <td>${a.date}</td>
               <td>${diffDays}</td>
-              <td style="${a.retoqueAvisado?'text-decoration:line-through;':''}">${escapeHtml(a.client||'Sin nombre')}${a.phone?'':' <span class="hint">(sin teléfono)</span>'}</td>
+              <td>${escapeHtml(a.client||'Sin nombre')}${a.phone?'':' <span class="hint">(sin teléfono)</span>'}</td>
               <td>${escapeHtml(summarizeServices(a.services||[]))}</td>
               <td>
                 ${a.phone ? `<a class="btn btn-ghost" target="_blank" rel="noopener" href="${waLink(a.phone, buildTouchupMsg(a))}">WhatsApp</a>` : ''}
@@ -5279,6 +5304,12 @@ function reviewCandidates(){
     .map(a=>({appt:a, diffDays: Math.round((new Date().setHours(0,0,0,0) - parseKey(a.date)) / 86400000)}))
     .sort((x,y)=>x.diffDays - y.diffDays);
 }
+function genericCheckinMsg(){
+  return `Hola 🌸 somos Sibana.
+Queríamos saber cómo te fue con tu tratamiento — ¿cómo quedó? ¿Estás conforme con el resultado?
+
+Cualquier duda o detalle que quieras contarnos, escríbenos y te ayudamos enseguida 💕`;
+}
 function genericReviewMsg(){
   return `Hola 🌸 somos Sibana.
 Esperamos que te haya encantado el resultado final de tu tratamiento ✨
@@ -5294,14 +5325,20 @@ function reviewsModalHtml(){
       <h2 class="serif">Reseñas pendientes</h2>
       <div class="hint">Clientas con un retoque realizado a las que todavía no se les pidió su opinión en Google. (No se piden reseñas de citas anteriores a la fecha en que se activó esta función, para no armar una lista con clientas de meses atrás.)</div>
       <div class="field">
-        <label>Mensaje genérico (copialo una vez y pegalo a mano en WhatsApp a cada una)</label>
+        <label>Paso 1 — Preguntarle primero cómo le fue (copialo y pegalo en WhatsApp)</label>
+        <textarea id="review-checkin-msg" rows="4" readonly style="opacity:.85;">${escapeHtml(genericCheckinMsg())}</textarea>
+      </div>
+      <button type="button" class="btn btn-ghost" style="margin:-8px 0 14px;" data-act="copy-checkin-msg">📋 Copiar mensaje de "¿cómo te fue?"</button>
+      <div class="hint" style="margin:-8px 0 14px;">Mandá primero este mensaje. Solo si te confirma que quedó conforme, pasá al Paso 2. Si tuvo algún problema, resuélvelo primero y no le pidas la reseña todavía — así evitás pedir una opinión pública justo cuando hay algo sin arreglar.</div>
+      <div class="field">
+        <label>Paso 2 — Pedirle la reseña (solo si ya te confirmó que quedó conforme)</label>
         <textarea id="review-generic-msg" rows="5" readonly style="opacity:.85;">${escapeHtml(genericReviewMsg())}</textarea>
       </div>
-      <button type="button" class="btn btn-ghost" style="margin:-8px 0 14px;" data-act="copy-review-msg">📋 Copiar mensaje</button>
+      <button type="button" class="btn btn-ghost" style="margin:-8px 0 14px;" data-act="copy-review-msg">📋 Copiar mensaje de la reseña</button>
       ${list.length===0 ? `<div class="empty-msg">No hay clientas pendientes por ahora.</div>` : `
       <div class="hint">${list.length} clienta${list.length===1?'':'s'} por contactar.</div>
       <div class="table-scroll"><table class="reminders-table">
-        <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th></th><th>Avisada</th></tr></thead>
+        <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th>WhatsApp (Paso 1)</th><th>Avisada</th></tr></thead>
         <tbody>
           ${list.map(({appt:a,diffDays})=>`
             <tr>
@@ -5310,7 +5347,7 @@ function reviewsModalHtml(){
               <td>${escapeHtml(a.client||'Sin nombre')}${a.phone?'':' <span class="hint">(sin teléfono)</span>'}</td>
               <td>${escapeHtml(summarizeServices(a.services||[]))}</td>
               <td>
-                ${a.phone ? `<a class="btn btn-ghost" target="_blank" rel="noopener" href="${waLink(a.phone, genericReviewMsg())}">WhatsApp</a>` : ''}
+                ${a.phone ? `<a class="btn btn-ghost" target="_blank" rel="noopener" href="${waLink(a.phone, genericCheckinMsg())}">WhatsApp</a>` : ''}
               </td>
               <td style="text-align:center;">
                 <input type="checkbox" data-act="toggle-review-avisado" data-id="${a.id}" ${a.reviewAvisada?'checked':''} style="width:18px;height:18px;accent-color:var(--wine);cursor:pointer;">
@@ -5472,7 +5509,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-clients','toggle-client','delete-client',
   'open-noshows','export-csv','download-backup','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-touchups',
   'copy-touchup-msg','toggle-touchup-avisado',
-  'open-reviews','copy-review-msg','toggle-review-avisado',
+  'open-reviews','copy-checkin-msg','copy-review-msg','toggle-review-avisado',
   'finance-tab','save-comision-pct','save-mis-ganancias-desde',
   'add-expense','remove-expense','save-expenses',
   'add-recurring-expense','remove-recurring-expense','save-recurring-expenses',
@@ -5658,6 +5695,12 @@ function onAction(e){
     }
     case 'open-reviews':
       ui.modal = {type:'reviews'}; ui.menuOpen = false; render(); break;
+    case 'copy-checkin-msg': {
+      const box = document.getElementById('review-checkin-msg');
+      const text = box ? box.value : genericCheckinMsg();
+      copyToClipboard(text).then(()=>showAlert('Mensaje copiado ✅ Ya lo puedes pegar en WhatsApp.'));
+      break;
+    }
     case 'copy-review-msg': {
       const box = document.getElementById('review-generic-msg');
       const text = box ? box.value : genericReviewMsg();

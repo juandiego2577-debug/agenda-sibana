@@ -250,10 +250,16 @@ replantear salvo que surja algo que realmente lo justifique):
   y tocar el bloque lo puede hacer cualquiera (Admin o Especialista), pero
   agregar/editar/borrar inscritos o el curso mismo es **solo Admin**
   (decidido explícitamente). Reutilizable: se crea uno nuevo por cada
-  curso futuro con "📚 Nuevo curso" (toolbar) o Más → "Ver cursos". Si se
-  edita el nombre/fecha/hora/especialista del curso, se propaga a todos
-  sus inscritos ya guardados. Borrar el curso borra también todos sus
-  inscritos de una vez (avisa cuántos antes de confirmar).
+  curso futuro desde Más → "Ver cursos" → "+ Nuevo curso" — a propósito NO
+  hay un botón en la barra principal (los cursos son poco frecuentes, no
+  debía competirle protagonismo a "+ Nueva cita" ni cambiarla de lugar).
+  Si se edita el nombre/fecha/hora/especialista del curso, se propaga a
+  todos sus inscritos ya guardados. Borrar el curso borra también todos
+  sus inscritos de una vez (avisa cuántos antes de confirmar). El curso
+  también tiene un campo de texto libre opcional (`c.notas`, "Lugar /
+  temario / notas") para guardar cosas como la dirección o el contenido
+  que se les manda a las inscritas — solo se ve dentro del curso, no se
+  manda a nadie ni afecta ningún cálculo.
 
 ## Cómo se trabaja en este proyecto
 - **Siempre probar antes de entregar.** Este proyecto se construyó

@@ -2518,6 +2518,15 @@ function addMinutesToHHMM(hhmm, minsToAdd){
 }
 function timeLabel(hhmm){return hhmm;}
 function normalizeName(s){return (s||'').trim().toLowerCase();}
+// Compara dos nombres de forma flexible (uno "contiene" al otro) — no exige
+// coincidencia exacta, porque un nombre puede llevar o no el segundo
+// apellido, un diminutivo, etc. Solo se usa para avisar de un vínculo de
+// consentimiento que parece ser de otra persona, no para bloquear nada.
+function namesLikelyMatch(a, b){
+  const na = normalizeName(a), nb = normalizeName(b);
+  if(!na || !nb) return true;
+  return na.includes(nb) || nb.includes(na);
+}
 
 // ---------------- Custom dialogs (reemplazan alert()/confirm() nativos,
 // que en algunos navegadores embebidos/sandboxeados quedan bloqueados y
@@ -2654,11 +2663,40 @@ function renderConsentSearch(box, allDocs, initialQuery, close, apptId, linkedCo
   `;
   box.querySelector('#dlg-ok2').addEventListener('click', close);
   const input = box.querySelector('#consent-search-input');
+  // Antes de vincular, se avisa (sin bloquear) si algo parece un error: el
+  // nombre de la ficha no se parece al de la clienta de esta cita, o la
+  // ficha ya está vinculada a OTRA cita. No se bloquea del todo porque hay
+  // casos legítimos (ej. reusar la misma ficha para un retoque más
+  // adelante de la misma clienta) — solo se pide confirmar a propósito.
   const wireLinkButtons = ()=>{
     box.querySelectorAll('[data-consent-link]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        linkConsentToAppt(apptId, btn.dataset.consentLink, btn.dataset.consentName);
-        close();
+        const consentId = btn.dataset.consentLink;
+        const consentName = btn.dataset.consentName;
+        const doLink = ()=>{ linkConsentToAppt(apptId, consentId, consentName); close(); };
+
+        const targetAppt = apptId ? state.appointments.find(a=>a.id===apptId) : null;
+        const clientName = targetAppt ? targetAppt.client : '';
+        const nameMismatch = !!(clientName && consentName && !namesLikelyMatch(clientName, consentName));
+        const otherAppt = apptId ? state.appointments.find(a=>a.id!==apptId && a.consentId===consentId) : null;
+
+        if(!nameMismatch && !otherAppt){ doLink(); return; }
+
+        const warnings = [];
+        if(nameMismatch) warnings.push(`esta ficha es de "${consentName}", pero esta cita es de "${clientName}"`);
+        if(otherAppt) warnings.push(`ya está vinculada a otra cita (${otherAppt.client||'sin nombre'}, ${otherAppt.date})`);
+
+        const holder = document.createElement('span');
+        holder.style.cssText = 'display:inline-flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:8px;';
+        holder.innerHTML = `
+          <span style="font-size:11.5px;color:var(--danger);">⚠️ Ojo: ${escapeHtml(warnings.join('; '))}. ¿La vinculas igual?</span>
+          <button type="button" class="btn btn-ghost" style="font-size:11.5px;">Cancelar</button>
+          <button type="button" class="btn btn-primary" style="font-size:11.5px;">Sí, vincular igual</button>
+        `;
+        const [cancelBtn, okBtn] = holder.querySelectorAll('button');
+        btn.replaceWith(holder);
+        cancelBtn.addEventListener('click', ()=> holder.replaceWith(btn));
+        okBtn.addEventListener('click', doLink);
       });
     });
   };

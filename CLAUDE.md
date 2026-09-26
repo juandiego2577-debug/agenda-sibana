@@ -201,6 +201,22 @@ replantear salvo que surja algo que realmente lo justifique):
   decidido: NO vincularlo al nombre de "Mis ganancias". Todas ven los
   bloqueos de todas; se puede tocar una hora libre aunque otra especialista
   la tenga bloqueada (solo un bloqueo de "Todas" la impide).
+- **Aviso de bloqueos nuevos para Admin** (`checkUnseenBlocksIfNeeded`):
+  a Juan Diego se le pasó por alto más de una vez que una especialista
+  bloqueó una hora, y solo se enteraba días después al intentar agendar
+  justo ahí. Al crear un bloqueo se guarda `b.creadoEn` (los bloqueos
+  viejos, de antes de esto, no lo tienen y nunca disparan el aviso). Cada
+  bloqueo nuevo se compara contra `state.settings.bloqueosVistosHasta`
+  (la última vez que Admin cerró este aviso); si hay alguno más nuevo, se
+  muestra un diálogo con quién bloqueó y cuándo, la próxima vez que se
+  entra en modo Admin — y también mientras Admin YA tiene la agenda
+  abierta, aprovechando que Firestore ya se escucha en tiempo real (si
+  alguien bloquea una hora en ese momento, el aviso aparece solo, sin que
+  Admin haga nada). No interrumpe si hay un modal abierto (ej. cargando
+  una cita). No es una notificación push de verdad — eso necesitaría
+  infraestructura aparte (Firebase Cloud Functions de pago, service
+  worker) que se evaluó y no se justificaba; esto resuelve el problema
+  real sin ese costo.
 - **Etiqueta "Sin abono"**: en la ficha de cada cita del día (vista Admin y
   Especialista), aparece un aviso visual cuando la cita no tiene abono
   cobrado (`abono <= 0`) y no está Cancelada/NoShow — para que la

@@ -5667,6 +5667,10 @@ function isEvaluacionAppt(a){
 function isGarantiaAppt(a){
   return (a.services||[]).some(s=>/garant[ií]a/i.test(s||''));
 }
+// Cada cuántos días conviene volver a escribirle a alguien que quedó "en el
+// aire" (no respondió, o dejó en visto) — ni tan seguido que sea molesto, ni
+// tan espaciado que se pierda el impulso antes de que se cierre la ventana.
+const TOUCHUP_FOLLOWUP_DAYS = 4;
 function daysSince(dateKey){
   if(!dateKey) return null;
   const today = new Date(); today.setHours(0,0,0,0);
@@ -5691,6 +5695,7 @@ function touchupCandidates(){
     if(isEvaluacionAppt(a)) return; // una evaluación no es un tratamiento, no le corresponde retoque
     if(isGarantiaAppt(a)) return; // una garantía tampoco es una sesión inicial nueva
     if(a.cursoId) return; // una clase de un curso no es un tratamiento individual, no le corresponde retoque
+    if(a.retoqueResuelto) return; // se sacó a mano (ver "hasLaterAppt": por si el nombre no calzó exacto, o se agendó por fuera de la agenda)
     const dt = parseKey(a.date);
     if(dt < minDate || dt > maxDate) return;
     const key = normalizeName(a.client);
@@ -5751,9 +5756,9 @@ function touchupsModalHtml(){
       </div>
       <button type="button" class="btn btn-ghost" style="margin:-8px 0 14px;" data-act="copy-touchup-msg">📋 Copiar mensaje</button>
       ${list.length===0 ? `<div class="empty-msg">No hay clientas en ese rango por ahora.</div>` : `
-      <div class="hint">${list.length} clienta${list.length===1?'':'s'} por contactar. A diferencia de "Reseñas pendientes", acá SÍ conviene insistir más de una vez — marcar "Avisada hoy" NO la saca de la lista; se queda hasta que agende o hasta que pasen los 50 días.</div>
+      <div class="hint">${list.length} clienta${list.length===1?'':'s'} por contactar. A diferencia de "Reseñas pendientes", acá SÍ conviene insistir más de una vez — marcar "Avisada hoy" NO la saca de la lista; se queda hasta que agende o hasta que pasen los 50 días. Cuando ya pasaron ${TOUCHUP_FOLLOWUP_DAYS} días desde el último aviso sin que agende, se marca en dorado para que sepas a quién insistirle de nuevo. Si ya agendó su retoque (y por alguna razón no desapareció sola, ej. el nombre quedó escrito distinto), usa "✓ Ya agendó" para sacarla a mano.</div>
       <div class="table-scroll"><table class="reminders-table">
-        <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th></th><th>Último aviso</th></tr></thead>
+        <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th></th><th>Último aviso</th><th></th></tr></thead>
         <tbody>
           ${list.map(({appt:a,diffDays})=>{
             const sinceAviso = daysSince(a.retoqueUltimoAviso);
@@ -5767,8 +5772,15 @@ function touchupsModalHtml(){
                 ${a.phone ? `<a class="btn btn-ghost" target="_blank" rel="noopener" href="${waLink(a.phone, buildTouchupMsg(a))}">WhatsApp</a>` : ''}
               </td>
               <td style="text-align:center;white-space:nowrap;">
-                <div class="hint" style="margin:0 0 4px;">${sinceAviso===null ? 'Sin avisar todavía' : `Avisada hace ${sinceAviso} día${sinceAviso===1?'':'s'}`}</div>
+                ${sinceAviso===null
+                  ? `<div style="margin:0 0 4px;font-size:12px;font-weight:600;color:var(--warn);">Sin avisar todavía</div>`
+                  : sinceAviso>=TOUCHUP_FOLLOWUP_DAYS
+                  ? `<div style="margin:0 0 4px;font-size:12px;font-weight:600;color:var(--warn);">⏰ Hace ${sinceAviso} días — insistir</div>`
+                  : `<div class="hint" style="margin:0 0 4px;">Avisada hace ${sinceAviso} día${sinceAviso===1?'':'s'}</div>`}
                 <button type="button" class="btn btn-ghost" style="font-size:11px;padding:3px 8px;" data-act="mark-touchup-avisado" data-id="${a.id}">📨 Avisada hoy</button>
+              </td>
+              <td style="text-align:center;white-space:nowrap;">
+                <button type="button" class="btn btn-ghost" style="font-size:11px;padding:3px 8px;" data-act="mark-touchup-resuelto" data-id="${a.id}" data-name="${escapeHtml(a.client||'')}">✓ Ya agendó</button>
               </td>
             </tr>`;}).join('')}
         </tbody>
@@ -6121,7 +6133,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-schedule','toggle-day-closed','save-schedule',
   'open-clients','toggle-client','delete-client',
   'open-noshows','open-autobackups','download-autobackup','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-touchups',
-  'copy-touchup-msg','mark-touchup-avisado',
+  'copy-touchup-msg','mark-touchup-avisado','mark-touchup-resuelto',
   'open-reviews','copy-checkin-msg','copy-review-msg','toggle-review-avisado',
   'finance-tab','save-comision-pct','save-mis-ganancias-desde',
   'add-expense','remove-expense','save-expenses',
@@ -6391,6 +6403,16 @@ function onAction(e){
       const appt = state.appointments.find(a=>a.id===id);
       if(appt){ appt.retoqueUltimoAviso = toKey(new Date()); saveData(); }
       render(); break;
+    }
+    case 'mark-touchup-resuelto': {
+      const id = e.currentTarget.dataset.id;
+      const name = e.currentTarget.dataset.name || 'esta clienta';
+      showConfirmDialog(`¿${name} ya agendó su retoque (o ya no hace falta insistirle)? Se va a sacar de "Retoques pendientes".`, ()=>{
+        const appt = state.appointments.find(a=>a.id===id);
+        if(appt){ appt.retoqueResuelto = true; saveData(); }
+        render();
+      });
+      break;
     }
     case 'open-reviews':
       ui.modal = {type:'reviews'}; ui.menuOpen = false; render(); break;

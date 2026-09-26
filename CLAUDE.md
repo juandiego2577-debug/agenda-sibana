@@ -217,6 +217,11 @@ replantear salvo que surja algo que realmente lo justifique):
   infraestructura aparte (Firebase Cloud Functions de pago, service
   worker) que se evaluó y no se justificaba; esto resuelve el problema
   real sin ese costo.
+- **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
+  hoy en adelante (los ya pasados no se muestran, para eso está el
+  historial de la vista Mes), ordenados por fecha — para verlos todos
+  juntos sin tener que ir cambiando de vista mes por mes. Tocar uno abre
+  directo su edición (reusa `edit-block`).
 - **Etiqueta "Sin abono"**: en la ficha de cada cita del día (vista Admin y
   Especialista), aparece un aviso visual cuando la cita no tiene abono
   cobrado (`abono <= 0`) y no está Cancelada/NoShow — para que la

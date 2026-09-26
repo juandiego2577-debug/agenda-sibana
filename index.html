@@ -3822,6 +3822,15 @@ function render(){
   const root = document.getElementById('root');
   if(!ui.loaded){root.innerHTML = '<div class="loading">Cargando agenda…</div>';return;}
 
+  // Cada llamada a render() reconstruye TODO el HTML de una — eso crea un
+  // <div class="modal"> nuevo cada vez, que arranca con el scroll en el
+  // tope. Sin esto, marcar algo dentro de un modal largo (ej. "Avisada
+  // hoy" en Retoques pendientes) hacía "saltar" la lista al principio en
+  // vez de quedarse donde uno estaba — una ladilla real al ir marcando
+  // varias filas una por una.
+  const prevModal = root.querySelector('.modal');
+  const prevScrollTop = prevModal ? prevModal.scrollTop : null;
+
   const html = `
     <header class="topbar">
       <div class="brand">
@@ -3849,6 +3858,11 @@ function render(){
   `;
   root.innerHTML = html;
   attachEvents();
+
+  if(prevScrollTop!=null){
+    const newModal = root.querySelector('.modal');
+    if(newModal) newModal.scrollTop = prevScrollTop;
+  }
 }
 
 function sectionTabsHtml(){

@@ -2976,6 +2976,53 @@ function blockWhenLabel(b){
   if(last!==b.date) return `${blockDateLabel(b.date)} al ${blockDateLabel(last)}`;
   return blockIsFullDay(b) ? 'Todo el día' : `${b.start}–${b.end}`;
 }
+// Avisa a Admin de los bloqueos de hora que se crearon desde la última vez
+// que vio este aviso — para que no se entere de casualidad, días después,
+// al intentar agendar justo ahí. No es una notificación push de verdad (eso
+// necesitaría infraestructura aparte, ver conversación con Juan Diego) sino
+// que aprovecha que la agenda ya escucha los cambios de Firestore en tiempo
+// real: si Admin tiene la agenda abierta cuando alguien bloquea una hora,
+// este aviso aparece solo, sin recargar nada.
+function checkUnseenBlocksIfNeeded(){
+  if(ui.mode!=='admin') return;
+  if(ui.modal) return; // no interrumpir si hay un modal abierto (alguien escribiendo)
+  if(document.getElementById('custom-dialog')) return; // ya hay un diálogo mostrándose
+  const cutoff = state.settings.bloqueosVistosHasta || null;
+  const nuevos = (state.blocks||[]).filter(b=>b.creadoEn && (!cutoff || b.creadoEn > cutoff));
+  if(!nuevos.length) return;
+  nuevos.sort((a,b)=> (a.creadoEn||'') < (b.creadoEn||'') ? -1 : 1);
+  const wrap = document.createElement('div');
+  wrap.id = 'custom-dialog';
+  wrap.className = 'confirm-overlay';
+  // blockWhenLabel(b) por sí sola no incluye la fecha en un bloqueo de un
+  // solo día (piensa que ya se está viendo esa fecha, ej. en la vista de
+  // Día) — acá los bloqueos pueden ser de cualquier día, así que hay que
+  // anteponer la fecha a mano (salvo que ya sea un rango de varios días,
+  // donde blockWhenLabel ya la incluye).
+  const blockWhenWithDate = b=> blockLastDate(b)!==b.date ? blockWhenLabel(b) : `${blockDateLabel(b.date)} · ${blockWhenLabel(b)}`;
+  const rows = nuevos.map(b=>`
+    <div style="padding:8px 0;border-bottom:1px solid var(--line);">
+      <div style="font-weight:600;">${escapeHtml(blockSpecialistLabel(b.specialist))}</div>
+      <div class="hint" style="margin:2px 0 0;">${escapeHtml(blockWhenWithDate(b))}${b.reason?' — '+escapeHtml(b.reason):''}</div>
+    </div>`).join('');
+  wrap.innerHTML = `
+    <div class="confirm-box" style="max-width:420px;text-align:left;">
+      <p style="margin-bottom:8px;">🚫 <b>${nuevos.length===1?'Nuevo bloqueo de hora':`${nuevos.length} bloqueos de hora nuevos`}</b> desde la última vez que entraste:</p>
+      <div>${rows}</div>
+      <div class="confirm-actions" style="margin-top:14px;">
+        <button class="btn btn-primary" id="dlg-ok">Entendido</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  const dismiss = ()=>{
+    if(!wrap.isConnected) return;
+    wrap.remove();
+    state.settings.bloqueosVistosHasta = new Date().toISOString();
+    saveData({recordUndo:false});
+  };
+  wrap.querySelector('#dlg-ok').addEventListener('click', dismiss);
+  wrap.addEventListener('click', e=>{ if(e.target===wrap) dismiss(); });
+}
 function blocksForDate(dateKey){
   const list = allBlocksForDate(dateKey);
   if(ui.specialistFilter==='all') return list;
@@ -3719,6 +3766,7 @@ function startFirestoreSync(){
       if(!ui.modal) render();
       if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas || cursoMicropigmentacion) saveData({recordUndo:false});
       runDailyAutoBackupIfNeeded();
+      checkUnseenBlocksIfNeeded();
     } else {
       // No existe ningún documento en la base de datos. Después de la primera
       // vez que se configuró Firebase, esto NUNCA debería volver a pasar — si
@@ -6176,12 +6224,14 @@ function onAction(e){
           ui.mode = 'admin';
           render();
           showAlert('Entraste en modo administrador. Todavía no has configurado una contraseña — hazlo en Más → Seguridad para que no cualquiera pueda entrar aquí.');
+          checkUnseenBlocksIfNeeded();
         } else {
           showPrompt('Ingresa la contraseña de administrador:', (val)=>{
             if(val === pass){
               ui.mode = 'admin';
               safeSetLocal(ADMIN_TRUST_KEY, '1'); // este dispositivo queda como admin para siempre, sin volver a pedir contraseña
               render();
+              checkUnseenBlocksIfNeeded();
             } else {
               showAlert('Contraseña incorrecta.');
             }
@@ -6714,7 +6764,15 @@ function saveBlockFromForm(){
   const commit = ()=>{
     const idx = (state.blocks||[]).findIndex(b=>b.id===updated.id);
     if(!state.blocks) state.blocks = [];
-    if(idx>=0) state.blocks[idx] = updated; else state.blocks.push(updated);
+    if(idx>=0){
+      state.blocks[idx] = updated;
+    } else {
+      // Se guarda cuándo se creó (no al editar uno ya existente) para poder
+      // avisarle a Admin de los bloqueos nuevos que todavía no vio — ver
+      // checkUnseenBlocksIfNeeded().
+      updated.creadoEn = new Date().toISOString();
+      state.blocks.push(updated);
+    }
     ui.modal = null;
     render();
     saveData();

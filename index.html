@@ -5683,11 +5683,16 @@ function touchupCandidates(){
     const prev = byClient.get(key);
     if(!prev || a.date > prev.date) byClient.set(key, a);
   });
+  // "Agendó de verdad" no cuenta si esa cita posterior se canceló o si la
+  // clienta no llegó (NoShow) — en ninguno de los dos casos se hizo
+  // realmente el retoque, así que debería seguir apareciendo en la lista
+  // para poder insistirle de nuevo (mismo criterio que ya usa apptRevenue
+  // para tratar Cancelada y NoShow igual).
   const hasLaterAppt = a=>{
     const key = normalizeName(a.client);
     return state.appointments.some(o=>
       o.id!==a.id && normalizeName(o.client)===key &&
-      o.estado!=='Cancelada' && o.date > a.date
+      o.estado!=='Cancelada' && o.estado!=='NoShow' && o.date > a.date
     );
   };
   return Array.from(byClient.values())

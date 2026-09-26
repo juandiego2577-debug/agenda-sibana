@@ -2976,6 +2976,13 @@ function blockWhenLabel(b){
   if(last!==b.date) return `${blockDateLabel(b.date)} al ${blockDateLabel(last)}`;
   return blockIsFullDay(b) ? 'Todo el día' : `${b.start}–${b.end}`;
 }
+// blockWhenLabel(b) por sí sola no incluye la fecha en un bloqueo de un solo
+// día (pensada para usarse donde la fecha ya se ve por el contexto, ej. la
+// vista de Día) — para listas donde el bloqueo puede ser de cualquier día
+// (el aviso de bloqueos nuevos, "Ver bloqueos") hay que anteponer la fecha.
+function blockWhenWithDate(b){
+  return blockLastDate(b)!==b.date ? blockWhenLabel(b) : `${blockDateLabel(b.date)} · ${blockWhenLabel(b)}`;
+}
 // Avisa a Admin de los bloqueos de hora que se crearon desde la última vez
 // que vio este aviso — para que no se entere de casualidad, días después,
 // al intentar agendar justo ahí. No es una notificación push de verdad (eso
@@ -2994,12 +3001,6 @@ function checkUnseenBlocksIfNeeded(){
   const wrap = document.createElement('div');
   wrap.id = 'custom-dialog';
   wrap.className = 'confirm-overlay';
-  // blockWhenLabel(b) por sí sola no incluye la fecha en un bloqueo de un
-  // solo día (piensa que ya se está viendo esa fecha, ej. en la vista de
-  // Día) — acá los bloqueos pueden ser de cualquier día, así que hay que
-  // anteponer la fecha a mano (salvo que ya sea un rango de varios días,
-  // donde blockWhenLabel ya la incluye).
-  const blockWhenWithDate = b=> blockLastDate(b)!==b.date ? blockWhenLabel(b) : `${blockDateLabel(b.date)} · ${blockWhenLabel(b)}`;
   const rows = nuevos.map(b=>`
     <div style="padding:8px 0;border-bottom:1px solid var(--line);">
       <div style="font-weight:600;">${escapeHtml(blockSpecialistLabel(b.specialist))}</div>
@@ -4015,6 +4016,8 @@ function toolbarHtml(){
             <div class="moremenu-label">Cursos</div>
             <button data-act="open-courses">📚 Ver cursos</button>
             <hr>
+            <button data-act="open-blocks-list">🚫 Ver bloqueos</button>
+            <hr>
             <button data-act="open-autobackups">🗓️ Respaldos</button>
             <button data-act="open-security">Seguridad</button>
           </div>` : ''}
@@ -4383,6 +4386,7 @@ function modalHtml(){
   if(ui.modal.type==='noshows') return noShowsModalHtml();
   if(ui.modal.type==='clients') return clientsModalHtml();
   if(ui.modal.type==='block') return blockModalHtml();
+  if(ui.modal.type==='blocks-list') return blocksListModalHtml();
   if(ui.modal.type==='reminders') return remindersModalHtml();
   if(ui.modal.type==='touchups') return touchupsModalHtml();
   if(ui.modal.type==='reviews') return reviewsModalHtml();
@@ -5809,6 +5813,34 @@ Ya pasaron unas semanas desde tu última sesión y este es el momento ideal para
 
 Te esperamos ❤️`;
 }
+// Todos los bloqueos de hora desde hoy en adelante, para verlos juntos de un
+// vistazo (ej. planificar con quién se cuenta cada semana) sin tener que ir
+// cambiando de vista mes por mes. Los ya pasados no se muestran — para eso
+// ya está el historial de la vista Mes.
+function blocksListModalHtml(){
+  const todayKey = toKey(new Date());
+  const list = (state.blocks||[]).filter(b=>blockLastDate(b)>=todayKey)
+    .slice().sort((a,b)=> a.date<b.date ? -1 : (a.date>b.date ? 1 : 0));
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">🚫 Bloqueos</h2>
+      <div class="hint">Todos los bloqueos de hora desde hoy en adelante, ordenados por fecha. Toca uno para editarlo o quitarlo.</div>
+      ${list.length===0 ? `<div class="empty-msg">No hay ningún bloqueo agendado desde hoy en adelante.</div>` : `
+      <div>${list.map(b=>`
+        <div class="curso-row" data-act="edit-block" data-id="${b.id}">
+          <div>
+            <div class="cr-name">${escapeHtml(blockSpecialistLabel(b.specialist))}</div>
+            <div class="cr-rut">${escapeHtml(blockWhenWithDate(b))}${b.reason?' — '+escapeHtml(b.reason):''}</div>
+          </div>
+        </div>`).join('')}</div>`}
+      <div class="modal-actions">
+        <div></div>
+        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
+      </div>
+    </div>
+  </div>`;
+}
 function touchupsModalHtml(){
   const list = touchupCandidates();
   return `
@@ -6195,7 +6227,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-specialists','add-specialist','remove-specialist','save-specialists',
   'open-schedule','toggle-day-closed','save-schedule',
   'open-clients','toggle-client','delete-client',
-  'open-noshows','open-autobackups','download-autobackup','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-touchups',
+  'open-noshows','open-autobackups','download-autobackup','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-blocks-list','open-touchups',
   'copy-touchup-msg','mark-touchup-avisado',
   'open-reviews','copy-checkin-msg','copy-review-msg','toggle-review-avisado',
   'finance-tab','save-comision-pct','save-mis-ganancias-desde',
@@ -6455,6 +6487,8 @@ function onAction(e){
       ui.modal = {type:'search'}; render(); break;
     case 'open-reminders':
       ui.modal = {type:'reminders'}; ui.menuOpen = false; render(); break;
+    case 'open-blocks-list':
+      ui.modal = {type:'blocks-list'}; ui.menuOpen = false; render(); break;
     case 'open-touchups':
       ui.modal = {type:'touchups'}; ui.menuOpen = false; render(); break;
     case 'copy-touchup-msg': {

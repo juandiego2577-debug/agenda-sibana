@@ -3006,7 +3006,7 @@ function checkUnseenBlocksIfNeeded(){
       <div class="hint" style="margin:2px 0 0;">${escapeHtml(blockWhenWithDate(b))}${b.reason?' — '+escapeHtml(b.reason):''}</div>
     </div>`).join('');
   wrap.innerHTML = `
-    <div class="confirm-box" style="max-width:420px;text-align:left;">
+    <div class="confirm-box" style="max-width:420px;max-height:82vh;overflow-y:auto;text-align:left;">
       <p style="margin-bottom:8px;">🚫 <b>${nuevos.length===1?'Nuevo bloqueo de hora':`${nuevos.length} bloqueos de hora nuevos`}</b> desde la última vez que entraste:</p>
       <div>${rows}</div>
       <div class="confirm-actions" style="margin-top:14px;">

@@ -4369,7 +4369,7 @@ function apptViewOnlyHtml(d){
       ${d.phone ? `<div class="field"><label>Teléfono</label><div>${escapeHtml(d.phone)}</div></div>` : ''}
       <div class="field"><label>Servicio</label><div>${escapeHtml(summarizeServices(d.services||[])) || '—'}</div></div>
       ${apptPersonas(d)>1 ? `<div class="field"><label>Personas</label><div>👥 ${apptPersonas(d)} personas en esta ficha</div></div>` : ''}
-      ${d.cremaComprada ? `<div class="field"><label>Crema post-tratamiento</label><div>🧴 Sí, compró (entregar)</div></div>` : ''}
+      ${d.cremaComprada && (d.estado==='Cancelada' || d.estado==='NoShow') ? `<div class="field"><label>Crema post-tratamiento</label><div>🧴 Sí, compró (entregar)</div></div>` : ''}
       <div class="field"><label>Especialista</label><div>${escapeHtml(d.specialist||'Sin asignar')}</div></div>
       <div class="field"><label>Estado</label><div>${estadoLabels[d.estado]||d.estado}</div></div>
       ${(d.estado!=='Cancelada' && d.estado!=='NoShow') ? `
@@ -4382,6 +4382,10 @@ function apptViewOnlyHtml(d){
         <div class="cobrar-amount">${fmtCLP(apptPorCobrar(d))}</div>
         <div class="cobrar-hint">Este monto ya es el final — si hay un descuento, ya está incluido. Cóbralo tal cual, sin restar nada más.</div>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;margin:-6px 0 16px;font-size:13px;color:var(--ink);cursor:pointer;">
+        <input type="checkbox" id="f-staff-crema" ${d.cremaComprada?'checked':''} style="width:16px;height:16px;accent-color:var(--wine);">
+        🧴 Compró la crema post-tratamiento (+${fmtCLP(CREMA_PRICE)})
+      </label>
       <div class="field"><label>Método de pago del saldo</label>
         <select id="f-staff-metodoSaldo">${paymentSelectOptions(d.metodoSaldo)}</select>
       </div>
@@ -5649,16 +5653,26 @@ function isEvaluacionAppt(a){
 function isGarantiaAppt(a){
   return (a.services||[]).some(s=>/garant[ií]a/i.test(s||''));
 }
+function daysSince(dateKey){
+  if(!dateKey) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return Math.round((today - parseKey(dateKey)) / 86400000);
+}
 // Si la clienta ya tiene una cita posterior a la sesión inicial (no cancelada),
 // ya no hace falta avisarle: significa que ya volvió o que ya está agendada.
 function touchupCandidates(){
   const today = new Date(); today.setHours(0,0,0,0);
-  const minDate = addDays(today, -45);
+  // A diferencia de "Reseñas pendientes" (que sí se pide una sola vez), acá
+  // conviene poder seguir insistiéndole a la clienta más de una vez mientras
+  // todavía esté a tiempo — así que avisarle NO la saca de la lista; se queda
+  // hasta que agende o hasta que pase el margen de 50 días (el retoque
+  // mantiene su precio normal hasta los ~45 días, pero se deja hasta 50 como
+  // margen antes de considerarlo del todo perdido).
+  const minDate = addDays(today, -50);
   const maxDate = addDays(today, -30);
   const byClient = new Map();
   state.appointments.forEach(a=>{
     if(a.estado!=='Realizada' || !a.client) return;
-    if(a.retoqueAvisado) return; // ya se le avisó: desaparece de la lista, igual que en "Reseñas pendientes"
     if(isRetoqueAppt(a)) return; // ya es un retoque, no una sesión inicial
     if(isEvaluacionAppt(a)) return; // una evaluación no es un tratamiento, no le corresponde retoque
     if(isGarantiaAppt(a)) return; // una garantía tampoco es una sesión inicial nueva
@@ -5710,19 +5724,21 @@ function touchupsModalHtml(){
   return `
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
-      <h2 class="serif">Retoques pendientes (30–45 días)</h2>
-      <div class="hint">Clientas que se atendieron hace entre 30 y 45 días y todavía no tienen una cita posterior agendada.</div>
+      <h2 class="serif">Retoques pendientes (30–50 días)</h2>
+      <div class="hint">Clientas que se atendieron hace entre 30 y 50 días y todavía no tienen una cita posterior agendada.</div>
       <div class="field">
         <label>Mensaje genérico (copialo una vez y pegalo a mano en WhatsApp a cada una)</label>
         <textarea id="touchup-generic-msg" rows="5" readonly style="opacity:.85;">${escapeHtml(genericTouchupMsg())}</textarea>
       </div>
       <button type="button" class="btn btn-ghost" style="margin:-8px 0 14px;" data-act="copy-touchup-msg">📋 Copiar mensaje</button>
       ${list.length===0 ? `<div class="empty-msg">No hay clientas en ese rango por ahora.</div>` : `
-      <div class="hint">${list.length} clienta${list.length===1?'':'s'} por contactar. Marcá la casilla apenas le escribas a cada una — desaparece de la lista, igual que en "Reseñas pendientes".</div>
+      <div class="hint">${list.length} clienta${list.length===1?'':'s'} por contactar. A diferencia de "Reseñas pendientes", acá SÍ conviene insistir más de una vez — marcar "Avisada hoy" NO la saca de la lista; se queda hasta que agende o hasta que pasen los 50 días.</div>
       <div class="table-scroll"><table class="reminders-table">
-        <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th></th><th>Avisada</th></tr></thead>
+        <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th></th><th>Último aviso</th></tr></thead>
         <tbody>
-          ${list.map(({appt:a,diffDays})=>`
+          ${list.map(({appt:a,diffDays})=>{
+            const sinceAviso = daysSince(a.retoqueUltimoAviso);
+            return `
             <tr>
               <td>${a.date}</td>
               <td>${diffDays}</td>
@@ -5731,10 +5747,11 @@ function touchupsModalHtml(){
               <td>
                 ${a.phone ? `<a class="btn btn-ghost" target="_blank" rel="noopener" href="${waLink(a.phone, buildTouchupMsg(a))}">WhatsApp</a>` : ''}
               </td>
-              <td style="text-align:center;">
-                <input type="checkbox" data-act="toggle-touchup-avisado" data-id="${a.id}" ${a.retoqueAvisado?'checked':''} style="width:18px;height:18px;accent-color:var(--wine);cursor:pointer;">
+              <td style="text-align:center;white-space:nowrap;">
+                <div class="hint" style="margin:0 0 4px;">${sinceAviso===null ? 'Sin avisar todavía' : `Avisada hace ${sinceAviso} día${sinceAviso===1?'':'s'}`}</div>
+                <button type="button" class="btn btn-ghost" style="font-size:11px;padding:3px 8px;" data-act="mark-touchup-avisado" data-id="${a.id}">📨 Avisada hoy</button>
               </td>
-            </tr>`).join('')}
+            </tr>`;}).join('')}
         </tbody>
       </table></div>`}
       <div class="modal-actions">
@@ -6085,7 +6102,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-schedule','toggle-day-closed','save-schedule',
   'open-clients','toggle-client','delete-client',
   'open-noshows','open-autobackups','download-autobackup','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-touchups',
-  'copy-touchup-msg','toggle-touchup-avisado',
+  'copy-touchup-msg','mark-touchup-avisado',
   'open-reviews','copy-checkin-msg','copy-review-msg','toggle-review-avisado',
   'finance-tab','save-comision-pct','save-mis-ganancias-desde',
   'add-expense','remove-expense','save-expenses',
@@ -6209,7 +6226,9 @@ function onAction(e){
         showAlert('Elegí primero el método de pago antes de guardar.');
         break;
       }
+      const cremaBox = document.getElementById('f-staff-crema');
       appt.metodoSaldo = metodo;
+      appt.cremaComprada = !!(cremaBox && cremaBox.checked);
       appt.estado = 'Realizada';
       ui.modal = null;
       render();
@@ -6348,10 +6367,10 @@ function onAction(e){
       copyToClipboard(text).then(()=>showAlert('Mensaje copiado ✅ Ya lo puedes pegar en WhatsApp.'));
       break;
     }
-    case 'toggle-touchup-avisado': {
+    case 'mark-touchup-avisado': {
       const id = e.currentTarget.dataset.id;
       const appt = state.appointments.find(a=>a.id===id);
-      if(appt){ appt.retoqueAvisado = e.currentTarget.checked; saveData(); }
+      if(appt){ appt.retoqueUltimoAviso = toKey(new Date()); saveData(); }
       render(); break;
     }
     case 'open-reviews':

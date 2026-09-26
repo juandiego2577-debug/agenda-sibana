@@ -225,16 +225,30 @@ replantear salvo que surja algo que realmente lo justifique):
   `undoSnapshot`/`lastRemoteData`.
 - **Especialistas pueden marcar una cita como pagada/realizada**: desde la
   vista de solo-lectura de su propia cita, pueden elegir el método de pago
-  del **saldo** (no del abono) y tocar "Marcar como realizada y guardar el
-  pago" — así dejan de tener que avisarle a Juan Diego a mano (cuaderno/
-  WhatsApp) para que él lo tipee. No pueden tocar precio, abono ni ningún
-  otro campo — solo método de pago del saldo + el estado a "Realizada".
-- **Retoques pendientes** y **Reseñas pendientes** funcionan igual: al
-  marcar la casilla ("avisada"), la clienta desaparece de la lista para
-  siempre (no queda tildada y visible). Reseñas pide primero un mensaje
-  "Paso 1" (preguntar cómo le fue, genérico, sin pedir nada) antes del
-  "Paso 2" (pedir la reseña en Google) — a propósito, para no pedirle una
-  reseña pública a alguien que podría tener un reclamo sin resolver.
+  del **saldo** (no del abono), marcar si la clienta compró la crema
+  post-tratamiento (`f-staff-crema`, mismo campo `a.cremaComprada` que usa
+  Admin — descuenta los $5.000 de la comisión, ver punto 7) y tocar
+  "Marcar como realizada y guardar el pago" — así dejan de tener que
+  avisarle a Juan Diego a mano (cuaderno/WhatsApp) para que él lo tipee.
+  No pueden tocar precio, abono ni ningún otro campo — solo método de
+  pago del saldo, la crema, y el estado a "Realizada".
+- **Retoques pendientes** y **Reseñas pendientes** funcionan DISTINTO a
+  propósito (aunque antes se habían igualado, y resultó ser un error real
+  de uso — ver más abajo): en Reseñas SÍ tiene sentido pedir la opinión
+  una sola vez, así que marcar la casilla hace desaparecer a la clienta
+  para siempre. En Retoques, en cambio, conviene poder **insistir varias
+  veces** durante toda la ventana (una clienta puede no responder al
+  primer mensaje y sí agendar si se le vuelve a escribir unos días
+  después) — así que tocar "📨 Avisada hoy" (`a.retoqueUltimoAviso`,
+  fecha) NO la saca de la lista, solo actualiza un "Avisada hace N días" /
+  "Sin avisar todavía" junto a su fila, para saber a quién conviene
+  insistirle. Solo desaparece cuando agenda una cita posterior o cuando
+  pasan los 50 días desde la sesión (`touchupCandidates`, ventana 30–50
+  días — el retoque mantiene su precio normal ~45 días, los 50 son un
+  margen antes de darlo por perdido del todo). Reseñas pide primero un
+  mensaje "Paso 1" (preguntar cómo le fue, genérico, sin pedir nada) antes
+  del "Paso 2" (pedir la reseña en Google) — a propósito, para no pedirle
+  una reseña pública a alguien que podría tener un reclamo sin resolver.
 - **Cursos** (`state.courses` + `a.cursoId`/`a.cursoNombre` en las citas):
   para clases grupales de un solo día/horario (ej. un curso de
   micropigmentación), NO citas individuales. Un curso es un bloque de

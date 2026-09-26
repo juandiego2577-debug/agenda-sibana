@@ -2994,10 +2994,16 @@ function checkUnseenBlocksIfNeeded(){
   const wrap = document.createElement('div');
   wrap.id = 'custom-dialog';
   wrap.className = 'confirm-overlay';
+  // blockWhenLabel(b) por sí sola no incluye la fecha en un bloqueo de un
+  // solo día (piensa que ya se está viendo esa fecha, ej. en la vista de
+  // Día) — acá los bloqueos pueden ser de cualquier día, así que hay que
+  // anteponer la fecha a mano (salvo que ya sea un rango de varios días,
+  // donde blockWhenLabel ya la incluye).
+  const blockWhenWithDate = b=> blockLastDate(b)!==b.date ? blockWhenLabel(b) : `${blockDateLabel(b.date)} · ${blockWhenLabel(b)}`;
   const rows = nuevos.map(b=>`
     <div style="padding:8px 0;border-bottom:1px solid var(--line);">
       <div style="font-weight:600;">${escapeHtml(blockSpecialistLabel(b.specialist))}</div>
-      <div class="hint" style="margin:2px 0 0;">${escapeHtml(blockWhenLabel(b))}${b.reason?' — '+escapeHtml(b.reason):''}</div>
+      <div class="hint" style="margin:2px 0 0;">${escapeHtml(blockWhenWithDate(b))}${b.reason?' — '+escapeHtml(b.reason):''}</div>
     </div>`).join('');
   wrap.innerHTML = `
     <div class="confirm-box" style="max-width:420px;text-align:left;">

@@ -135,6 +135,17 @@ replantear salvo que surja algo que realmente lo justifique):
    `state.settings.comisionHistory` (lista de `{desde:'YYYY-MM', pct}`),
    y `comisionPctForMonth(year, month)` decide cuál aplica a cada mes sin
    tocar los anteriores.
+9. **El umbral de "ficha compacta" en la vista Día (`COMPACT_HEIGHT_PX`,
+   junto a `SLOT_PX`) es un número medido, no adivinado.** Las fichas de
+   citas/bloqueos/cursos muestran 3 líneas apiladas (hora / nombre /
+   servicio) cuando hay espacio, o todo en una sola línea con "…" cuando
+   no. El umbral original (40px, citas <40min) se puso a ojo y en realidad
+   dejaba cortarse el texto por abajo en citas de hasta ~52min (48.5px es
+   el punto real donde el layout de 3 líneas empieza a caber) — un bug
+   real, reportado por el usuario con una captura. Si se vuelve a tocar el
+   tamaño de fuente o el padding de `.appt`, hay que remedir este número
+   (ver `test_find_threshold.js` en el historial de pruebas de esta
+   sesión como referencia de cómo medirlo), no reusar un valor a ojo.
 
 ## Reglas de negocio de Finanzas (definidas explícitamente, no adivinar)
 - **Comisión de especialistas**: 50% por defecto (variable por mes, ver

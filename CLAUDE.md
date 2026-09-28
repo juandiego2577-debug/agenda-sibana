@@ -187,6 +187,16 @@ replantear salvo que surja algo que realmente lo justifique):
   esconder este campo y "abono previo" bajo un desplegable "Más opciones"
   en Nueva cita, y el usuario decidió NO hacerlo (riesgo de que se olvide
   marcar las personas) — no volver a proponerlo.
+  **`countPersonas` no duplica a la misma clienta**: si tiene más de una
+  cita en el período que se está contando (ej. se le agendó dos veces el
+  mismo día, a horas distintas — un bug real reportado por el usuario), es
+  UNA persona que vino dos veces, no dos personas distintas, así que se
+  cuenta una sola vez (agrupando por `a.client` normalizado). Si alguna de
+  sus fichas fue con acompañante (`personas>1`), se usa la de más personas
+  para no perder al acompañante. Esto corre tanto en el resumen de
+  día/semana/mes como en el desglose por especialista de Finanzas
+  (`monthFinancials`) y en "Mis ganancias" — mismo `countPersonas` en los
+  tres lugares, para que no vuelvan a desalinearse.
 - **Bloquear hora** (`state.blocks`): tres tipos — "Unas horas" (date +
   start/end), "Día completo" (`allDay:true`) y "Varios días" (`allDay:true`
   + `dateEnd`, último día incluido; ej. un viaje). Un bloqueo de varios días

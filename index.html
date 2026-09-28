@@ -5061,8 +5061,22 @@ function apptPersonas(a){
 function apptPersonasAtendidas(a){
   return (a.estado==='Cancelada' || a.estado==='NoShow') ? 0 : apptPersonas(a);
 }
+// Si la misma clienta tiene más de una cita en el período que se está
+// contando (ej. la agendaron dos veces el mismo día, a horas distintas), es
+// UNA persona que vino dos veces, no dos personas distintas — se cuenta una
+// sola vez. Si alguna de sus fichas fue con acompañante (personas>1), se usa
+// la de más personas, para no perder al acompañante ni duplicar a la titular.
 function countPersonas(appts){
-  return appts.reduce((s,a)=>s+apptPersonasAtendidas(a),0);
+  const porClienta = {};
+  let total = 0;
+  appts.forEach(a=>{
+    const n = apptPersonasAtendidas(a);
+    const key = normalizeName(a.client);
+    if(!key){ total += n; return; }
+    if(!(key in porClienta) || n > porClienta[key]) porClienta[key] = n;
+  });
+  Object.values(porClienta).forEach(n=>{ total += n; });
+  return total;
 }
 // Texto corto para mostrar junto al número de citas, solo cuando hay alguna
 // ficha con más de una persona (si no, el número sería el mismo y estorba).
@@ -5152,14 +5166,21 @@ function monthFinancials(year, month){
   const porEspecialista = {};
   appts.forEach(a=>{
     const name = a.specialist || 'Sin asignar';
-    if(!porEspecialista[name]) porEspecialista[name] = {ingresos:0, comisionBase:0, citas:0, personas:0, multi:false};
+    if(!porEspecialista[name]) porEspecialista[name] = {ingresos:0, comisionBase:0, citas:0, personas:0, multi:false, _appts:[]};
     porEspecialista[name].ingresos += apptRevenue(a);
     porEspecialista[name].comisionBase += apptCommissionBase(a);
     porEspecialista[name].citas += 1;
-    porEspecialista[name].personas += apptPersonasAtendidas(a);
+    porEspecialista[name]._appts.push(a);
     if(apptPersonas(a)>1) porEspecialista[name].multi = true;
   });
-  Object.keys(porEspecialista).forEach(name=>{ porEspecialista[name].comision = porEspecialista[name].comisionBase * comisionPct; });
+  Object.keys(porEspecialista).forEach(name=>{
+    const e = porEspecialista[name];
+    e.comision = e.comisionBase * comisionPct;
+    // Misma clienta con más de una cita en el mes con esta especialista -> se
+    // cuenta una sola vez (ver countPersonas).
+    e.personas = countPersonas(e._appts);
+    delete e._appts;
+  });
 
   return {ingresos, ingresosCitas, ingresosPasivos, gastosFijos, gastosVariables, comisiones, gastosTotal, beneficio, porMetodo, porEspecialista, comisionPct, appts, gastos, cremasVendidas};
 }

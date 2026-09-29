@@ -3918,7 +3918,7 @@ function undoLastChange(){
     undoSnapshot = null; // se usa una sola vez — hasta el próximo cambio real no queda nada más que deshacer
     ui.modal = null;
     render();
-    saveData({recordUndo:false}).then(()=>showAlert('Listo, se deshizo el último cambio.'));
+    saveData({recordUndo:false}).then(ok=>{ if(ok) showAlert('Listo, se deshizo el último cambio.'); });
   });
 }
 
@@ -6882,17 +6882,26 @@ function mergeConcurrentApptChanges(original, updated, current){
   };
   const special = new Set(['cremaCantidad','cremaComprada','personas']);
   const keys = new Set([...Object.keys(updated), ...Object.keys(current)]);
+  const takenFromCurrent = new Set();
   keys.forEach(k=>{
     if(k==='id' || k==='service' || special.has(k)) return;
     if(same(updated[k], original[k]) && !same(current[k], original[k])){
       if(current[k]===undefined) delete updated[k]; else updated[k] = current[k];
+      takenFromCurrent.add(k);
     }
   });
   // Cremas y personas se comparan por su valor real (una cita vieja sin
   // cremaCantidad pero con cremaComprada:true = 1 crema; sin personas = 1).
   if(apptCremas(updated)===apptCremas(original) && apptCremas(current)!==apptCremas(original)){
+    const cremaDiff = (apptCremas(current) - apptCremas(original)) * CREMA_PRICE;
     updated.cremaCantidad = apptCremas(current);
     updated.cremaComprada = updated.cremaCantidad>0;
+    // Las cremas que agregó la otra persona ya vienen sumadas en SU precio. Si
+    // Admin además cambió el precio/saldo a mano (ej. un descuento), gana el
+    // número de Admin, pero sin perder esas cremas.
+    ['price','saldo'].forEach(k=>{
+      if(!takenFromCurrent.has(k)) updated[k] = Math.max(0, (Number(updated[k])||0) + cremaDiff);
+    });
   }
   if(apptPersonas(updated)===apptPersonas(original) && apptPersonas(current)!==apptPersonas(original)){
     updated.personas = apptPersonas(current);

@@ -6506,14 +6506,14 @@ function onAction(e){
       // ningún lado — si se cierra la agenda en ese momento, se pierde.
       let confirmed = false;
       const slowTimer = setTimeout(()=>{
-        if(!confirmed) showAlert('⏳ Todavía no se termina de guardar — parece que no hay buena señal de internet. No cierres la agenda hasta que aparezca "Listo, quedó guardado".');
+        if(!confirmed) showAlert('⏳ Todavía no se termina de guardar — parece que no hay buena señal de internet. No cierres la agenda hasta que aparezca "Listo, el pago quedó guardado".');
       }, 6000);
       saveData().then(ok=>{
         confirmed = true;
         clearTimeout(slowTimer);
         if(!ok) return; // saveData ya mostró el aviso de por qué no se guardó
         syncToBackupWebhook('save', appt);
-        showAlert('✅ Listo, quedó guardado. Ya se ve en todos los teléfonos.');
+        showAlert('✅ Listo, el pago quedó guardado.');
       });
       break;
     }

@@ -314,7 +314,7 @@ replantear salvo que surja algo que realmente lo justifique):
   `price` y `saldo`.
   Al marcar se guarda también `a.pagoMarcadoPor` ({nombre, en}) y se ve en
   la cita ("✅ Pago marcado por X el …"), se manda al respaldo de
-  Sheets/Calendar (antes NO se mandaba), y solo se le dice "Listo, quedó
+  Sheets/Calendar (antes NO se mandaba), y solo se le dice "Listo, el pago quedó
   guardado" cuando Firestore confirma; si tarda más de 6 s, se le avisa que
   no cierre la agenda (sin señal, el cambio se ve en pantalla pero se pierde
   si se cierra). Si cambió el método o las cremas y toca "Cerrar"/fuera del

@@ -3656,6 +3656,38 @@ function runCursoMicropigmentacion20261025IfNeeded(){
   return true;
 }
 
+// Repara inscritos "huérfanos": una cita con cursoId que ya no tiene curso
+// (el curso se borró por accidente, o dos dispositivos guardaron a la vez y
+// uno pisó al otro — la app guarda el documento completo, no hay
+// transacciones). Sin esto, ese inscrito desaparece de "Ver cursos" y de la
+// vista Día (las citas de curso no se muestran sueltas), aunque su plata
+// (abono/precio) sigue sumando en el resumen del día — un bug real,
+// reportado por el usuario, que hacía parecer que "algo estaba agendado
+// pero no se veía". Reconstruye el curso a partir de los datos que el mismo
+// inscrito ya tenía guardados (fecha, hora, especialista, precio, nombre del
+// curso) — así no se pierde a nadie que ya pagó. Corre una sola vez.
+const CURSO_HUERFANO_REPAIR_KEY = 'cursoHuerfanoRepair20260929';
+function runCursoHuerfanoRepairIfNeeded(){
+  if(state.settings[CURSO_HUERFANO_REPAIR_KEY]) return false;
+  state.settings[CURSO_HUERFANO_REPAIR_KEY] = true;
+  const courseIds = new Set((state.courses||[]).map(c=>c.id));
+  const orphans = (state.appointments||[]).filter(a=>a.cursoId && !courseIds.has(a.cursoId));
+  if(!orphans.length) return true;
+  if(!state.courses) state.courses = [];
+  const byCourse = {};
+  orphans.forEach(a=>{ if(!byCourse[a.cursoId]) byCourse[a.cursoId] = a; });
+  const NOTAS_MICROPIGMENTACION_20261025 = 'Lota 2267, Edificio Columbia, Providencia.\n\nQué aprenderás:\n- Diseño y visagismo de cejas y labios\n- Colorimetría\n- Asepsia y antisepsia\n- Micropigmentación de labios y cejas\n\nIncluye una práctica en persona.\nAbono para apartar el cupo: $25.000.';
+  Object.keys(byCourse).forEach(cid=>{
+    const a = byCourse[cid];
+    state.courses.push({
+      id: cid, nombre: a.cursoNombre || 'Curso', date: a.date, start: a.start, end: a.end,
+      specialist: a.specialist || '', price: Number(a.price)||0,
+      notas: a.date==='2026-10-25' ? NOTAS_MICROPIGMENTACION_20261025 : '',
+    });
+  });
+  return true;
+}
+
 // Carga inicial (una sola vez) de la sección Stock, con lo que ya se sabe
 // (definido con Juan Diego y su papá): Filos (1 sola medida), Agujas 1RL y
 // 3RL (avisar con 20 o menos) y Anestesia (una sola). Los colores de
@@ -3764,12 +3796,13 @@ function startFirestoreSync(){
       const gananciasCutoff = runMisGananciasCutoffIfNeeded();
       const personasNotas = runPersonasFromNotesIfNeeded();
       const cursoMicropigmentacion = runCursoMicropigmentacion20261025IfNeeded();
+      const cursoHuerfanoRepair = runCursoHuerfanoRepairIfNeeded();
       ui.loaded = true;
       // Si hay un modal abierto (alguien escribiendo), no lo interrumpimos con un
       // re-render completo — los datos ya quedaron actualizados por dentro y se
       // van a ver apenas cierre ese modal.
       if(!ui.modal) render();
-      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas || cursoMicropigmentacion) saveData({recordUndo:false});
+      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas || cursoMicropigmentacion || cursoHuerfanoRepair) saveData({recordUndo:false});
       runDailyAutoBackupIfNeeded();
       checkUnseenBlocksIfNeeded();
     } else {

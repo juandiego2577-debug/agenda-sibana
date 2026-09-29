@@ -146,6 +146,23 @@ replantear salvo que surja algo que realmente lo justifique):
    tamaño de fuente o el padding de `.appt`, hay que remedir este número
    (ver `test_find_threshold.js` en el historial de pruebas de esta
    sesión como referencia de cómo medirlo), no reusar un valor a ojo.
+10. **Un curso puede quedar "huérfano"**: el documento de Firestore se
+    guarda completo cada vez (no hay transacciones), así que si dos
+    dispositivos guardan casi al mismo tiempo, uno le puede pisar el
+    cambio al otro. Pasó de verdad con el curso del 25 de octubre: el
+    curso (`state.courses`) desapareció pero la cita del inscrito
+    (`a.cursoId`, con su abono y precio ya pagados) siguió existiendo —
+    "Ver cursos" lo daba por inexistente y la vista Día no mostraba nada
+    (las citas de curso no se ven sueltas), pero el resumen del día sí
+    sumaba esa plata, porque `summaryHtml` no excluye por `cursoId` (a
+    propósito: si excluyera, "Falta por cobrar"/"Ingreso total" del día
+    quedarían mal). `runCursoHuerfanoRepairIfNeeded` detecta cualquier
+    cita con `cursoId` que no tenga curso correspondiente y reconstruye
+    el curso usando los propios datos de la cita (fecha/hora/especialista/
+    precio/nombre) — corre una sola vez por huérfano encontrado. Si esto
+    vuelve a pasar con otro curso, hace falta el mismo tipo de reparación
+    (no se resuelve solo: el guardado no usa transacciones a propósito,
+    por simplicidad — evaluar si vale la pena cambiar eso si se repite).
 
 ## Reglas de negocio de Finanzas (definidas explícitamente, no adivinar)
 - **Comisión de especialistas**: 50% por defecto (variable por mes, ver

@@ -164,6 +164,18 @@ replantear salvo que surja algo que realmente lo justifique):
     (no se resuelve solo: el guardado no usa transacciones a propósito,
     por simplicidad — evaluar si vale la pena cambiar eso si se repite).
 
+11. **Un formulario abierto puede pisar el cambio de otro teléfono.** Una
+    especialista marcaba sus citas como realizadas y "se desmarcaban
+    solas": si Admin tenía ESA cita abierta (aunque solo mirándola) y
+    después tocaba "Guardar", el formulario —con los datos de cuando se
+    abrió— pisaba lo que ella había marcado. Ahora `saveApptFromForm` usa
+    `mergeConcurrentApptChanges` (con `ui.modal.original`, la foto de la
+    cita al abrirla): campo por campo, si Admin no tocó un campo y otra
+    persona sí lo cambió mientras tanto, se queda el cambio de la otra
+    persona. Esto NO resuelve el problema general del punto 10 (un
+    teléfono con datos viejos que guarda el documento completo) — solo el
+    caso del formulario de una cita abierta.
+
 ## Reglas de negocio de Finanzas (definidas explícitamente, no adivinar)
 - **Comisión de especialistas**: 50% por defecto (variable por mes, ver
   punto 8 arriba) sobre lo que genera cada cita — pero NUNCA sobre la
@@ -291,6 +303,22 @@ replantear salvo que surja algo que realmente lo justifique):
   avisarle a Juan Diego a mano (cuaderno/WhatsApp) para que él lo tipee.
   No pueden tocar precio, abono ni ningún otro campo — solo método de
   pago del saldo, la crema, y el estado a "Realizada".
+  **Cantidad de cremas** (`a.cremaCantidad`, ver `apptCremas`): tanto Admin
+  como la especialista eligen cuántas cremas compró (selector − N +), no
+  solo sí/no. Cada crema suma $5.000 al precio y se descuenta completa de
+  la comisión. Las citas viejas sin `cremaCantidad` y con
+  `cremaComprada:true` cuentan como 1 (`cremaComprada` se sigue guardando
+  como `cremaCantidad>0` por compatibilidad). Antes, el checkbox de la
+  especialista marcaba la crema SIN sumarla al precio (bug: la comisión le
+  restaba $5.000 que nunca se habían sumado) — ahora suma la diferencia a
+  `price` y `saldo`.
+  Al marcar se guarda también `a.pagoMarcadoPor` ({nombre, en}) y se ve en
+  la cita ("✅ Pago marcado por X el …"), se manda al respaldo de
+  Sheets/Calendar (antes NO se mandaba), y solo se le dice "Listo, quedó
+  guardado" cuando Firestore confirma; si tarda más de 6 s, se le avisa que
+  no cierre la agenda (sin señal, el cambio se ve en pantalla pero se pierde
+  si se cierra). Si cambió el método o las cremas y toca "Cerrar"/fuera del
+  modal sin guardar, se le pregunta antes de cerrar.
 - **Retoques pendientes** y **Reseñas pendientes** funcionan DISTINTO a
   propósito (aunque antes se habían igualado, y resultó ser un error real
   de uso — ver más abajo): en Reseñas SÍ tiene sentido pedir la opinión

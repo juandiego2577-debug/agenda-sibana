@@ -3183,7 +3183,7 @@ function recomputeServiceFields(){
   const totalPrice = q.reduce((s,{idx,qty})=> s + (state.services[idx] ? (Number(state.services[idx].price)||0)*qty : 0), 0);
   const totalDuration = getTotalDuration();
   const cremaEl = document.getElementById('f-crema');
-  const cremaExtra = (cremaEl && cremaEl.checked) ? CREMA_PRICE : 0;
+  const cremaExtra = cremaEl ? CREMA_PRICE*(Number(cremaEl.value)||0) : 0;
   const finalPrice = totalPrice + cremaExtra;
 
   const chipsBox = document.getElementById('svc-chips');
@@ -3863,7 +3863,7 @@ async function saveData(opts){
   if(state.appointments.length === 0 && lastKnownGoodCount > 5){
     console.error('Guardado bloqueado por seguridad: se intentó guardar con 0 citas habiendo visto', lastKnownGoodCount, 'antes.');
     showAlert('Por seguridad, no se guardó un cambio que hubiera dejado la agenda vacía (antes había '+lastKnownGoodCount+' citas). Si esto fue intencional, avísale a Juan Diego. Si no lo fue, no toques nada más y avísale también.');
-    return;
+    return false;
   }
   // Segunda red de seguridad: la pérdida de datos real que ya pasó una vez no
   // dejó la agenda en 0 — la reemplazó por otros datos. Así que además se
@@ -3875,13 +3875,14 @@ async function saveData(opts){
   if(missing > allowedRemoved){
     console.error('Guardado bloqueado por seguridad: desaparecerían', missing, 'citas de golpe.');
     showAlert('Por seguridad, no se guardó este cambio: habría hecho desaparecer '+missing+' citas de una sola vez. Recarga la página antes de seguir, y si vuelve a pasar, avísale a Juan Diego.');
-    return;
+    return false;
   }
   // Justo antes de escribir el cambio nuevo, guardamos cómo estaba el
   // documento hasta ahora — eso es lo que "Deshacer" restaura si alguien
   // se equivoca (ej. mover la ficha que no era).
   if(recordUndo) undoSnapshot = lastRemoteData;
   ui.saving = true;
+  let ok = true;
   try{
     await DOC_REF.set({
       appointments: state.appointments,
@@ -3900,8 +3901,10 @@ async function saveData(opts){
   }catch(e){
     console.error('Error guardando', e);
     showAlert('No se pudo guardar el cambio. Revisa tu conexión e inténtalo de nuevo.');
+    ok = false;
   }
   ui.saving = false;
+  return ok;
 }
 
 function undoLastChange(){
@@ -3915,7 +3918,7 @@ function undoLastChange(){
     undoSnapshot = null; // se usa una sola vez — hasta el próximo cambio real no queda nada más que deshacer
     ui.modal = null;
     render();
-    saveData({recordUndo:false}).then(()=>showAlert('Listo, se deshizo el último cambio.'));
+    saveData({recordUndo:false}).then(ok=>{ if(ok) showAlert('Listo, se deshizo el último cambio.'); });
   });
 }
 
@@ -4480,6 +4483,35 @@ function blockModalHtml(){
   </div>`;
 }
 
+// Selector "− N +" de cuántas cremas post-tratamiento compró la clienta (se
+// usa igual en el formulario de Admin y en la vista de la especialista).
+// Cuándo y quién marcó el pago desde la vista de la especialista — así, si
+// una cita aparece sin marcar, se puede saber si de verdad nunca se marcó.
+function pagoMarcadoHtml(d){
+  const m = d.pagoMarcadoPor;
+  if(!m || !m.en) return '';
+  const dt = new Date(m.en);
+  if(isNaN(dt)) return '';
+  const cuando = dt.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'}) + ' a las ' + dt.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+  return `<div class="hint" style="margin:-4px 0 14px;">✅ Pago marcado por ${escapeHtml(m.nombre||'la especialista')} el ${cuando}.</div>`;
+}
+
+function cremaStepperHtml(inputId, qty){
+  return `
+      <div class="field">
+        <label>🧴 Cremas post-tratamiento compradas (${fmtCLP(CREMA_PRICE)} c/u)</label>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="svc-qty" data-crema-stepper="${inputId}">
+            <button type="button" class="svc-qty-btn" data-crema-dec="1" ${qty<=0?'disabled':''} aria-label="Una crema menos">−</button>
+            <span class="svc-qty-num" id="${inputId}-num">${qty}</span>
+            <button type="button" class="svc-qty-btn" data-crema-inc="1" ${qty>=9?'disabled':''} aria-label="Una crema más">+</button>
+          </span>
+          <input type="hidden" id="${inputId}" value="${qty}">
+          <span class="hint" style="margin:0;flex:1;">Si no compró ninguna, deja 0</span>
+        </div>
+      </div>`;
+}
+
 function apptViewOnlyHtml(d){
   const estadoLabels = {Pendiente:'Pendiente',Confirmada:'Confirmada',Realizada:'Realizada',Cancelada:'Cancelada',NoShow:'No se presentó'};
   return `
@@ -4492,7 +4524,7 @@ function apptViewOnlyHtml(d){
       ${d.phone ? `<div class="field"><label>Teléfono</label><div>${escapeHtml(d.phone)}</div></div>` : ''}
       <div class="field"><label>Servicio</label><div>${escapeHtml(summarizeServices(d.services||[])) || '—'}</div></div>
       ${apptPersonas(d)>1 ? `<div class="field"><label>Personas</label><div>👥 ${apptPersonas(d)} personas en esta ficha</div></div>` : ''}
-      ${d.cremaComprada && (d.estado==='Cancelada' || d.estado==='NoShow') ? `<div class="field"><label>Crema post-tratamiento</label><div>🧴 Sí, compró (entregar)</div></div>` : ''}
+      ${apptCremas(d)>0 && (d.estado==='Cancelada' || d.estado==='NoShow') ? `<div class="field"><label>Crema post-tratamiento</label><div>🧴 Sí, compró ${apptCremas(d)===1?'1 crema':apptCremas(d)+' cremas'} (entregar)</div></div>` : ''}
       <div class="field"><label>Especialista</label><div>${escapeHtml(d.specialist||'Sin asignar')}</div></div>
       <div class="field"><label>Estado</label><div>${estadoLabels[d.estado]||d.estado}</div></div>
       ${(d.estado!=='Cancelada' && d.estado!=='NoShow') ? `
@@ -4502,17 +4534,15 @@ function apptViewOnlyHtml(d){
       </div>
       <div class="cobrar-box">
         <label>Cobrar a la clienta</label>
-        <div class="cobrar-amount">${fmtCLP(apptPorCobrar(d))}</div>
+        <div class="cobrar-amount" id="staff-cobrar-amount">${fmtCLP(apptPorCobrar(d))}</div>
         <div class="cobrar-hint">Este monto ya es el final — si hay un descuento, ya está incluido. Cóbralo tal cual, sin restar nada más.</div>
       </div>
-      <label style="display:flex;align-items:center;gap:8px;margin:-6px 0 16px;font-size:13px;color:var(--ink);cursor:pointer;">
-        <input type="checkbox" id="f-staff-crema" ${d.cremaComprada?'checked':''} style="width:16px;height:16px;accent-color:var(--wine);">
-        🧴 Compró la crema post-tratamiento (+${fmtCLP(CREMA_PRICE)})
-      </label>
+      ${cremaStepperHtml('f-staff-crema', apptCremas(d))}
       <div class="field"><label>Método de pago del saldo</label>
         <select id="f-staff-metodoSaldo">${paymentSelectOptions(d.metodoSaldo)}</select>
       </div>
       <button type="button" class="btn btn-primary" style="width:100%;margin:0 0 14px;" data-act="staff-mark-realizada" data-id="${escapeHtml(d.id)}">${d.estado==='Realizada' ? '💾 Guardar método de pago' : '✅ Marcar como realizada y guardar el pago'}</button>` : ''}
+      ${pagoMarcadoHtml(d)}
       ${d.notas ? `<div class="field"><label>Notas</label><div>${escapeHtml(d.notas)}</div></div>` : ''}
       <div class="modal-actions">
         <div></div>
@@ -4567,6 +4597,7 @@ function apptModalHtml(){
           <select id="f-estado">${estados.map(e=>`<option value="${e}" ${d.estado===e?'selected':''}>${estadoLabels[e]}</option>`).join('')}</select>
         </div>
       </div>
+      ${pagoMarcadoHtml(d)}
       <div class="row2">
         <div class="field"><label>Hora inicio</label><input type="time" id="f-start" value="${d.start}"></div>
         <div class="field"><label>Hora fin</label><input type="time" id="f-end" value="${d.end}"></div>
@@ -4596,10 +4627,7 @@ function apptModalHtml(){
           <span class="hint" style="margin:0;flex:1;">Ej.: viene con una amiga y se atienden las dos → pon 2</span>
         </div>
       </div>
-      <label style="display:flex;align-items:center;gap:8px;margin:-6px 0 16px;font-size:13px;color:var(--ink);cursor:pointer;">
-        <input type="checkbox" id="f-crema" ${d.cremaComprada?'checked':''} style="width:16px;height:16px;accent-color:var(--wine);">
-        🧴 Compró la crema post-tratamiento (+${fmtCLP(CREMA_PRICE)})
-      </label>
+      ${cremaStepperHtml('f-crema', apptCremas(d))}
       <div class="field"><label>Especialista</label>
         <select id="f-specialist">
           <option value="">— Sin asignar —</option>
@@ -5129,16 +5157,23 @@ function personasSuffix(appts, short){
   return short ? ` · ${p} pers.` : ` · ${p} persona${p===1?'':'s'}`;
 }
 
+// Cuántas cremas post-tratamiento compró la clienta en esta cita. Antes solo
+// se podía marcar "compró / no compró" (a.cremaComprada): las citas viejas
+// que no tienen a.cremaCantidad cuentan como 1 si estaban marcadas.
+function apptCremas(a){
+  if(a.cremaCantidad!=null && a.cremaCantidad!=='') return Math.max(0, Math.floor(Number(a.cremaCantidad))||0);
+  return a.cremaComprada ? 1 : 0;
+}
 function apptRevenue(a){
   if(a.estado==='Cancelada' || a.estado==='NoShow') return a.abonoDevuelto ? 0 : (Number(a.abono)||0);
   return Number(a.price)||0;
 }
 // Base sobre la que se calcula la comisión de la especialista: igual que
-// apptRevenue, pero sin los $5.000 de la crema post-tratamiento — esa plata
+// apptRevenue, pero sin los $5.000 de CADA crema post-tratamiento — esa plata
 // es 100% para el dueño, la especialista no se queda con nada de la crema.
 function apptCommissionBase(a){
   const rev = apptRevenue(a);
-  if(a.cremaComprada && a.estado!=='Cancelada' && a.estado!=='NoShow') return Math.max(0, rev - CREMA_PRICE);
+  if(a.estado!=='Cancelada' && a.estado!=='NoShow') return Math.max(0, rev - CREMA_PRICE*apptCremas(a));
   return rev;
 }
 // Lo que falta cobrarle a la clienta en la cita: precio total (ya con
@@ -5186,7 +5221,7 @@ function monthFinancials(year, month){
   // desglose semanal de abajo, para que ambos números siempre cuadren.
   const ingresosPasivos = recurringIncomeTotal() * weekRangesForMonth(year, month).length;
   const ingresos = ingresosCitas + ingresosPasivos;
-  const cremasVendidas = appts.filter(a=>a.cremaComprada && a.estado!=='Cancelada' && a.estado!=='NoShow').length;
+  const cremasVendidas = appts.filter(a=>a.estado!=='Cancelada' && a.estado!=='NoShow').reduce((s,a)=>s+apptCremas(a),0);
   const recurringTotal = (state.recurringExpenses||[]).reduce((s,r)=>s+(Number(r.monto)||0),0);
   const gastosFijos = recurringTotal + gastos.filter(g=>g.tipo==='Fijo').reduce((s,g)=>s+(Number(g.monto)||0),0);
   const gastosVariables = gastos.filter(g=>g.tipo==='Variable').reduce((s,g)=>s+(Number(g.monto)||0),0);
@@ -6208,6 +6243,28 @@ function attachEvents(){
       document.getElementById('f-block-date-label').textContent = kind==='days' ? 'Desde el día' : 'Fecha';
     });
   }
+  document.querySelectorAll('[data-crema-stepper]').forEach(wrap=>{
+    const input = document.getElementById(wrap.dataset.cremaStepper);
+    if(!input) return;
+    wrap.addEventListener('click', e=>{
+      const inc = e.target.closest('[data-crema-inc]');
+      const dec = e.target.closest('[data-crema-dec]');
+      if(!inc && !dec) return;
+      const n = Math.max(0, Math.min(9, (Number(input.value)||0) + (inc?1:-1)));
+      input.value = n;
+      document.getElementById(input.id+'-num').textContent = n;
+      wrap.querySelector('[data-crema-dec]').disabled = n<=0;
+      wrap.querySelector('[data-crema-inc]').disabled = n>=9;
+      if(input.id==='f-crema') recomputeServiceFields();
+      if(input.id==='f-staff-crema' && ui.modal && ui.modal.data){
+        // El monto a cobrar se actualiza al tiro con las cremas elegidas.
+        const d = ui.modal.data;
+        const price = (Number(d.price)||0) + (n - apptCremas(d))*CREMA_PRICE;
+        const box = document.getElementById('staff-cobrar-amount');
+        if(box) box.textContent = fmtCLP(apptPorCobrar({price, abono:d.abono}));
+      }
+    });
+  });
   const personasInput = document.getElementById('f-personas');
   if(personasInput){
     const wrap = personasInput.parentElement;
@@ -6298,6 +6355,18 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-courses','new-course','edit-course','save-course','delete-course',
   'curso-add-attendee','curso-edit-attendee','save-curso-attendee','delete-curso-attendee',
 ]);
+
+// ¿La especialista cambió el método de pago o las cremas en la vista de una
+// cita, sin tocar todavía el botón de guardar?
+function staffHasUnsavedPayment(){
+  if(ui.mode==='admin' || !ui.modal || ui.modal.type!=='appt') return false;
+  const d = ui.modal.data;
+  const sel = document.getElementById('f-staff-metodoSaldo');
+  const crema = document.getElementById('f-staff-crema');
+  if(sel && sel.value && sel.value!==(d.metodoSaldo||'')) return true;
+  if(crema && (Number(crema.value)||0)!==apptCremas(d)) return true;
+  return false;
+}
 
 function onAction(e){
   const act = e.currentTarget.dataset.act;
@@ -6413,13 +6482,39 @@ function onAction(e){
         showAlert('Elegí primero el método de pago antes de guardar.');
         break;
       }
-      const cremaBox = document.getElementById('f-staff-crema');
+      const cremaInput = document.getElementById('f-staff-crema');
+      const cremas = cremaInput ? Math.max(0, Math.min(9, Number(cremaInput.value)||0)) : apptCremas(appt);
+      // Cada crema suma $5.000 al precio (igual que en el formulario de Admin).
+      // Antes el checkbox de la especialista marcaba la crema pero no la
+      // sumaba al precio — y como la comisión le descuenta la crema al
+      // precio, a la especialista se le terminaba restando plata que nunca
+      // se sumó.
+      const diff = (cremas - apptCremas(appt)) * CREMA_PRICE;
+      if(diff){
+        appt.price = Math.max(0, (Number(appt.price)||0) + diff);
+        appt.saldo = Math.max(0, (Number(appt.saldo)||0) + diff);
+      }
+      appt.cremaCantidad = cremas;
+      appt.cremaComprada = cremas>0;
       appt.metodoSaldo = metodo;
-      appt.cremaComprada = !!(cremaBox && cremaBox.checked);
       appt.estado = 'Realizada';
+      appt.pagoMarcadoPor = { nombre: safeGetLocal(STAFF_IDENTITY_KEY) || appt.specialist || '', en: new Date().toISOString() };
       ui.modal = null;
       render();
-      saveData();
+      // Se avisa recién cuando la base de datos confirma que lo recibió. Si
+      // no hay señal, el cambio se ve en pantalla pero todavía no llegó a
+      // ningún lado — si se cierra la agenda en ese momento, se pierde.
+      let confirmed = false;
+      const slowTimer = setTimeout(()=>{
+        if(!confirmed) showAlert('⏳ Todavía no se termina de guardar — parece que no hay buena señal de internet. No cierres la agenda hasta que aparezca "Listo, quedó guardado".');
+      }, 6000);
+      saveData().then(ok=>{
+        confirmed = true;
+        clearTimeout(slowTimer);
+        if(!ok) return; // saveData ya mostró el aviso de por qué no se guardó
+        syncToBackupWebhook('save', appt);
+        showAlert('✅ Listo, quedó guardado. Ya se ve en todos los teléfonos.');
+      });
       break;
     }
     case 'edit-appt': {
@@ -6428,7 +6523,8 @@ function onAction(e){
       if(found) {
         const data = Object.assign({}, found);
         if(!Array.isArray(data.services)) data.services = data.service ? [data.service] : [];
-        ui.modal = {type:'appt', mode:'edit', data};
+        // Foto de cómo estaba la cita al abrirla — ver mergeConcurrentApptChanges.
+        ui.modal = {type:'appt', mode:'edit', data, original: JSON.parse(JSON.stringify(found))};
         render();
       }
       break;
@@ -6686,6 +6782,10 @@ function onAction(e){
       saveStockFromForm(); break;
     case 'close-modal':
     case 'overlay-close':
+      if(staffHasUnsavedPayment()){
+        showConfirmDialog('No has guardado el pago: elegiste el método de pago o las cremas, pero no tocaste el botón "Marcar como realizada". Si cierras ahora, no queda nada guardado. ¿Cerrar igual?', ()=>{ ui.modal = null; render(); });
+        break;
+      }
       ui.modal = null; render(); break;
     case 'save-appt':
       saveApptFromForm(); break;
@@ -6767,6 +6867,47 @@ function onAction(e){
   }
 }
 
+// Mientras Admin tiene una cita abierta, otra persona puede cambiarla desde
+// otro teléfono (ej. la especialista la marca como realizada con su método
+// de pago). El formulario de Admin sigue mostrando los datos de cuando se
+// abrió, así que al tocar "Guardar" se pisaba ese cambio con los datos viejos
+// y la cita volvía a quedar sin marcar (bug real). Ahora, campo por campo: si
+// Admin NO tocó un campo en el formulario y otra persona sí lo cambió
+// mientras tanto, se queda el cambio de la otra persona. Si Admin sí lo
+// cambió, gana lo que puso Admin.
+function mergeConcurrentApptChanges(original, updated, current){
+  const same = (a,b)=>{
+    const n = v=>(v===undefined||v===null||v===''||v===false) ? null : JSON.stringify(v);
+    return n(a)===n(b);
+  };
+  const special = new Set(['cremaCantidad','cremaComprada','personas']);
+  const keys = new Set([...Object.keys(updated), ...Object.keys(current)]);
+  const takenFromCurrent = new Set();
+  keys.forEach(k=>{
+    if(k==='id' || k==='service' || special.has(k)) return;
+    if(same(updated[k], original[k]) && !same(current[k], original[k])){
+      if(current[k]===undefined) delete updated[k]; else updated[k] = current[k];
+      takenFromCurrent.add(k);
+    }
+  });
+  // Cremas y personas se comparan por su valor real (una cita vieja sin
+  // cremaCantidad pero con cremaComprada:true = 1 crema; sin personas = 1).
+  if(apptCremas(updated)===apptCremas(original) && apptCremas(current)!==apptCremas(original)){
+    const cremaDiff = (apptCremas(current) - apptCremas(original)) * CREMA_PRICE;
+    updated.cremaCantidad = apptCremas(current);
+    updated.cremaComprada = updated.cremaCantidad>0;
+    // Las cremas que agregó la otra persona ya vienen sumadas en SU precio. Si
+    // Admin además cambió el precio/saldo a mano (ej. un descuento), gana el
+    // número de Admin, pero sin perder esas cremas.
+    ['price','saldo'].forEach(k=>{
+      if(!takenFromCurrent.has(k)) updated[k] = Math.max(0, (Number(updated[k])||0) + cremaDiff);
+    });
+  }
+  if(apptPersonas(updated)===apptPersonas(original) && apptPersonas(current)!==apptPersonas(original)){
+    updated.personas = apptPersonas(current);
+  }
+}
+
 function saveApptFromForm(){
   const d = ui.modal.data;
   const get = id=>document.getElementById(id).value;
@@ -6785,18 +6926,21 @@ function saveApptFromForm(){
     metodoSaldo: get('f-metodoSaldo'), notas: get('f-notas'),
     metodoAbono2: get('f-metodoAbono2'), montoAbono2: Number(get('f-montoAbono2'))||0,
     metodoSaldo2: get('f-metodoSaldo2'), montoSaldo2: Number(get('f-montoSaldo2'))||0,
-    cremaComprada: !!(document.getElementById('f-crema') && document.getElementById('f-crema').checked),
+    cremaCantidad: document.getElementById('f-crema') ? Math.max(0, Math.min(9, Number(get('f-crema'))||0)) : apptCremas(d),
     abonoPrevio: !!(document.getElementById('f-abonoPrevio') && document.getElementById('f-abonoPrevio').checked),
     abonoDevuelto: !!(document.getElementById('f-abonoDevuelto') && document.getElementById('f-abonoDevuelto').checked),
     personas: Math.max(1, Math.min(9, Math.floor(Number(document.getElementById('f-personas') ? get('f-personas') : 1))||1)),
   };
+  updated.cremaComprada = updated.cremaCantidad>0;
   delete updated.service;
   if(!updated.client){ showAlert('Ingresa el nombre del cliente.'); return; }
   if(!updated.services.length){ showAlert('Elige al menos un servicio.'); return; }
   if(updated.end <= updated.start){ showAlert('La hora de fin debe ser posterior a la hora de inicio.'); return; }
 
+  const original = ui.modal.original;
   const commit = ()=>{
     const idx = state.appointments.findIndex(a=>a.id===updated.id);
+    if(idx>=0 && original) mergeConcurrentApptChanges(original, updated, state.appointments[idx]);
     if(idx>=0) state.appointments[idx] = updated; else state.appointments.push(updated);
     upsertClient(updated.client, updated.phone, summarizeServices(updated.services));
     ui.modal = null;
@@ -7000,9 +7144,6 @@ function saveScheduleFromForm(){
 // de inicio, y autocompletado de cliente mientras se escribe — delegados en
 // document para que sigan funcionando después de cada render() del modal.
 document.addEventListener('change', e=>{
-  if(e.target && e.target.id==='f-crema'){
-    recomputeServiceFields();
-  }
   if(e.target && e.target.id==='f-start'){
     const endInput = document.getElementById('f-end');
     if(endInput && e.target.value){

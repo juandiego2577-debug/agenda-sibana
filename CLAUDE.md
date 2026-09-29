@@ -312,8 +312,20 @@ replantear salvo que surja algo que realmente lo justifique):
   especialista marcaba la crema SIN sumarla al precio (bug: la comisión le
   restaba $5.000 que nunca se habían sumado) — ahora suma la diferencia a
   `price` y `saldo`.
+  **Pago con dos métodos** (ej. parte en efectivo y parte por
+  transferencia): botón "➕ Pagó con dos métodos" en la vista de la
+  especialista. Usa los mismos campos que Admin (`metodoSaldo2` +
+  `montoSaldo2` = lo pagado con el segundo método; el resto del saldo queda
+  en `metodoSaldo`), así que Finanzas (`paymentBreakdown`) y el formulario
+  de Admin lo muestran sin nada extra. Se valida que los dos métodos sean
+  distintos y que el segundo monto sea menor que el saldo total.
   Al marcar se guarda también `a.pagoMarcadoPor` ({nombre, en}) y se ve en
-  la cita ("✅ Pago marcado por X el …"), se manda al respaldo de
+  la cita ("✅ Pago marcado por X el …"). `nombre` es SOLO el que el
+  teléfono tiene elegido en "Mis ganancias" — si no tiene ninguno (ej. modo
+  incógnito) queda vacío y se muestra "en modo Especialista (desde un
+  teléfono sin nombre elegido)". Antes se suponía la especialista de la
+  cita, y una prueba hecha por Juan Diego apareció como si la hubiera
+  hecho ella (confundió el diagnóstico). Además, se manda al respaldo de
   Sheets/Calendar (antes NO se mandaba), y solo se le dice "Listo, el pago quedó
   guardado" cuando Firestore confirma; si tarda más de 6 s, se le avisa que
   no cierre la agenda (sin señal, el cambio se ve en pantalla pero se pierde

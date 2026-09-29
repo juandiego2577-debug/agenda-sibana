@@ -146,35 +146,72 @@ replantear salvo que surja algo que realmente lo justifique):
    tamaño de fuente o el padding de `.appt`, hay que remedir este número
    (ver `test_find_threshold.js` en el historial de pruebas de esta
    sesión como referencia de cómo medirlo), no reusar un valor a ojo.
-10. **Un curso puede quedar "huérfano"**: el documento de Firestore se
-    guarda completo cada vez (no hay transacciones), así que si dos
-    dispositivos guardan casi al mismo tiempo, uno le puede pisar el
-    cambio al otro. Pasó de verdad con el curso del 25 de octubre: el
-    curso (`state.courses`) desapareció pero la cita del inscrito
-    (`a.cursoId`, con su abono y precio ya pagados) siguió existiendo —
-    "Ver cursos" lo daba por inexistente y la vista Día no mostraba nada
-    (las citas de curso no se ven sueltas), pero el resumen del día sí
-    sumaba esa plata, porque `summaryHtml` no excluye por `cursoId` (a
-    propósito: si excluyera, "Falta por cobrar"/"Ingreso total" del día
-    quedarían mal). `runCursoHuerfanoRepairIfNeeded` detecta cualquier
-    cita con `cursoId` que no tenga curso correspondiente y reconstruye
-    el curso usando los propios datos de la cita (fecha/hora/especialista/
-    precio/nombre) — corre una sola vez por huérfano encontrado. Si esto
-    vuelve a pasar con otro curso, hace falta el mismo tipo de reparación
-    (no se resuelve solo: el guardado no usa transacciones a propósito,
-    por simplicidad — evaluar si vale la pena cambiar eso si se repite).
+10. **Un curso puede quedar "huérfano"**: antes el documento de Firestore
+    se guardaba completo cada vez, así que si dos dispositivos guardaban
+    casi al mismo tiempo, uno le podía pisar el cambio al otro. Pasó de
+    verdad con el curso del 25 de octubre: el curso (`state.courses`)
+    desapareció pero la cita del inscrito (`a.cursoId`, con su abono y
+    precio ya pagados) siguió existiendo — "Ver cursos" lo daba por
+    inexistente y la vista Día no mostraba nada (las citas de curso no se
+    ven sueltas), pero el resumen del día sí sumaba esa plata, porque
+    `summaryHtml` no excluye por `cursoId` (a propósito: si excluyera,
+    "Falta por cobrar"/"Ingreso total" del día quedarían mal).
+    `runCursoHuerfanoRepairIfNeeded` detecta cualquier cita con `cursoId`
+    que no tenga curso correspondiente y reconstruye el curso usando los
+    propios datos de la cita. La causa de fondo (guardar el documento
+    completo) se resolvió en el punto 12.
 
 11. **Un formulario abierto puede pisar el cambio de otro teléfono.** Una
     especialista marcaba sus citas como realizadas y "se desmarcaban
     solas": si Admin tenía ESA cita abierta (aunque solo mirándola) y
     después tocaba "Guardar", el formulario —con los datos de cuando se
-    abrió— pisaba lo que ella había marcado. Ahora `saveApptFromForm` usa
+    abrió— pisaba lo que ella había marcado. `saveApptFromForm` usa
     `mergeConcurrentApptChanges` (con `ui.modal.original`, la foto de la
     cita al abrirla): campo por campo, si Admin no tocó un campo y otra
     persona sí lo cambió mientras tanto, se queda el cambio de la otra
-    persona. Esto NO resuelve el problema general del punto 10 (un
-    teléfono con datos viejos que guarda el documento completo) — solo el
-    caso del formulario de una cita abierta.
+    persona.
+
+12. **Guardado sin pisar a los demás (la causa de fondo de 10 y 11).** Los
+    teléfonos dejan la agenda (instalada como app) abierta por horas o días
+    en segundo plano, y su conexión en tiempo real se "duerme" sin avisar:
+    siguen mostrando datos viejos. Antes, `saveData` escribía el documento
+    COMPLETO tal como lo tenía ese teléfono, así que cualquier guardado
+    desde un teléfono dormido borraba lo que otros habían hecho mientras
+    tanto (los pagos marcados por la especialista desaparecían; en
+    incógnito "funcionaba" porque siempre carga fresco). Ahora:
+    - `saveData` usa `db.runTransaction`: lee la versión más reciente de
+      la base de datos y le aplica SOLO lo que este teléfono cambió
+      (`mergeDocs`: comparación de 3 vías contra `lastRemoteBase`, la
+      última versión que este teléfono recibió, ya normalizada con
+      `normalizeDoc`). Listas con `id` (citas, bloqueos, cursos, clientes,
+      gastos, stock) se mezclan elemento por elemento y campo por campo;
+      listas sin `id` (servicios) y la configuración clave por clave. Un
+      borrado gana sobre una edición. Vacío/0/false/"no existe" cuentan
+      igual al decidir si un campo cambió (`sameField`).
+    - Si no hay señal, el guardado FALLA y lo dice ("No se pudo guardar",
+      o a los 6 s "Todavía no se termina de guardar"), y la pantalla vuelve
+      a lo que de verdad hay en la base (`restoreFromServer`) — nunca finge
+      que se guardó. Aviso rojo arriba "Sin conexión" (`#sync-banner`,
+      fuera de `#root`).
+    - Al volver a la app (`visibilitychange`), al volver la señal y cada
+      2 minutos en pantalla, `refreshFromServer` lee con una transacción
+      (una lectura normal usa la misma conexión dormida y se cuelga — se
+      comprobó con el emulador) y, si estaba atrasado, reinicia la conexión
+      en tiempo real (`restartRealtime`).
+    - **`APP_VERSION`**: cada guardado anota `appVersion` en el documento.
+      Si un teléfono ve una versión más nueva que la suya, muestra "Hay una
+      versión nueva… Recargar" y NO guarda. **Subir `APP_VERSION` cada vez
+      que se publique un cambio en cómo se guardan o interpretan los
+      datos.** (Los teléfonos con la versión anterior a este cambio no
+      tienen esta protección: hay que recargarlos una vez a mano.)
+    - Las redes de seguridad siguen: 0 citas, más citas borradas que las
+      permitidas (`allowRemoved`), y "no existe" nunca crea el documento.
+    - Se probó con el SDK real de Firebase contra el emulador oficial de
+      Firestore (`firebase setup:emulators:firestore`, SDK compat desde npm
+      porque cdnjs está bloqueado en el entorno de pruebas), además del
+      simulador. Para simular una conexión dormida: dejar colgadas las
+      peticiones `Listen/channel`; para sin señal: `context.setOffline(true)`
+      (`disableNetwork()` NO sirve: las transacciones igual pasan).
 
 ## Reglas de negocio de Finanzas (definidas explícitamente, no adivinar)
 - **Comisión de especialistas**: 50% por defecto (variable por mes, ver

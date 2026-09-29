@@ -62,6 +62,13 @@
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
+  #sync-banner:empty{display:none;}
+  #sync-banner{position:sticky;top:0;z-index:900;}
+  .sync-banner-msg{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 16px;font-size:13.5px;line-height:1.4;}
+  .sync-banner-msg.update{background:var(--wine);color:var(--wine-dark);font-weight:600;}
+  .sync-banner-msg.offline{background:var(--danger);color:#1B0E0E;font-weight:600;}
+  .sync-banner-msg span{flex:1;min-width:200px;}
+  .sync-banner-msg button{border:0;border-radius:8px;padding:7px 14px;font-weight:700;font-size:13px;background:var(--bg);color:var(--gold);cursor:pointer;}
   body{
     background:var(--bg);
     color:var(--ink);
@@ -602,6 +609,7 @@
 </style>
 </head>
 <body>
+<div id="sync-banner"></div>
 <div id="root"><div class="loading">Cargando agenda…</div></div>
 
 <script>
@@ -3068,9 +3076,9 @@ function filterBySpecialist(list){
 }
 
 // ---------------- Clientes / autocompletado ----------------
-function deriveClientsFromAppointments(){
+function deriveClientsFromAppointments(appts){
   const map = new Map();
-  state.appointments.slice()
+  (appts || state.appointments).slice()
     .sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start))
     .forEach(a=>{
       if(!a.client) return;
@@ -3224,30 +3232,60 @@ function recomputeServiceFields(){
 }
 
 // ---------------- Carga / guardado (Firestore, en tiempo real) ----------------
-function applyRemoteData(data){
-  // Copia profunda: los arreglos de "data" (data.blocks, etc.) se asignan
-  // por referencia directa a state.* más abajo, así que si no clonáramos
-  // acá, cualquier mutación futura de state.blocks (por ejemplo) corrompería
-  // también esta "foto" guardada de cómo estaba el documento antes.
-  lastRemoteData = JSON.parse(JSON.stringify(data));
-  state.appointments = (data.appointments || []).map(a=>{
+// Las partes del documento de Firestore que maneja la agenda (lo mismo que
+// escribe saveData).
+const DOC_KEYS = ['appointments','services','specialists','clients','blocks','courses','expenses','recurringExpenses','recurringIncomes','stockItems','settings'];
+
+// Convierte el documento tal como viene de Firestore en la forma en que la
+// agenda lo usa (servicios ordenados, valores por defecto, etc.). Devuelve
+// siempre una copia nueva, nunca comparte objetos con "data".
+function normalizeDoc(data){
+  const d = JSON.parse(JSON.stringify(data || {}));
+  const appointments = (d.appointments || []).map(a=>{
     if(!Array.isArray(a.services)) a.services = a.service ? [a.service] : [];
+    // Cantidad de cremas siempre explícita (las citas viejas solo tenían
+    // cremaComprada), para comparar bien qué cambió al guardar.
+    a.cremaCantidad = apptCremas(a);
     return a;
   });
+  const services = (d.services && d.services.length) ? d.services : JSON.parse(JSON.stringify(DEFAULT_SERVICES));
+  services.forEach(s=>{ if(s.duration==null) s.duration = 60; });
+  services.sort((a,b)=>(a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'}));
+  return {
+    appointments,
+    services,
+    specialists: (d.specialists && d.specialists.length) ? d.specialists : DEFAULT_SPECIALISTS.map(s=>Object.assign({}, s)),
+    clients: (d.clients && d.clients.length) ? d.clients : deriveClientsFromAppointments(appointments),
+    blocks: d.blocks || [],
+    courses: d.courses || [],
+    expenses: d.expenses || [],
+    recurringExpenses: d.recurringExpenses || [],
+    recurringIncomes: d.recurringIncomes || [],
+    stockItems: d.stockItems || [],
+    settings: Object.assign({}, JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), d.settings || {}),
+  };
+}
+function stateDocCopy(){
+  const out = {};
+  DOC_KEYS.forEach(k=>{ out[k] = state[k]; });
+  return JSON.parse(JSON.stringify(out));
+}
+
+let remoteDataSeq = 0; // cuántas veces llegó una versión nueva de la base de datos
+function applyRemoteData(data){
+  remoteDataSeq++;
+  // Copia profunda de cómo llegó el documento (la usa "Deshacer").
+  lastRemoteData = JSON.parse(JSON.stringify(data));
+  // lastRemoteBase: el documento tal como está en la base de datos, ya
+  // preparado igual que state — es la referencia contra la que saveData
+  // calcula "qué cambió este teléfono".
+  lastRemoteBase = normalizeDoc(data);
+  // Si hay guardados de este teléfono todavía en camino, se siguen mostrando
+  // encima de lo que llegó (si no, desaparecerían un instante de la pantalla).
+  const pending = pendingSaves.length ? pendingSaves[pendingSaves.length-1] : null;
+  const view = pending ? mergeDocs(pending.base, pending.mine, lastRemoteBase) : normalizeDoc(data);
+  DOC_KEYS.forEach(k=>{ state[k] = view[k]; });
   if(state.appointments.length > lastKnownGoodCount) lastKnownGoodCount = state.appointments.length;
-  lastSyncedApptIds = new Set(state.appointments.map(a=>a.id));
-  state.services = (data.services && data.services.length) ? data.services : DEFAULT_SERVICES.slice();
-  state.services.forEach(s=>{ if(s.duration==null) s.duration = 60; });
-  state.services.sort((a,b)=>(a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'}));
-  state.specialists = (data.specialists && data.specialists.length) ? data.specialists : DEFAULT_SPECIALISTS.map(s=>Object.assign({}, s));
-  state.clients = (data.clients && data.clients.length) ? data.clients : deriveClientsFromAppointments();
-  state.blocks = data.blocks || [];
-  state.courses = data.courses || [];
-  state.expenses = data.expenses || [];
-  state.recurringExpenses = data.recurringExpenses || [];
-  state.recurringIncomes = data.recurringIncomes || [];
-  state.stockItems = data.stockItems || [];
-  state.settings = Object.assign({}, DEFAULT_SETTINGS, data.settings || {});
 }
 
 function runHistoricalImportIfNeeded(){
@@ -3731,6 +3769,54 @@ function startRealtimeSync(){
   });
 }
 
+// Cuando la agenda vuelve a primer plano (se desbloquea el teléfono, se
+// vuelve a la app), se piden los datos frescos a la base de datos de
+// inmediato, en vez de confiar en que la conexión en tiempo real siga viva:
+// en los teléfonos, una app que pasó horas en segundo plano puede quedar
+// "dormida" mostrando datos viejos sin avisar.
+let refreshInFlight = false;
+function refreshFromServer(){
+  if(!ui.loaded || !db || !DOC_REF || refreshInFlight) return;
+  refreshInFlight = true;
+  let finished = false;
+  const timer = setTimeout(()=>{ if(!finished) setOffline(true); }, 8000);
+  // Se lee con una transacción (el mismo camino que usa el guardado): así
+  // funciona aunque la conexión en tiempo real esté "dormida" — una lectura
+  // normal usaría esa misma conexión dormida y se quedaría esperando.
+  let raw = null;
+  db.runTransaction(tx=>tx.get(DOC_REF).then(snap=>{ raw = snap.exists ? snap.data() : null; })).then(()=>{
+    finished = true;
+    clearTimeout(timer);
+    setOffline(false);
+    if(!raw) return; // nunca se actúa sobre un "no existe" (lección 1)
+    checkRemoteVersion(raw);
+    if(lastRemoteBase && sameValue(normalizeDoc(raw), lastRemoteBase)) return; // ya estaba al día
+    // Llegó algo que la conexión en tiempo real no había traído: se muestra
+    // y se reinicia esa conexión para que vuelva a funcionar.
+    applyRemoteData(raw);
+    if(!ui.modal) render();
+    restartRealtime();
+  }).catch(err=>{
+    finished = true;
+    clearTimeout(timer);
+    console.error('No se pudieron actualizar los datos', err);
+    setOffline(true);
+  }).finally(()=>{ refreshInFlight = false; });
+}
+let reconnecting = false;
+function restartRealtime(){
+  if(reconnecting) return;
+  reconnecting = true;
+  db.disableNetwork().then(()=>db.enableNetwork()).catch(err=>console.error('No se pudo reiniciar la conexión', err))
+    .finally(()=>setTimeout(()=>{ reconnecting = false; }, 4000));
+}
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') refreshFromServer(); });
+window.addEventListener('online', ()=>refreshFromServer());
+window.addEventListener('offline', ()=>setOffline(true));
+// Mientras la agenda está en pantalla, cada 2 minutos se confirma que lo que
+// se ve está al día (1 lectura; no cuesta nada dentro del plan gratis).
+setInterval(()=>{ if(document.visibilityState==='visible') refreshFromServer(); }, 2*60*1000);
+
 function showTeamLoginGate(){
   const root = document.getElementById('root');
   root.innerHTML = `
@@ -3774,8 +3860,18 @@ function showTeamLoginGate(){
 }
 
 function startFirestoreSync(){
-  DOC_REF.onSnapshot(snap=>{
+  DOC_REF.onSnapshot({includeMetadataChanges:true}, snap=>{
+    // fromCache = lo que se ve viene de la memoria del teléfono, no de la
+    // base de datos (sin conexión).
+    const fromCache = !!(snap.metadata && snap.metadata.fromCache);
+    // (al reiniciar la conexión a propósito, un momento "sin conexión" es
+    // normal y no se muestra)
+    if(!(fromCache && reconnecting)) setOffline(fromCache);
+    // Sin conexión no se toca nada: se sigue mostrando lo último que llegó de
+    // la base de datos (con el aviso de "Sin conexión" arriba).
+    if(fromCache && (ui.loaded || !snap.exists)) return;
     if(snap.exists){
+      checkRemoteVersion(snap.data());
       applyRemoteData(snap.data());
       const imported = runHistoricalImportIfNeeded();
       const sabado12 = runSabado12ImportIfNeeded();
@@ -3802,7 +3898,7 @@ function startFirestoreSync(){
       // re-render completo — los datos ya quedaron actualizados por dentro y se
       // van a ver apenas cierre ese modal.
       if(!ui.modal) render();
-      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas || cursoMicropigmentacion || cursoHuerfanoRepair) saveData({recordUndo:false});
+      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas || cursoMicropigmentacion || cursoHuerfanoRepair) saveData({recordUndo:false, silent:true});
       runDailyAutoBackupIfNeeded();
       checkUnseenBlocksIfNeeded();
     } else {
@@ -3824,7 +3920,6 @@ function startFirestoreSync(){
 }
 
 let lastKnownGoodCount = 0; // la mayor cantidad de citas que se ha visto realmente cargada esta sesión
-let lastSyncedApptIds = null; // IDs de las citas tal como llegaron de la base de datos la última vez
 
 // ---------------- Deshacer último cambio ----------------
 // lastRemoteData: una copia de cómo estaba el documento en Firestore la
@@ -3835,15 +3930,124 @@ let lastSyncedApptIds = null; // IDs de las citas tal como llegaron de la base d
 // una corrección automática que ya se hizo sola).
 let lastRemoteData = null;
 let undoSnapshot = null;
+let lastRemoteBase = null;
+let pendingSaves = []; // guardados de este teléfono que todavía no terminan ({base, mine})
 
-// Cuántas citas que SÍ estaban en la base de datos faltan en lo que se está
-// por guardar.
-function countMissingSyncedAppts(){
-  if(!lastSyncedApptIds) return 0;
-  const current = new Set(state.appointments.map(a=>a.id));
-  let missing = 0;
-  lastSyncedApptIds.forEach(id=>{ if(!current.has(id)) missing++; });
-  return missing;
+// ---------------- Guardado sin pisar a los demás ----------------
+// Antes, cada guardado escribía la agenda COMPLETA tal como la tenía ese
+// teléfono. Si un teléfono estaba "dormido" (la agenda abierta horas en
+// segundo plano, sin recibir los cambios de los demás) y guardaba cualquier
+// cosa, borraba todo lo que otros habían hecho mientras tanto — así se
+// perdían los pagos que marcaban las especialistas y se "perdió" un curso.
+// Ahora, justo antes de guardar, se lee la versión más reciente de la base
+// de datos y se le aplica SOLO lo que este teléfono cambió (comparando con
+// la última versión que este teléfono había recibido).
+function stableStringify(v){
+  if(v===undefined) return 'undefined';
+  if(v===null || typeof v!=='object') return JSON.stringify(v);
+  if(Array.isArray(v)) return '['+v.map(stableStringify).join(',')+']';
+  return '{'+Object.keys(v).filter(k=>v[k]!==undefined).sort().map(k=>JSON.stringify(k)+':'+stableStringify(v[k])).join(',')+'}';
+}
+function sameValue(a,b){ return stableStringify(a)===stableStringify(b); }
+// Para decidir si un campo "cambió": vacío, 0, false y "no existe" cuentan
+// igual (ej. el formulario de Admin guarda montoSaldo2:0 en una cita que no
+// tenía ese campo — eso no es un cambio real y no debe pisar lo de otro).
+function sameField(a,b){
+  const n = v=>(v===undefined||v===null||v===''||v===false||v===0) ? null : v;
+  return sameValue(n(a), n(b));
+}
+// Un objeto (una cita, la configuración...) campo por campo: si este
+// teléfono no tocó un campo, queda lo que hay en la base de datos; si lo
+// tocó, queda lo suyo.
+function mergeObj3(base, mine, theirs){
+  base = base || {}; mine = mine || {}; theirs = theirs || {};
+  const out = {};
+  new Set([...Object.keys(mine), ...Object.keys(theirs)]).forEach(k=>{
+    const v = sameField(mine[k], base[k]) ? theirs[k] : mine[k];
+    if(v!==undefined) out[k] = v;
+  });
+  return out;
+}
+function hasUniqueIds(list){
+  if(!Array.isArray(list)) return false;
+  const seen = new Set();
+  for(const x of list){
+    if(!x || typeof x!=='object' || x.id==null || seen.has(x.id)) return false;
+    seen.add(x.id);
+  }
+  return true;
+}
+// Una lista (citas, bloqueos, cursos...). Si todos sus elementos tienen id,
+// se mezcla elemento por elemento; si no (ej. servicios), la lista se trata
+// como un solo valor.
+function mergeList3(base, mine, theirs){
+  base = base || []; mine = mine || []; theirs = theirs || [];
+  if(!(hasUniqueIds(base) && hasUniqueIds(mine) && hasUniqueIds(theirs))){
+    return sameValue(mine, base) ? theirs : mine;
+  }
+  const B = new Map(base.map(x=>[x.id,x]));
+  const M = new Map(mine.map(x=>[x.id,x]));
+  const T = new Map(theirs.map(x=>[x.id,x]));
+  const out = [];
+  theirs.forEach(t=>{
+    const id = t.id, b = B.get(id), m = M.get(id);
+    if(!b && !m){ out.push(t); return; }              // lo agregó otro teléfono
+    if(b && !m) return;                               // este teléfono lo borró
+    if(!b && m){ out.push(mergeObj3({}, m, t)); return; }
+    if(sameValue(m,b)) out.push(t);                   // este teléfono no lo tocó
+    else if(sameValue(t,b)) out.push(m);              // solo este teléfono lo cambió
+    else out.push(mergeObj3(b, m, t));                // ambos lo cambiaron: campo por campo
+  });
+  mine.forEach(m=>{
+    if(T.has(m.id)) return;
+    if(B.has(m.id)) return;                           // otro teléfono lo borró
+    out.push(m);                                      // este teléfono lo agregó
+  });
+  return out;
+}
+function mergeDocs(base, mine, theirs){
+  const out = {};
+  DOC_KEYS.forEach(k=>{
+    out[k] = k==='settings' ? mergeObj3(base.settings, mine.settings, theirs.settings)
+                            : mergeList3(base[k], mine[k], theirs[k]);
+  });
+  return JSON.parse(JSON.stringify(out));
+}
+
+// Versión de la agenda. Si en la base de datos aparece una más nueva (porque
+// otro teléfono ya tiene la versión actualizada), este teléfono NO guarda y
+// muestra el aviso de recargar — así una versión vieja nunca puede estropear
+// nada. Subir este número cada vez que se publica un cambio en cómo se
+// guardan los datos.
+const APP_VERSION = 2;
+let appOutdated = false;
+let appOffline = false;
+function renderSyncBanner(){
+  const el = document.getElementById('sync-banner');
+  if(!el) return;
+  if(appOutdated){
+    el.innerHTML = `<div class="sync-banner-msg update"><span>🔄 Hay una versión nueva de la agenda. Recarga para seguir guardando cambios. (Si después de recargar sigue apareciendo, espera unos minutos y vuelve a recargar.)</span><button type="button" onclick="reloadFresh()">Recargar</button></div>`;
+  } else if(appOffline){
+    el.innerHTML = `<div class="sync-banner-msg offline"><span>📡 Sin conexión a internet. Lo que ves puede no estar al día y no se puede guardar nada hasta que vuelva la señal.</span></div>`;
+  } else {
+    el.innerHTML = '';
+  }
+}
+// Recarga pidiendo la página de nuevo al servidor (con un parámetro distinto
+// cada vez), para no quedarse con la versión vieja guardada en el teléfono.
+function reloadFresh(){
+  try{
+    const u = new URL(location.href);
+    u.searchParams.set('v', Date.now());
+    location.replace(u.toString());
+  }catch(e){ location.reload(); }
+}
+function setOffline(v){ if(appOffline!==v){ appOffline = v; renderSyncBanner(); } }
+function checkRemoteVersion(raw){
+  if(raw && Number(raw.appVersion||0) > APP_VERSION && !appOutdated){
+    appOutdated = true;
+    renderSyncBanner();
+  }
 }
 
 // opts.allowRemoved: cuántas citas se están borrando A PROPÓSITO en este
@@ -3852,59 +4056,133 @@ function countMissingSyncedAppts(){
 // opts.recordUndo: por defecto true — en false en los guardados automáticos
 // de migraciones, para que "Deshacer" nunca apunte a deshacer una corrección
 // que se aplicó sola (ver más abajo).
-async function saveData(opts){
+function saveData(opts){
   opts = opts || {};
+  // Qué había y qué hay ahora se "fotografía" en el momento de pedir el
+  // guardado (no cuando le toca el turno), para que nada que llegue en el
+  // intertanto se confunda con un cambio de este teléfono.
+  // Cada guardado va por su cuenta (no en fila): si uno se queda esperando
+  // por falta de señal, no traba a los siguientes. Dos guardados al mismo
+  // tiempo no se pisan: la transacción de Firestore reintenta el que llegó
+  // segundo con los datos ya actualizados.
+  const job = { base: lastRemoteBase, mine: stateDocCopy() };
+  pendingSaves.push(job);
+  return runSave(job, opts);
+}
+
+async function runSave(job, opts){
   const recordUndo = opts.recordUndo !== undefined ? opts.recordUndo : true;
+  const done = ok=>{
+    pendingSaves = pendingSaves.filter(j=>j!==job);
+    if(!ok) restoreFromServer();
+    return ok;
+  };
+  if(appOutdated){
+    showAlert('Hay una versión nueva de la agenda. Recarga la página (botón "Recargar" arriba) y vuelve a hacer el cambio — con esta versión no se guardó.');
+    return done(false);
+  }
+  const mine = job.mine;
   // Red de seguridad: si en algún momento de esta sesión llegamos a ver, por
   // ejemplo, 80 citas reales, y de repente se intenta guardar con 0 (o casi
   // 0), eso es casi siempre síntoma de un error (no de que alguien borró
   // realmente 80 citas de una sola vez) — se bloquea el guardado y se avisa,
   // en vez de sobrescribir en silencio la base de datos real.
-  if(state.appointments.length === 0 && lastKnownGoodCount > 5){
+  if(mine.appointments.length === 0 && lastKnownGoodCount > 5){
     console.error('Guardado bloqueado por seguridad: se intentó guardar con 0 citas habiendo visto', lastKnownGoodCount, 'antes.');
     showAlert('Por seguridad, no se guardó un cambio que hubiera dejado la agenda vacía (antes había '+lastKnownGoodCount+' citas). Si esto fue intencional, avísale a Juan Diego. Si no lo fue, no toques nada más y avísale también.');
-    return false;
+    return done(false);
   }
-  // Segunda red de seguridad: la pérdida de datos real que ya pasó una vez no
-  // dejó la agenda en 0 — la reemplazó por otros datos. Así que además se
-  // bloquea cualquier guardado que haga desaparecer de golpe más citas de las
-  // que se borraron a propósito (borrar de a una con "Eliminar" sigue
-  // funcionando normal).
-  const allowedRemoved = (opts && opts.allowRemoved) || 1;
-  const missing = countMissingSyncedAppts();
-  if(missing > allowedRemoved){
-    console.error('Guardado bloqueado por seguridad: desaparecerían', missing, 'citas de golpe.');
-    showAlert('Por seguridad, no se guardó este cambio: habría hecho desaparecer '+missing+' citas de una sola vez. Recarga la página antes de seguir, y si vuelve a pasar, avísale a Juan Diego.');
-    return false;
+  // Segunda red de seguridad: se bloquea cualquier guardado que haga
+  // desaparecer de golpe más citas de las que se borraron a propósito
+  // (borrar de a una con "Eliminar" sigue funcionando normal).
+  const allowedRemoved = opts.allowRemoved || 1;
+  const baseIds = job.base ? job.base.appointments.map(a=>a.id) : [];
+  const mineIds = new Set(mine.appointments.map(a=>a.id));
+  const removedHere = baseIds.filter(id=>!mineIds.has(id)).length;
+  if(removedHere > allowedRemoved){
+    console.error('Guardado bloqueado por seguridad: desaparecerían', removedHere, 'citas de golpe.');
+    showAlert('Por seguridad, no se guardó este cambio: habría hecho desaparecer '+removedHere+' citas de una sola vez. Recarga la página antes de seguir, y si vuelve a pasar, avísale a Juan Diego.');
+    return done(false);
   }
   // Justo antes de escribir el cambio nuevo, guardamos cómo estaba el
   // documento hasta ahora — eso es lo que "Deshacer" restaura si alguien
   // se equivoca (ej. mover la ficha que no era).
   if(recordUndo) undoSnapshot = lastRemoteData;
   ui.saving = true;
+  // Si no hay señal, el guardado se queda esperando: se avisa en vez de
+  // fingir que quedó guardado.
+  let slowShown = false;
+  const slowTimer = opts.silent ? null : setTimeout(()=>{
+    slowShown = true;
+    setOffline(true);
+    showAlert('⏳ Todavía no se termina de guardar — parece que no hay buena señal de internet. No cierres la agenda: te vamos a avisar cuando quede guardado.');
+  }, 6000);
   let ok = true;
+  let committed = null;
+  const seqAtStart = remoteDataSeq;
   try{
-    await DOC_REF.set({
-      appointments: state.appointments,
-      services: state.services,
-      specialists: state.specialists,
-      clients: state.clients,
-      blocks: state.blocks,
-      courses: state.courses,
-      expenses: state.expenses,
-      recurringExpenses: state.recurringExpenses,
-      recurringIncomes: state.recurringIncomes,
-      stockItems: state.stockItems,
-      settings: state.settings,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    await db.runTransaction(async tx=>{
+      const snap = await tx.get(DOC_REF);
+      // Nunca se crea el documento desde acá: si "no existe", es un problema
+      // de lectura, no una base de datos nueva (ver lección 1 en CLAUDE.md).
+      if(!snap.exists) throw Object.assign(new Error('El documento no existe'), {sibana:'missing'});
+      const raw = snap.data();
+      if(Number(raw.appVersion||0) > APP_VERSION) throw Object.assign(new Error('Versión vieja'), {sibana:'outdated'});
+      const theirs = normalizeDoc(raw);
+      const merged = job.base ? mergeDocs(job.base, mine, theirs) : mine;
+      // Tercera red: lo que finalmente se escribe no puede hacer desaparecer
+      // más citas (de las que hay HOY en la base de datos) de las que este
+      // teléfono borró a propósito.
+      const mergedIds = new Set(merged.appointments.map(a=>a.id));
+      const lost = theirs.appointments.filter(a=>!mergedIds.has(a.id)).length;
+      if(lost > allowedRemoved) throw Object.assign(new Error('Desaparecerían '+lost+' citas'), {sibana:'blocked', lost});
+      tx.set(DOC_REF, Object.assign({}, merged, {
+        appVersion: APP_VERSION,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }));
+      committed = Object.assign({}, merged, {appVersion: APP_VERSION});
     });
+    setOffline(false);
+    // Lo que se acaba de escribir ES la versión más reciente de la base de
+    // datos: si mientras tanto no llegó nada más nuevo, este teléfono queda
+    // al día con todo (también con lo que hicieron los demás), aunque su
+    // conexión en tiempo real esté "dormida".
+    if(committed && remoteDataSeq===seqAtStart){
+      pendingSaves = pendingSaves.filter(j=>j!==job);
+      applyRemoteData(committed);
+      if(!ui.modal) render();
+    }
   }catch(e){
     console.error('Error guardando', e);
-    showAlert('No se pudo guardar el cambio. Revisa tu conexión e inténtalo de nuevo.');
     ok = false;
+    if(e && e.sibana==='outdated'){
+      appOutdated = true; renderSyncBanner();
+      showAlert('Hay una versión nueva de la agenda. Recarga la página (botón "Recargar" arriba) y vuelve a hacer el cambio — con esta versión no se guardó.');
+    } else if(e && e.sibana==='blocked'){
+      showAlert('Por seguridad, no se guardó este cambio: habría hecho desaparecer '+e.lost+' citas de una sola vez. Recarga la página antes de seguir, y si vuelve a pasar, avísale a Juan Diego.');
+    } else if(e && e.sibana==='missing'){
+      showAlert('No se pudo leer la base de datos, así que por seguridad no se guardó nada. Recarga la página y avísale a Juan Diego si sigue pasando.');
+    } else {
+      if(e && (e.code==='unavailable' || e.code==='deadline-exceeded')) setOffline(true);
+      showAlert('❌ No se pudo guardar el cambio (revisa tu conexión a internet). No quedó guardado: vuelve a intentarlo cuando tengas señal.');
+    }
   }
+  if(slowTimer) clearTimeout(slowTimer);
   ui.saving = false;
-  return ok;
+  if(ok && slowShown) showAlert('✅ Listo, ya quedó guardado.');
+  if(!ok) refreshFromServer(); // traer lo que de verdad hay en la base de datos
+  return done(ok);
+}
+
+// Si un guardado falla, lo que se ve en pantalla vuelve a ser lo que
+// realmente está en la base de datos (más los otros guardados que sigan en
+// camino) — para que la pantalla nunca muestre algo que no quedó guardado.
+function restoreFromServer(){
+  if(!lastRemoteBase) return;
+  const pending = pendingSaves.length ? pendingSaves[pendingSaves.length-1] : null;
+  const view = pending ? mergeDocs(pending.base, pending.mine, lastRemoteBase) : JSON.parse(JSON.stringify(lastRemoteBase));
+  DOC_KEYS.forEach(k=>{ state[k] = view[k]; });
+  if(!ui.modal) render();
 }
 
 function undoLastChange(){
@@ -3914,11 +4192,19 @@ function undoLastChange(){
   }
   const restore = undoSnapshot;
   showConfirmDialog('¿Deshacer el último cambio guardado? La agenda va a volver a como estaba antes de esa última edición.', ()=>{
-    applyRemoteData(restore);
+    // La agenda en pantalla vuelve a como estaba; lo que hay HOY en la base de
+    // datos sigue siendo la referencia, así el guardado aplica justamente la
+    // vuelta atrás.
+    const keepBase = lastRemoteBase, keepRaw = lastRemoteData;
+    const restored = normalizeDoc(restore);
+    DOC_KEYS.forEach(k=>{ state[k] = restored[k]; });
+    lastRemoteBase = keepBase; lastRemoteData = keepRaw;
     undoSnapshot = null; // se usa una sola vez — hasta el próximo cambio real no queda nada más que deshacer
     ui.modal = null;
     render();
-    saveData({recordUndo:false}).then(ok=>{ if(ok) showAlert('Listo, se deshizo el último cambio.'); });
+    const restoredIds = new Set(restored.appointments.map(a=>a.id));
+    const removing = keepBase ? keepBase.appointments.filter(a=>!restoredIds.has(a.id)).length : 0;
+    saveData({recordUndo:false, allowRemoved: Math.max(1, removing)}).then(ok=>{ if(ok) showAlert('Listo, se deshizo el último cambio.'); });
   });
 }
 
@@ -6589,16 +6875,9 @@ function onAction(e){
       appt.pagoMarcadoPor = { nombre: safeGetLocal(STAFF_IDENTITY_KEY) || '', en: new Date().toISOString() };
       ui.modal = null;
       render();
-      // Se avisa recién cuando la base de datos confirma que lo recibió. Si
-      // no hay señal, el cambio se ve en pantalla pero todavía no llegó a
-      // ningún lado — si se cierra la agenda en ese momento, se pierde.
-      let confirmed = false;
-      const slowTimer = setTimeout(()=>{
-        if(!confirmed) showAlert('⏳ Todavía no se termina de guardar — parece que no hay buena señal de internet. No cierres la agenda hasta que aparezca "Listo, el pago quedó guardado".');
-      }, 6000);
+      // Se avisa recién cuando la base de datos confirma que lo recibió (si
+      // tarda, saveData ya avisa que no hay señal y que no cierre la agenda).
       saveData().then(ok=>{
-        confirmed = true;
-        clearTimeout(slowTimer);
         if(!ok) return; // saveData ya mostró el aviso de por qué no se guardó
         syncToBackupWebhook('save', appt);
         showAlert('✅ Listo, el pago quedó guardado.');

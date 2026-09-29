@@ -4493,7 +4493,47 @@ function pagoMarcadoHtml(d){
   const dt = new Date(m.en);
   if(isNaN(dt)) return '';
   const cuando = dt.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'}) + ' a las ' + dt.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
-  return `<div class="hint" style="margin:-4px 0 14px;">✅ Pago marcado por ${escapeHtml(m.nombre||'la especialista')} el ${cuando}.</div>`;
+  const quien = m.nombre ? `por ${escapeHtml(m.nombre)}` : 'en modo Especialista (desde un teléfono sin nombre elegido)';
+  return `<div class="hint" style="margin:-4px 0 14px;">✅ Pago marcado ${quien} el ${cuando}.</div>`;
+}
+
+// "Pagó con dos métodos" en la vista de la especialista (ej. parte en
+// efectivo y parte por transferencia). Usa los mismos campos que el
+// formulario de Admin: metodoSaldo2 + montoSaldo2 (lo que se pagó con el
+// segundo método); el resto del saldo queda en metodoSaldo.
+function staffSplitHtml(d){
+  const on = (Number(d.montoSaldo2)||0)>0;
+  return `
+      <div id="staff-split-box" style="display:${on?'block':'none'};">
+        <div class="field"><label>Segundo método de pago</label>
+          <select id="f-staff-metodoSaldo2">${paymentSelectOptions(on ? d.metodoSaldo2 : '')}</select>
+        </div>
+        <div class="field"><label>¿Cuánto pagó con el segundo método?</label>
+          <input type="number" id="f-staff-montoSaldo2" inputmode="numeric" placeholder="Monto" value="${on ? Number(d.montoSaldo2) : ''}">
+        </div>
+        <div class="hint" id="staff-split-hint" style="margin:-6px 0 12px;"></div>
+      </div>
+      <button type="button" class="btn btn-ghost" id="staff-split-toggle" style="width:100%;margin:-4px 0 14px;font-size:12.5px;">${on ? '✕ Pagó con un solo método' : '➕ Pagó con dos métodos (ej. efectivo y transferencia)'}</button>`;
+}
+// Saldo total que se está cobrando, con las cremas que están elegidas ahora
+// en pantalla (cada crema nueva suma $5.000 al saldo, igual que al guardar).
+function staffSaldoEnPantalla(d){
+  const crema = document.getElementById('f-staff-crema');
+  const cremas = crema ? (Number(crema.value)||0) : apptCremas(d);
+  return Math.max(0, (Number(d.saldo)||0) + (cremas - apptCremas(d))*CREMA_PRICE);
+}
+function updateStaffSplitHint(){
+  const hint = document.getElementById('staff-split-hint');
+  const box = document.getElementById('staff-split-box');
+  if(!hint || !box || !ui.modal || !ui.modal.data) return;
+  if(box.style.display==='none'){ hint.textContent=''; return; }
+  const total = staffSaldoEnPantalla(ui.modal.data);
+  const m2 = Number(document.getElementById('f-staff-montoSaldo2').value)||0;
+  const met1 = document.getElementById('f-staff-metodoSaldo').value || 'el primer método';
+  const met2 = document.getElementById('f-staff-metodoSaldo2').value || 'el segundo método';
+  if(m2<=0){ hint.textContent = `Escribe cuánto pagó con ${met2}; el resto se anota solo en ${met1}.`; return; }
+  if(m2>=total){ hint.textContent = `⚠️ Tiene que ser menos que el total a cobrar (${fmtCLP(total)}).`; return; }
+  hint.textContent = `Queda así: ${fmtCLP(total-m2)} con ${met1} + ${fmtCLP(m2)} con ${met2} = ${fmtCLP(total)}.`;
 }
 
 function cremaStepperHtml(inputId, qty){
@@ -4541,6 +4581,7 @@ function apptViewOnlyHtml(d){
       <div class="field"><label>Método de pago del saldo</label>
         <select id="f-staff-metodoSaldo">${paymentSelectOptions(d.metodoSaldo)}</select>
       </div>
+      ${staffSplitHtml(d)}
       <button type="button" class="btn btn-primary" style="width:100%;margin:0 0 14px;" data-act="staff-mark-realizada" data-id="${escapeHtml(d.id)}">${d.estado==='Realizada' ? '💾 Guardar método de pago' : '✅ Marcar como realizada y guardar el pago'}</button>` : ''}
       ${pagoMarcadoHtml(d)}
       ${d.notas ? `<div class="field"><label>Notas</label><div>${escapeHtml(d.notas)}</div></div>` : ''}
@@ -6243,6 +6284,25 @@ function attachEvents(){
       document.getElementById('f-block-date-label').textContent = kind==='days' ? 'Desde el día' : 'Fecha';
     });
   }
+  const splitToggle = document.getElementById('staff-split-toggle');
+  if(splitToggle){
+    splitToggle.addEventListener('click', ()=>{
+      const box = document.getElementById('staff-split-box');
+      const on = box.style.display==='none';
+      box.style.display = on ? 'block' : 'none';
+      splitToggle.textContent = on ? '✕ Pagó con un solo método' : '➕ Pagó con dos métodos (ej. efectivo y transferencia)';
+      if(!on){
+        document.getElementById('f-staff-metodoSaldo2').value = '';
+        document.getElementById('f-staff-montoSaldo2').value = '';
+      }
+      updateStaffSplitHint();
+    });
+    ['f-staff-metodoSaldo','f-staff-metodoSaldo2','f-staff-montoSaldo2'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el){ el.addEventListener('input', updateStaffSplitHint); el.addEventListener('change', updateStaffSplitHint); }
+    });
+    updateStaffSplitHint();
+  }
   document.querySelectorAll('[data-crema-stepper]').forEach(wrap=>{
     const input = document.getElementById(wrap.dataset.cremaStepper);
     if(!input) return;
@@ -6262,6 +6322,7 @@ function attachEvents(){
         const price = (Number(d.price)||0) + (n - apptCremas(d))*CREMA_PRICE;
         const box = document.getElementById('staff-cobrar-amount');
         if(box) box.textContent = fmtCLP(apptPorCobrar({price, abono:d.abono}));
+        updateStaffSplitHint();
       }
     });
   });
@@ -6365,6 +6426,15 @@ function staffHasUnsavedPayment(){
   const crema = document.getElementById('f-staff-crema');
   if(sel && sel.value && sel.value!==(d.metodoSaldo||'')) return true;
   if(crema && (Number(crema.value)||0)!==apptCremas(d)) return true;
+  const box = document.getElementById('staff-split-box');
+  if(box){
+    const on = box.style.display!=='none';
+    const m2 = on ? (Number(document.getElementById('f-staff-montoSaldo2').value)||0) : 0;
+    const met2 = on ? document.getElementById('f-staff-metodoSaldo2').value : '';
+    const hadSplit = (Number(d.montoSaldo2)||0)>0;
+    if(m2!==(hadSplit ? Number(d.montoSaldo2) : 0)) return true;
+    if(on && met2!==(hadSplit ? (d.metodoSaldo2||'') : '') && (m2>0 || met2)) return true;
+  }
   return false;
 }
 
@@ -6479,11 +6549,23 @@ function onAction(e){
       const select = document.getElementById('f-staff-metodoSaldo');
       const metodo = select ? select.value : '';
       if(!metodo){
-        showAlert('Elegí primero el método de pago antes de guardar.');
+        showAlert('Elige primero el método de pago antes de guardar.');
         break;
       }
       const cremaInput = document.getElementById('f-staff-crema');
       const cremas = cremaInput ? Math.max(0, Math.min(9, Number(cremaInput.value)||0)) : apptCremas(appt);
+      const splitBox = document.getElementById('staff-split-box');
+      const splitOn = !!(splitBox && splitBox.style.display!=='none');
+      let metodo2 = '', monto2 = 0;
+      if(splitOn){
+        metodo2 = document.getElementById('f-staff-metodoSaldo2').value;
+        monto2 = Math.round(Number(document.getElementById('f-staff-montoSaldo2').value)||0);
+        const total = Math.max(0, (Number(appt.saldo)||0) + (cremas - apptCremas(appt))*CREMA_PRICE);
+        if(!metodo2){ showAlert('Elige también el segundo método de pago (o toca "Pagó con un solo método").'); break; }
+        if(metodo2===metodo){ showAlert('Los dos métodos de pago son iguales. Si pagó todo con '+metodo+', toca "Pagó con un solo método".'); break; }
+        if(monto2<=0){ showAlert('Escribe cuánto pagó con '+metodo2+'.'); break; }
+        if(monto2>=total){ showAlert('Lo que pagó con '+metodo2+' tiene que ser menos que el total a cobrar ('+fmtCLP(total)+'). El resto se anota solo en '+metodo+'.'); break; }
+      }
       // Cada crema suma $5.000 al precio (igual que en el formulario de Admin).
       // Antes el checkbox de la especialista marcaba la crema pero no la
       // sumaba al precio — y como la comisión le descuenta la crema al
@@ -6497,8 +6579,14 @@ function onAction(e){
       appt.cremaCantidad = cremas;
       appt.cremaComprada = cremas>0;
       appt.metodoSaldo = metodo;
+      appt.metodoSaldo2 = metodo2;
+      appt.montoSaldo2 = monto2;
       appt.estado = 'Realizada';
-      appt.pagoMarcadoPor = { nombre: safeGetLocal(STAFF_IDENTITY_KEY) || appt.specialist || '', en: new Date().toISOString() };
+      // Solo el nombre que el teléfono tiene elegido en "Mis ganancias" — si no
+      // tiene ninguno, se deja vacío en vez de suponer que fue la especialista
+      // de la cita (antes se suponía, y confundía: una prueba hecha por otra
+      // persona aparecía como si la hubiera hecho ella).
+      appt.pagoMarcadoPor = { nombre: safeGetLocal(STAFF_IDENTITY_KEY) || '', en: new Date().toISOString() };
       ui.modal = null;
       render();
       // Se avisa recién cuando la base de datos confirma que lo recibió. Si
@@ -6877,7 +6965,7 @@ function onAction(e){
 // cambió, gana lo que puso Admin.
 function mergeConcurrentApptChanges(original, updated, current){
   const same = (a,b)=>{
-    const n = v=>(v===undefined||v===null||v===''||v===false) ? null : JSON.stringify(v);
+    const n = v=>(v===undefined||v===null||v===''||v===false||v===0) ? null : JSON.stringify(v);
     return n(a)===n(b);
   };
   const special = new Set(['cremaCantidad','cremaComprada','personas']);

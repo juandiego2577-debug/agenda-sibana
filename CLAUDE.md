@@ -330,6 +330,21 @@ replantear salvo que surja algo que realmente lo justifique):
   siempre avisa — pase lo que pase con `NUM_BOXES`. Recién después de ese
   filtro se aplica el aviso de "solo hay `NUM_BOXES` box", que sigue siendo
   solo entre especialistas DISTINTAS.
+  **El aviso de "solo hay `NUM_BOXES` box" mira el PICO real de ocupación,
+  no cuántas citas simplemente "tocan" el rango de la cita nueva.** Otro bug
+  real: dos citas consecutivas de especialistas distintas (ej. 15:30–16:30 y
+  16:30–17:30) nunca coinciden entre sí — pero una tercera cita de 90 min que
+  empieza a las 15:30 (15:30–17:00) toca el rango de AMBAS sin estar nunca
+  las 3 activas al mismo tiempo (como mucho 2 a la vez, nunca 3). Antes,
+  `overlapping.length >= NUM_BOXES` contaba cualquier cita que tocara en
+  algún punto el horario de la nueva, así que este caso avisaba "solo hay 2
+  box" sin motivo real. Ahora `peakBoxOccupancy(candidate, overlapping)`
+  recorre el horario de la cita candidata y calcula, con un barrido de
+  puntos de inicio/fin, cuántas citas están activas EN EL MISMO INSTANTE en
+  el momento de mayor ocupación (contando la propia candidata) — el aviso
+  solo aparece si ese pico real supera `NUM_BOXES`, y el detalle que se
+  muestra son justo las citas que coinciden en ese instante (no todas las
+  que simplemente tocan el rango).
 - **Aviso de bloqueos nuevos para Admin** (`checkUnseenBlocksIfNeeded`):
   a Juan Diego se le pasó por alto más de una vez que una especialista
   bloqueó una hora, y solo se enteraba días después al intentar agendar

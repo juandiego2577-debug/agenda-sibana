@@ -334,6 +334,18 @@ replantear salvo que surja algo que realmente lo justifique):
   infraestructura aparte (Firebase Cloud Functions de pago, service
   worker) que se evaluó y no se justificaba; esto resuelve el problema
   real sin ese costo.
+- **Aviso de tratamientos nuevos para Especialista** (`checkNewServicesIfNeeded`):
+  mismo patrón que el aviso de bloqueos de arriba, pero al revés — le
+  interesa a quien atiende, no a quien los agrega. Al agregar un servicio
+  (`add-service`) se guarda `s.creadoEn` (los servicios viejos no lo tienen
+  y nunca disparan el aviso). A diferencia de `bloqueosVistosHasta`
+  (compartido en `state.settings`, porque en la práctica hay un solo
+  Admin), acá SÍ hay varias especialistas distintas, cada una con su
+  propio dispositivo — por eso `SERVICIOS_VISTOS_KEY` se guarda en
+  `localStorage` (por dispositivo, igual que `STAFF_IDENTITY_KEY`), NUNCA
+  en Firestore: si se guardara compartido, que UNA especialista cierre el
+  aviso lo marcaría como visto para TODAS, aunque las demás nunca lo hayan
+  visto en su propio teléfono.
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos
@@ -450,9 +462,11 @@ replantear salvo que surja algo que realmente lo justifique):
   una especialista va sacando de la caja durante la semana a cuenta de su
   comisión — a veces fraccionada en varios días y a veces sin avisar ni
   anotarla en ningún lado, con lo que se perdía la cuenta. Botón "💵 Vale"
-  en la barra principal, visible en AMBOS modos (a propósito, junto a
-  "Bloquear hora" — no en el menú "Más", que en modo Especialista ni
-  siquiera existe). Cualquiera puede registrar un vale (Especialista
+  en la barra principal, visible en AMBOS modos (a propósito — no en el
+  menú "Más", que en modo Especialista ni siquiera existe; va al FINAL de
+  la barra, después de "+ Nueva cita", para no correr de lugar ningún
+  botón ya existente — ver "Orden de los botones" más abajo). Cualquiera
+  puede registrar un vale (Especialista
   registra el suyo propio, identificada igual que en "Mis ganancias" con
   `STAFF_IDENTITY_KEY` — el campo de especialista le queda fijo, no
   elegible; Admin elige a quién); **borrar uno ya cargado es solo Admin**
@@ -478,3 +492,10 @@ replantear salvo que surja algo que realmente lo justifique):
 - Responder siempre en español (el usuario y su equipo son de Chile).
 - El usuario (Juan Diego) no es programador — las explicaciones deben ser
   simples, paso a paso, sin dar por sentado vocabulario técnico.
+- **Orden de los botones: nunca mover uno ya existente.** El equipo ya
+  está acostumbrado a dónde está cada botón (sobre todo en la barra
+  principal) — un botón nuevo se agrega estrictamente al final de donde
+  vaya (ej. `.toolbar`), nunca insertado en el medio, aunque eso "tenga
+  más sentido" visualmente. Insertar uno en el medio corre de lugar a los
+  que venían después, y eso ya generó una queja real (el botón "+ Nueva
+  cita" "se movió" al agregar "💵 Vale" en el medio, en vez de al final).

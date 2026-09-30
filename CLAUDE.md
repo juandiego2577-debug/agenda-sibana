@@ -345,7 +345,10 @@ replantear salvo que surja algo que realmente lo justifique):
   `localStorage` (por dispositivo, igual que `STAFF_IDENTITY_KEY`), NUNCA
   en Firestore: si se guardara compartido, que UNA especialista cierre el
   aviso lo marcaría como visto para TODAS, aunque las demás nunca lo hayan
-  visto en su propio teléfono.
+  visto en su propio teléfono. Cada tratamiento muestra también cuándo se
+  agregó ("Agregado el DD/MM a las HH:MM", mismo formato que
+  `pagoMarcadoHtml`) — a pedido explícito del usuario, que consideró que
+  sin esa fecha/hora el aviso no decía lo más importante.
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos

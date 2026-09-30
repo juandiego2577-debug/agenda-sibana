@@ -3059,11 +3059,16 @@ function checkNewServicesIfNeeded(){
   const wrap = document.createElement('div');
   wrap.id = 'custom-dialog';
   wrap.className = 'confirm-overlay';
-  const rows = nuevos.map(s=>`
+  const rows = nuevos.map(s=>{
+    const dt = new Date(s.creadoEn);
+    const cuando = isNaN(dt) ? '' : (dt.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'}) + ' a las ' + dt.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'}));
+    return `
     <div style="padding:8px 0;border-bottom:1px solid var(--line);">
       <div style="font-weight:600;">${escapeHtml(s.name)}</div>
       <div class="hint" style="margin:2px 0 0;">${fmtCLP(s.price)} · ${s.duration||60} min</div>
-    </div>`).join('');
+      ${cuando ? `<div class="hint" style="margin:2px 0 0;">Agregado el ${cuando}</div>` : ''}
+    </div>`;
+  }).join('');
   wrap.innerHTML = `
     <div class="confirm-box" style="max-width:420px;max-height:82vh;overflow-y:auto;text-align:left;">
       <p style="margin-bottom:8px;">🧾 <b>${nuevos.length===1?'Nuevo tratamiento agregado':`${nuevos.length} tratamientos nuevos agregados`}</b> desde la última vez que entraste:</p>

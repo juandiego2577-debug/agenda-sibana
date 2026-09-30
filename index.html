@@ -2915,16 +2915,20 @@ function apptFallsInBlockedTime(date, start, end){
   return false;
 }
 
-// Solo hay un box: dos citas no pueden ocupar el mismo horario, sin importar
-// qué especialista las atienda (una NoShow o Cancelada libera el horario).
+// Hay NUM_BOXES box físicos disponibles: cuantas citas se crucen en el mismo
+// horario, sin importar qué especialista las atienda, no puede pasar de esa
+// cantidad (una NoShow o Cancelada libera el horario). Antes había 1 solo
+// box; ahora 2 (Lucy trajo un segundo box propio, que ella misma arrienda) —
+// si el número de box vuelve a cambiar, ajustar solo esta constante.
+const NUM_BOXES = 2;
 function apptsOverlap(a, b){
   if(a.date !== b.date) return false;
   const aStart = minutesFromMidnight(a.start), aEnd = minutesFromMidnight(a.end);
   const bStart = minutesFromMidnight(b.start), bEnd = minutesFromMidnight(b.end);
   return aStart < bEnd && bStart < aEnd;
 }
-function findOverlappingAppt(candidate){
-  return state.appointments.find(a=>
+function overlappingAppts(candidate){
+  return state.appointments.filter(a=>
     a.id !== candidate.id &&
     a.estado !== 'Cancelada' && a.estado !== 'NoShow' &&
     apptsOverlap(a, candidate)
@@ -7498,7 +7502,7 @@ function saveApptFromForm(){
     syncToBackupWebhook('save', updated);
   };
 
-  const overlapping = findOverlappingAppt(updated);
+  const overlapping = overlappingAppts(updated);
   const afterOverlapCheck = ()=>{
     const coveringBlock = findCoveringBlock(parseKey(updated.date), updated.start, updated.end, updated.specialist);
     if(coveringBlock){
@@ -7513,8 +7517,9 @@ function saveApptFromForm(){
     }
   };
 
-  if(overlapping){
-    showConfirmDialog(`Ya hay una cita de ${overlapping.start} a ${overlapping.end} (${overlapping.client||'sin nombre'}) en ese horario. Como solo hay un box, lo normal es no agendar dos citas al mismo tiempo. ¿Quieres agendarla igual?`, afterOverlapCheck);
+  if(overlapping.length >= NUM_BOXES){
+    const detalle = overlapping.map(o=>`${o.start}–${o.end} (${o.client||'sin nombre'})`).join(', ');
+    showConfirmDialog(`Ya hay ${overlapping.length} cita${overlapping.length===1?'':'s'} en ese horario (${detalle}) y solo hay ${NUM_BOXES} box disponibles. ¿Quieres agendarla igual?`, afterOverlapCheck);
     return;
   }
 

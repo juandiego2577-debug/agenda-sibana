@@ -7564,6 +7564,19 @@ function saveApptFromForm(){
     }
   };
 
+  // Sin importar cuántos box haya, UNA especialista nunca puede atender dos
+  // citas a la vez — esto se revisa primero y siempre avisa, sea cual sea
+  // NUM_BOXES (una especialista no se puede "duplicar" solo porque haya más
+  // de un box).
+  const overlappingMismaEspecialista = updated.specialist
+    ? overlapping.filter(o=>normalizeName(o.specialist)===normalizeName(updated.specialist))
+    : [];
+  if(overlappingMismaEspecialista.length){
+    const detalle = overlappingMismaEspecialista.map(o=>`${o.start}–${o.end} (${o.client||'sin nombre'})`).join(', ');
+    showConfirmDialog(`${updated.specialist} ya tiene ${overlappingMismaEspecialista.length===1?'una cita':overlappingMismaEspecialista.length+' citas'} a esa hora (${detalle}) — no puede atender dos citas al mismo tiempo. ¿Quieres agendarla igual?`, afterOverlapCheck);
+    return;
+  }
+
   if(overlapping.length >= NUM_BOXES){
     const detalle = overlapping.map(o=>`${o.start}–${o.end} (${o.client||'sin nombre'})`).join(', ');
     showConfirmDialog(`Ya hay ${overlapping.length} cita${overlapping.length===1?'':'s'} en ese horario (${detalle}) y solo hay ${NUM_BOXES} box disponibles. ¿Quieres agendarla igual?`, afterOverlapCheck);

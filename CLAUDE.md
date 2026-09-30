@@ -248,6 +248,17 @@ replantear salvo que surja algo que realmente lo justifique):
   nada de septiembre para atrás hasta `state.settings.misGananciasDesde`
   (por defecto, el mes siguiente al que se activó esto) — el modo Admin
   no tiene este candado, siempre ve todo.
+- **Semana de PAGO de comisión: lunes a sábado, confirmado explícitamente
+  con el usuario** (`payoutWeekRange`) — se paga el domingo lo generado esa
+  semana. Es DISTINTA del "Corte semanal" de Finanzas (lunes a domingo,
+  `weekRangesForMonth`), que es solo para reportar ingresos por semana
+  calendario, no para calcular pagos — no unificarlas. Los vales (ver
+  "Vales" más abajo) se descuentan de la semana de pago (lun–sáb), nunca
+  del corte semanal. Si en una semana los vales superan la comisión
+  generada, NO se hace nada especial (no se avisa, no se arrastra a la
+  semana siguiente) — confirmado explícitamente con el usuario que esto no
+  ha pasado nunca y no va a pasar; si algún día pasa, hay que preguntar de
+  nuevo antes de asumir qué hacer.
 
 ## Funciones agregadas (para no reinventar ni duplicar)
 - **"Mis ganancias"**: en modo Especialista, la pestaña de Finanzas muestra
@@ -416,6 +427,23 @@ replantear salvo que surja algo que realmente lo justifique):
   temario / notas") para guardar cosas como la dirección o el contenido
   que se les manda a las inscritas — solo se ve dentro del curso, no se
   manda a nadie ni afecta ningún cálculo.
+- **Vales** (`state.vales`, `{id,specialist,date,monto,notas}`): plata que
+  una especialista va sacando de la caja durante la semana a cuenta de su
+  comisión — a veces fraccionada en varios días y a veces sin avisar ni
+  anotarla en ningún lado, con lo que se perdía la cuenta. Botón "💵 Vale"
+  en la barra principal, visible en AMBOS modos (a propósito, junto a
+  "Bloquear hora" — no en el menú "Más", que en modo Especialista ni
+  siquiera existe). Cualquiera puede registrar un vale (Especialista
+  registra el suyo propio, identificada igual que en "Mis ganancias" con
+  `STAFF_IDENTITY_KEY` — el campo de especialista le queda fijo, no
+  elegible; Admin elige a quién); **borrar uno ya cargado es solo Admin**
+  (mismo criterio que otros borrados sensibles del proyecto: evita que se
+  borre por error o a propósito evidencia de plata ya sacada). Se
+  descuentan de la semana de PAGO lun–sáb (ver regla de negocio arriba,
+  NO del "Corte semanal"), mostrado como "💵 Semana de pago en curso" con
+  comisión / vales / neto a pagar, tanto en "Mis ganancias" como en el
+  panel de Finanzas de Admin (`payoutWeekBoxHtml`/`payoutRows`,
+  `finanzasResumenHtml`).
 
 ## Cómo se trabaja en este proyecto
 - **Siempre probar antes de entregar.** Este proyecto se construyó

@@ -2491,6 +2491,7 @@ let state = {
   recurringExpenses: [], // {id,categoria,monto,diaPago,metodoPago} — arriendo, luz, internet: se pagan todos los meses, no hay que volver a anotarlos
   recurringIncomes: [], // {id,categoria,monto,metodoPago} — ingresos pasivos que llegan todas las semanas (ej. arriendo de un box), aparte de las citas
   stockItems: [], // {id,categoria:'Pigmentos'|'FilosAgujas'|'Anestesia',name,valor,umbral,actualizadoEn} — revisión semanal de insumos
+  vales: [], // {id,specialist,date:'YYYY-MM-DD',monto,notas} — plata que una especialista va sacando de la caja a cuenta de su comisión, para no perder el registro cuando se saca fraccionado en varios días
   settings: Object.assign({}, DEFAULT_SETTINGS),
 };
 const ADMIN_TRUST_KEY = 'sibanaAdminTrust'; // marca este dispositivo como admin de forma permanente, una vez puesta la contraseña correcta
@@ -3234,7 +3235,7 @@ function recomputeServiceFields(){
 // ---------------- Carga / guardado (Firestore, en tiempo real) ----------------
 // Las partes del documento de Firestore que maneja la agenda (lo mismo que
 // escribe saveData).
-const DOC_KEYS = ['appointments','services','specialists','clients','blocks','courses','expenses','recurringExpenses','recurringIncomes','stockItems','settings'];
+const DOC_KEYS = ['appointments','services','specialists','clients','blocks','courses','expenses','recurringExpenses','recurringIncomes','stockItems','vales','settings'];
 
 // Convierte el documento tal como viene de Firestore en la forma en que la
 // agenda lo usa (servicios ordenados, valores por defecto, etc.). Devuelve
@@ -3262,6 +3263,7 @@ function normalizeDoc(data){
     recurringExpenses: d.recurringExpenses || [],
     recurringIncomes: d.recurringIncomes || [],
     stockItems: d.stockItems || [],
+    vales: d.vales || [],
     settings: Object.assign({}, JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), d.settings || {}),
   };
 }
@@ -4351,6 +4353,7 @@ function toolbarHtml(){
       ${specChips}
       <div class="spacer"></div>
       <button class="btn btn-ghost" data-act="new-block">🚫 Bloquear hora</button>
+      <button class="btn btn-ghost" data-act="open-vales">💵 Vale</button>
       ${isAdmin ? `<button class="btn btn-primary" data-act="new-appt">+ Nueva cita</button>` : ''}
     </div>
   `;
@@ -4723,6 +4726,7 @@ function modalHtml(){
   if(ui.modal.type==='course-edit') return courseEditModalHtml();
   if(ui.modal.type==='curso') return cursoModalHtml();
   if(ui.modal.type==='curso-attendee') return cursoAttendeeModalHtml();
+  if(ui.modal.type==='vales') return valesModalHtml();
   if(ui.modal.type==='appt' && ui.mode!=='admin') return apptViewOnlyHtml(ui.modal.data);
   return apptModalHtml();
 }
@@ -5438,6 +5442,98 @@ function gotoApptFromSearch(id){
   render();
 }
 
+// ---------------- Vales (adelantos de caja a cuenta de la comisión) ----------------
+// Cuando una especialista necesita plata durante la semana, se la lleva de
+// la caja a cuenta de lo que le corresponde cobrar — a veces fraccionado en
+// varios días (ej. $20.000 el miércoles, $10.000 el jueves, $5.000 el
+// viernes), y a veces sin avisar ni anotarlo en ningún lado, con lo que se
+// termina perdiendo la cuenta. Esto queda registrado apenas se saca, en el
+// momento, para que no se pierda nada — cualquiera (Admin o Especialista)
+// puede anotar un vale, pero solo Admin puede borrar uno ya cargado.
+// Especialista solo ve y anota los suyos propios (identificada igual que en
+// "Mis ganancias", con STAFF_IDENTITY_KEY).
+function blankVale(){
+  const identity = ui.mode!=='admin' ? safeGetLocal(STAFF_IDENTITY_KEY) : '';
+  return { id: uid(), specialist: identity || '', date: toKey(new Date()), monto: 0, notas: '' };
+}
+function valesForSpecialist(name){
+  const key = normalizeName(name);
+  return (state.vales||[]).filter(v=>normalizeName(v.specialist)===key);
+}
+function valesModalHtml(){
+  const isAdmin = ui.mode==='admin';
+  const identity = !isAdmin ? safeGetLocal(STAFF_IDENTITY_KEY) : null;
+  if(!isAdmin && !identity){
+    return `
+    <div class="overlay" data-act="overlay-close">
+      <div class="modal" data-stop="1">
+        <h2 class="serif">¿Quién eres?</h2>
+        <p class="hint">Elige tu nombre para registrar y ver tus propios vales. Este dispositivo lo va a recordar, así que solo se pregunta una vez.</p>
+        ${state.specialists.map(s=>`<button type="button" class="btn btn-primary" style="width:100%;margin-bottom:8px;" data-act="set-staff-identity" data-name="${escapeHtml(s.name)}">${escapeHtml(s.name)}</button>`).join('')}
+        <div class="modal-actions"><div></div><div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div></div>
+      </div>
+    </div>`;
+  }
+  const list = (isAdmin ? (state.vales||[]).slice() : valesForSpecialist(identity))
+    .sort((a,b)=> a.date===b.date ? 0 : (a.date<b.date?1:-1));
+  const total = list.reduce((s,v)=>s+(Number(v.monto)||0),0);
+  const specOptions = state.specialists.map(s=>`<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join('');
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">💵 Vales</h2>
+      <div class="hint">Plata que ${isAdmin?'una especialista':'sacas'} va sacando de la caja a cuenta de la comisión. Anótalo apenas lo saques, para que no se pierda.</div>
+      <div class="field">
+        ${isAdmin
+          ? `<label>¿Quién lo sacó?</label><select id="f-vale-specialist"><option value="">— Elige quién —</option>${specOptions}</select>`
+          : `<input type="hidden" id="f-vale-specialist" value="${escapeHtml(identity)}">`}
+      </div>
+      <div class="row2">
+        <div class="field"><label>Monto</label><input type="number" id="f-vale-monto" placeholder="0" min="0" step="1"></div>
+        <div class="field"><label>Fecha</label><input type="date" id="f-vale-date" value="${toKey(new Date())}"></div>
+      </div>
+      <div class="field"><label>Nota (opcional)</label><input type="text" id="f-vale-notas" placeholder="Ej.: para la locomoción"></div>
+      <button type="button" class="btn btn-primary" style="width:100%;margin-bottom:14px;" data-act="save-vale">+ Registrar vale</button>
+      ${list.length===0 ? `<div class="empty-msg">Todavía no hay vales registrados${isAdmin?'':' tuyos'}.</div>` : `
+      <div class="hint">Total registrado: <b>${fmtCLP(total)}</b></div>
+      <div class="table-scroll"><table class="reminders-table">
+        <thead><tr><th>Fecha</th>${isAdmin?'<th>Especialista</th>':''}<th>Monto</th><th>Nota</th>${isAdmin?'<th></th>':''}</tr></thead>
+        <tbody>
+          ${list.map(v=>`
+            <tr>
+              <td>${v.date}</td>
+              ${isAdmin?`<td>${escapeHtml(v.specialist||'—')}</td>`:''}
+              <td>${fmtCLP(v.monto)}</td>
+              <td>${escapeHtml(v.notas||'')}</td>
+              ${isAdmin?`<td><button type="button" class="iconbtn" data-act="delete-vale" data-id="${v.id}">✕</button></td>`:''}
+            </tr>`).join('')}
+        </tbody>
+      </table></div>`}
+      <div class="modal-actions">
+        <div>${!isAdmin ? `<button type="button" class="linklike" data-act="reset-staff-identity">¿no eres tú?</button>` : ''}</div>
+        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+function saveValeFromForm(){
+  const specSelect = document.getElementById('f-vale-specialist');
+  const specialist = specSelect ? specSelect.value : '';
+  const montoInput = document.getElementById('f-vale-monto');
+  const monto = Math.max(0, Number(montoInput && montoInput.value) || 0);
+  const dateInput = document.getElementById('f-vale-date');
+  const date = (dateInput && dateInput.value) || toKey(new Date());
+  const notasInput = document.getElementById('f-vale-notas');
+  const notas = ((notasInput && notasInput.value) || '').trim();
+  if(!specialist){ showAlert('Elige quién sacó el vale antes de guardar.'); return; }
+  if(monto<=0){ showAlert('Ingresa un monto mayor a 0.'); return; }
+  if(!state.vales) state.vales = [];
+  state.vales.push({ id: uid(), specialist, date, monto, notas });
+  ui.modal = {type:'vales'};
+  render();
+  saveData();
+}
+
 // ---------------- Finanzas: ingresos, gastos y comisiones ----------------
 // Ingreso real de una cita: si se realizó, el precio completo; si se canceló o
 // no se presentó, solo el abono (no se devuelve). Mismo criterio que ya usa el
@@ -5609,6 +5705,41 @@ function rangeFinancials(start, end){
   return {ingresos, gastosVar, ganancia: ingresos - gastosVar};
 }
 
+// Semana de PAGO de la comisión a las especialistas: lunes a sábado (el
+// domingo se paga lo que se generó esa semana) — confirmado explícitamente
+// con el usuario. Es DISTINTA del "Corte semanal" de más abajo (lunes a
+// domingo), que es solo para reportar ingresos por semana calendario, no
+// para calcular pagos. Los vales se descuentan de ESTA semana.
+function payoutWeekRange(date){
+  const start = startOfWeek(date);
+  return { start, end: addDays(start, 5) };
+}
+function valesTotalInRange(specialist, start, end){
+  const startKey = toKey(start), endKey = toKey(end);
+  const key = normalizeName(specialist);
+  return (state.vales||[]).filter(v=>normalizeName(v.specialist)===key && v.date>=startKey && v.date<=endKey)
+    .reduce((s,v)=>s+(Number(v.monto)||0),0);
+}
+// Comisión generada por una especialista en un rango de fechas cualquiera,
+// usando el % vigente en el mes de CADA cita (nunca un solo % para todo el
+// rango, aunque cruce de mes — ver punto 8 de CLAUDE.md).
+function commissionInRange(specialist, start, end){
+  const startKey = toKey(start), endKey = toKey(end);
+  const key = normalizeName(specialist);
+  return state.appointments
+    .filter(a=>normalizeName(a.specialist)===key && a.date>=startKey && a.date<=endKey)
+    .reduce((s,a)=>{
+      const d = parseKey(a.date);
+      return s + apptCommissionBase(a)*comisionPctForMonth(d.getFullYear(), d.getMonth());
+    }, 0);
+}
+function payoutWeekSummary(specialist){
+  const {start,end} = payoutWeekRange(new Date());
+  const comision = commissionInRange(specialist, start, end);
+  const vales = valesTotalInRange(specialist, start, end);
+  return { start, end, comision, vales, neto: comision - vales };
+}
+
 function misGananciasPageHtml(){
   if(!ui.reportsDate) ui.reportsDate = new Date();
   const identity = safeGetLocal(STAFF_IDENTITY_KEY);
@@ -5652,6 +5783,21 @@ function misGananciasPageHtml(){
         <div class="fin-card highlight"><div class="lbl">Tu comisión (${Math.round(f.comisionPct*100)}%)</div><div class="val">${fmtCLP(mine.comision)}</div></div>
       </div>
       ${mine.citas===0 ? `<div class="hint" style="margin-top:14px;">No tienes citas registradas este mes.</div>` : ''}
+      ${payoutWeekBoxHtml(identity)}
+    </div>`;
+}
+// Caja de "semana de pago" (lun–sáb) reusada en "Mis ganancias" y en el
+// panel de Finanzas — muestra la comisión de la semana en curso, los vales
+// ya sacados, y lo que queda neto por pagar.
+function payoutWeekBoxHtml(specialist){
+  const w = payoutWeekSummary(specialist);
+  const rangeLabel = `${w.start.getDate()} ${MONTHS[w.start.getMonth()].slice(0,3)} – ${w.end.getDate()} ${MONTHS[w.end.getMonth()].slice(0,3)}`;
+  return `
+    <h3 class="fin-sub">💵 Semana de pago en curso (lun–sáb, ${rangeLabel})</h3>
+    <div class="fin-cards">
+      <div class="fin-card"><div class="lbl">Comisión de la semana</div><div class="val">${fmtCLP(w.comision)}</div></div>
+      <div class="fin-card"><div class="lbl">Vales sacados</div><div class="val">${w.vales>0?'−'+fmtCLP(w.vales):fmtCLP(0)}</div></div>
+      <div class="fin-card highlight"><div class="lbl">Neto a pagar el domingo</div><div class="val">${fmtCLP(w.neto)}</div></div>
     </div>`;
 }
 
@@ -5687,6 +5833,13 @@ function finanzasResumenHtml(year, month){
     const e = f.porEspecialista[name];
     return `<tr><td>${escapeHtml(name)}</td><td>${e.citas}${(e.multi || e.personas!==e.citas)?`<div class="hint" style="margin:0;">${e.personas} personas</div>`:''}</td><td>${fmtCLP(e.ingresos)}</td><td>${fmtCLP(e.comision)}</td></tr>`;
   }).join('') || `<tr><td colspan="4" class="hint">Sin citas registradas este mes.</td></tr>`;
+
+  const payoutWeek = payoutWeekRange(new Date());
+  const payoutRangeLabel = `${payoutWeek.start.getDate()} ${MONTHS[payoutWeek.start.getMonth()].slice(0,3)} – ${payoutWeek.end.getDate()} ${MONTHS[payoutWeek.end.getMonth()].slice(0,3)}`;
+  const payoutRows = state.specialists.map(s=>{
+    const w = payoutWeekSummary(s.name);
+    return `<tr><td>${escapeHtml(s.name)}</td><td>${fmtCLP(w.comision)}</td><td>${w.vales>0?fmtCLP(w.vales):'—'}</td><td><b>${fmtCLP(w.neto)}</b></td></tr>`;
+  }).join('') || `<tr><td colspan="4" class="hint">No hay especialistas cargadas.</td></tr>`;
 
   const weekRows = weeks.map((w,i)=>`
     <tr>
@@ -5742,6 +5895,13 @@ function finanzasResumenHtml(year, month){
     <table class="fin-table">
       <thead><tr><th>Especialista</th><th>Citas</th><th>Generó</th><th>Comisión</th></tr></thead>
       <tbody>${espRows}</tbody>
+    </table>
+
+    <h3 class="fin-sub">💵 Pago de esta semana (lun–sáb, ${payoutRangeLabel})</h3>
+    <div class="hint" style="margin-bottom:8px;">Lo que le corresponde cobrar a cada especialista por esta semana, ya con los vales que sacó de la caja descontados. Se paga el domingo. Esta semana (lun–sáb) es distinta del "Corte semanal" de más abajo, que solo reporta ingresos por semana calendario (lun–dom).</div>
+    <table class="fin-table">
+      <thead><tr><th>Especialista</th><th>Comisión</th><th>Vales</th><th>Neto a pagar</th></tr></thead>
+      <tbody>${payoutRows}</tbody>
     </table>
 
     <div class="field-row" style="align-items:center;gap:8px;margin:16px 0 4px;">
@@ -6415,6 +6575,7 @@ function fullBackupPayload(){
     recurringExpenses: state.recurringExpenses,
     recurringIncomes: state.recurringIncomes,
     stockItems: state.stockItems,
+    vales: state.vales,
     settings: state.settings,
   };
 }
@@ -6708,6 +6869,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'undo-last-change',
   'open-courses','new-course','edit-course','save-course','delete-course',
   'curso-add-attendee','curso-edit-attendee','save-curso-attendee','delete-curso-attendee',
+  'delete-vale',
 ]);
 
 // ¿La especialista cambió el método de pago o las cremas en la vista de una
@@ -7018,6 +7180,19 @@ function onAction(e){
       ui.modal = {type:'reminders'}; ui.menuOpen = false; render(); break;
     case 'open-blocks-list':
       ui.modal = {type:'blocks-list'}; ui.menuOpen = false; render(); break;
+    case 'open-vales':
+      ui.modal = {type:'vales'}; ui.menuOpen = false; render(); break;
+    case 'save-vale':
+      saveValeFromForm(); break;
+    case 'delete-vale': {
+      const id = e.currentTarget.dataset.id;
+      showConfirmDialog('¿Borrar este vale? Esta acción no se puede deshacer.', ()=>{
+        state.vales = (state.vales||[]).filter(v=>v.id!==id);
+        render();
+        saveData();
+      });
+      break;
+    }
     case 'open-touchups':
       ui.modal = {type:'touchups'}; ui.menuOpen = false; render(); break;
     case 'copy-touchup-msg': {

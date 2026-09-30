@@ -421,6 +421,30 @@ replantear salvo que surja algo que realmente lo justifique):
   especialista marcaba la crema SIN sumarla al precio (bug: la comisión le
   restaba $5.000 que nunca se habían sumado) — ahora suma la diferencia a
   `price` y `saldo`.
+  **"Crema incluida" (`state.settings.cremaIncluida`, Servicios y
+  tarifario → casilla "🧴 Crema post-tratamiento incluida")**: a partir de
+  octubre 2026 la crema post-tratamiento pasa a venir incluida gratis (ya
+  no se cobra aparte), junto con una subida de precios que Juan Diego
+  carga él mismo en Servicios y tarifario (no requiere código, porque cada
+  cita ya guarda su propio precio para siempre apenas se agenda — nunca se
+  recalcula sola). Es un interruptor manual, no un corte automático por
+  fecha/hora — decidido explícitamente así para no depender del reloj de
+  cada celular (que puede estar mal puesto) y para que Juan Diego tenga
+  control total del momento exacto, igual que con los precios.
+  Mientras la casilla está apagada, "Nueva cita" sigue mostrando el
+  stepper de crema normal (`cremaStepperHtml`), exactamente como antes.
+  Al crearse, cada cita NUEVA congela para siempre, en
+  `a.cremaIncluidaPolitica`, si ese interruptor estaba prendido o no en
+  ese momento (mismo patrón que `comisionHistory`: prender/apagar el
+  interruptor después NUNCA reordena citas ya agendadas). Si
+  `cremaIncluidaPolitica` es `true`, esa cita nunca vuelve a mostrar el
+  stepper de crema (ni en el formulario de Admin al editarla, ni en la
+  vista de solo-lectura de la especialista) — en su lugar se ve "Incluida
+  sin costo adicional", y su `cremaCantidad` queda en 0 para siempre (sin
+  cobro ni descuento de comisión, porque nunca se le sumó nada al
+  precio). Las citas VIEJAS (de antes de esta función, sin
+  `cremaIncluidaPolitica`) siguen mostrando el stepper normal siempre,
+  sin importar el estado actual del interruptor.
   **Pago con dos métodos** (ej. parte en efectivo y parte por
   transferencia): botón "➕ Pagó con dos métodos" en la vista de la
   especialista. Usa los mismos campos que Admin (`metodoSaldo2` +

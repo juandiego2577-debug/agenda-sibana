@@ -744,6 +744,7 @@ const DEFAULT_SETTINGS = {
   comisionPct: 0.5, // % de comisión de especialistas sobre lo que generan (ej. 0.5 = 50%) — usado solo si no hay historial (ver comisionHistory)
   comisionHistory: [], // [{desde:'YYYY-MM', pct:0.5}, ...] — permite cambiar el % sin afectar meses ya pasados
   misGananciasDesde: null, // 'YYYY-MM' — antes de este mes, las especialistas no ven "Mis ganancias" (útil mientras se revisan datos de meses de transición)
+  cremaIncluida: false, // si está en true, las citas NUEVAS ya no ofrecen comprar crema aparte (va incluida gratis). Las citas YA agendadas nunca cambian: cada una guarda para siempre en a.cremaIncluidaPolitica si se creó con esto activado o no, así que prender/apagar esto después nunca reordena citas ya guardadas.
 };
 
 const HISTORICAL_IMPORT_KEY = 'importedAgostoSeptiembre2026';
@@ -4944,7 +4945,7 @@ function apptViewOnlyHtml(d){
         <div class="cobrar-amount" id="staff-cobrar-amount">${fmtCLP(apptPorCobrar(d))}</div>
         <div class="cobrar-hint">Este monto ya es el final — si hay un descuento, ya está incluido. Cóbralo tal cual, sin restar nada más.</div>
       </div>
-      ${cremaStepperHtml('f-staff-crema', apptCremas(d))}
+      ${d.cremaIncluidaPolitica ? '<div class="field"><label>🧴 Crema post-tratamiento</label><div class="hint" style="margin:0;">Incluida sin costo adicional.</div></div>' : cremaStepperHtml('f-staff-crema', apptCremas(d))}
       <div class="field"><label>Método de pago del saldo</label>
         <select id="f-staff-metodoSaldo">${paymentSelectOptions(d.metodoSaldo)}</select>
       </div>
@@ -5035,7 +5036,7 @@ function apptModalHtml(){
           <span class="hint" style="margin:0;flex:1;">Ej.: viene con una amiga y se atienden las dos → pon 2</span>
         </div>
       </div>
-      ${cremaStepperHtml('f-crema', apptCremas(d))}
+      ${(isEdit ? d.cremaIncluidaPolitica : state.settings.cremaIncluida) ? '<div class="field"><label>🧴 Crema post-tratamiento</label><div class="hint" style="margin:0;">Incluida sin costo adicional.</div></div>' : cremaStepperHtml('f-crema', apptCremas(d))}
       <div class="field"><label>Especialista</label>
         <select id="f-specialist">
           <option value="">— Sin asignar —</option>
@@ -5255,6 +5256,11 @@ function servicesModalHtml(){
     <div class="modal" data-stop="1">
       <h2 class="serif">Servicios y tarifario</h2>
       <div class="hint">Precio en CLP · minutos de duración (se usan para autocompletar la hora de fin al agendar).</div>
+      <label class="field" style="display:flex;flex-direction:row;align-items:center;gap:10px;">
+        <input type="checkbox" id="f-crema-incluida" ${state.settings.cremaIncluida?'checked':''} style="width:auto;">
+        <span>🧴 Crema post-tratamiento incluida (ya no se cobra aparte en citas nuevas)</span>
+      </label>
+      <div class="hint" style="margin:-8px 0 12px;">Solo afecta a las citas que se agenden DESDE ahora. Las citas ya agendadas (antes o después de este cambio) nunca se alteran.</div>
       <div id="svc-list">${rows}</div>
       <button class="btn btn-ghost" style="margin-top:6px" data-act="add-service">+ Agregar servicio</button>
       <div class="modal-actions">
@@ -7559,6 +7565,14 @@ function saveApptFromForm(){
     personas: Math.max(1, Math.min(9, Math.floor(Number(document.getElementById('f-personas') ? get('f-personas') : 1))||1)),
   };
   updated.cremaComprada = updated.cremaCantidad>0;
+  // Congela para siempre, en el momento de crear la cita, si la crema iba
+  // incluida sin costo o se cobraba aparte — así, si más adelante se prende o
+  // apaga el interruptor de Configuración, las citas ya agendadas nunca
+  // cambian de condición (mismo patrón que el precio: cada cita se queda con
+  // las reglas del día en que se agendó).
+  if(ui.modal.mode==='new'){
+    updated.cremaIncluidaPolitica = !!state.settings.cremaIncluida;
+  }
   delete updated.service;
   if(!updated.client){ showAlert('Ingresa el nombre del cliente.'); return; }
   if(!updated.services.length){ showAlert('Elige al menos un servicio.'); return; }
@@ -7742,6 +7756,8 @@ function saveServicesFromForm(){
     const i = Number(inp.dataset.svcDuration);
     if(state.services[i]) state.services[i].duration = Number(inp.value)||60;
   });
+  const cremaIncluidaInput = document.getElementById('f-crema-incluida');
+  if(cremaIncluidaInput) state.settings.cremaIncluida = cremaIncluidaInput.checked;
   ui.modal = null;
   render();
   saveData();

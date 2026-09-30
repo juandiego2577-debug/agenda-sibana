@@ -306,6 +306,18 @@ replantear salvo que surja algo que realmente lo justifique):
   decidido: NO vincularlo al nombre de "Mis ganancias". Todas ven los
   bloqueos de todas; se puede tocar una hora libre aunque otra especialista
   la tenga bloqueada (solo un bloqueo de "Todas" la impide).
+- **Cuántas citas pueden cruzarse a la misma hora: `NUM_BOXES`** (una
+  constante simple, no un ajuste en Configuración — a propósito, cambia muy
+  de vez en cuando). Antes había un solo box físico, así que CUALQUIER
+  superposición de horario avisaba ("como solo hay un box..."), sin
+  importar la especialista. Ahora hay 2 (Lucy trajo su propio box, que ella
+  arrienda aparte) — `NUM_BOXES = 2`, así que agendar 2 citas a la misma
+  hora ya es normal y no avisa nada; el aviso (`overlappingAppts`, en
+  `saveApptFromForm`) recién aparece al intentar una 3ra que se cruce con
+  2 que ya están. Si el número de box cambia de nuevo, es solo cambiar esa
+  constante. (Esto NO exige subir `APP_VERSION`: es una advertencia que se
+  muestra ANTES de guardar, no cambia qué se guarda ni cómo se interpretan
+  los datos ya guardados — distinto del caso de `vales` más abajo.)
 - **Aviso de bloqueos nuevos para Admin** (`checkUnseenBlocksIfNeeded`):
   a Juan Diego se le pasó por alto más de una vez que una especialista
   bloqueó una hora, y solo se enteraba días después al intentar agendar

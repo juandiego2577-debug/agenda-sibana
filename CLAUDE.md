@@ -203,7 +203,14 @@ replantear salvo que surja algo que realmente lo justifique):
       versión nueva… Recargar" y NO guarda. **Subir `APP_VERSION` cada vez
       que se publique un cambio en cómo se guardan o interpretan los
       datos.** (Los teléfonos con la versión anterior a este cambio no
-      tienen esta protección: hay que recargarlos una vez a mano.)
+      tienen esta protección: hay que recargarlos una vez a mano.) Un
+      `DOC_KEYS` nuevo (ej. al agregar `vales`) CUENTA como este tipo de
+      cambio y también exige subir `APP_VERSION` — un teléfono viejo, al no
+      conocer esa clave, la manda como `undefined` al guardar, y
+      `mergeList3` la interpreta como "este teléfono la borró", borrando de
+      verdad todo lo que hubiera ahí. Pasó de verdad al agregar `vales`
+      (ver más abajo): se detectó después de subirlo, no antes — revisar
+      esto ANTES de agregar una clave nueva a `DOC_KEYS`, no después.
     - Las redes de seguridad siguen: 0 citas, más citas borradas que las
       permitidas (`allowRemoved`), y "no existe" nunca crea el documento.
     - Se probó con el SDK real de Firebase contra el emulador oficial de

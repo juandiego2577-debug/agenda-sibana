@@ -308,6 +308,12 @@ replantear salvo que surja algo que realmente lo justifique):
   mensaje "Paso 1" (preguntar cómo le fue, genérico, sin pedir nada) antes
   del "Paso 2" (pedir la reseña en Google) — a propósito, para no pedirle
   una reseña pública a alguien que podría tener un reclamo sin resolver.
+  El **"Lifting de Pestañas" no lleva retoque** (a diferencia de
+  micropigmentación, que sí) — a pedido explícito del usuario, una ficha
+  cuyo único servicio (o uno de ellos) sea Lifting de Pestañas no aparece
+  en Retoques pendientes (`isLiftingPestanasAppt`, mismo patrón que
+  `isRetoqueAppt`/`isEvaluacionAppt`/`isGarantiaAppt`: si CUALQUIER
+  servicio de la ficha coincide, se excluye la ficha completa).
 - **Cursos** (`state.courses` + `a.cursoId`/`a.cursoNombre` en las citas):
   para clases grupales de un solo día/horario (ej. un curso de
   micropigmentación), NO citas individuales. Un curso es un bloque de

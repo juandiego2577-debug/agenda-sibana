@@ -374,8 +374,10 @@
     .stock-row > *{flex:1 1 45%;}
     .stock-row .iconbtn{flex:0 0 32px;}
     .reminders-table{min-width:480px;}
-    .svc-row{flex-wrap:wrap;}
-    .svc-row input:not(.price):not(.dur){flex:1 1 100%;}
+    .svc-row,.svc-row-head{display:flex;flex-wrap:wrap;}
+    .svc-row > *{flex:1 1 45%;}
+    .svc-row .iconbtn{flex:0 0 32px;}
+    .svc-row-head > *{flex:1 1 45%;}
     .moremenu{left:0;right:auto;}
   }
 
@@ -474,10 +476,16 @@
   .svc-summary-price{color:var(--gold);border-color:var(--wine);font-weight:700;}
 
   /* services / specialists modal rows */
-  .svc-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
-  .svc-row input{flex:1;}
-  .svc-row input.price{max-width:100px;}
-  .svc-row input.dur{max-width:66px;}
+  .svc-row{display:grid;grid-template-columns:2fr 1fr .8fr auto;gap:8px;align-items:center;margin-bottom:8px;}
+  .svc-row input{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:7px 8px;
+    color:var(--ink);font-size:12.5px;font-family:'Inter',sans-serif;width:100%;
+  }
+  .svc-row-head{
+    display:grid;grid-template-columns:2fr 1fr .8fr auto;gap:8px;margin-bottom:6px;
+    color:var(--ink-soft);font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;
+    font-family:'Inter',sans-serif;
+  }
   .spec-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
   .spec-row input[type=text]{flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;background:var(--panel-2);color:var(--ink);font-family:'Inter',sans-serif;}
   .spec-row input[type=color]{width:38px;height:34px;padding:2px;border:1px solid var(--line);border-radius:6px;background:var(--panel-2);cursor:pointer;flex-shrink:0;}
@@ -5261,6 +5269,7 @@ function servicesModalHtml(){
         <span>🧴 Crema post-tratamiento incluida (ya no se cobra aparte en citas nuevas)</span>
       </label>
       <div class="hint" style="margin:-8px 0 12px;">Solo afecta a las citas que se agenden DESDE ahora. Las citas ya agendadas (antes o después de este cambio) nunca se alteran.</div>
+      <div class="svc-row-head"><span>Nombre</span><span>Precio (CLP)</span><span>Minutos</span><span></span></div>
       <div id="svc-list">${rows}</div>
       <button class="btn btn-ghost" style="margin-top:6px" data-act="add-service">+ Agregar servicio</button>
       <div class="modal-actions">

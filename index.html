@@ -6352,28 +6352,6 @@ Si tienes un minuto, nos ayudaría muchísimo que nos dejaras tu opinión en Goo
 
 ¡Gracias por confiar en nosotras! 💕`;
 }
-// Versiones personalizadas (con nombre y servicio) para el botón de WhatsApp
-// de cada fila — un mensaje que llega con tu nombre y se acuerda de qué
-// tratamiento te hiciste se responde mucho más que uno genérico. Las
-// versiones genéricas de arriba se mantienen para copiar a mano cuando no
-// hay teléfono guardado (mismo patrón que ya usa Retoques pendientes).
-function buildCheckinMsg(a){
-  const name = (a.client||'').trim().split(' ')[0] || '';
-  const svc = summarizeServices(a.services||[]) || 'tu tratamiento';
-  return `Hola${name?' '+name:''} 🌸 es Sibana.
-Queríamos saber cómo te fue con tu ${svc} — ¿cómo quedó? ¿Estás conforme con el resultado?
-
-Cualquier duda o detalle que quieras contarnos, escríbenos y te ayudamos enseguida 💕`;
-}
-function buildReviewMsg(a){
-  const name = (a.client||'').trim().split(' ')[0] || '';
-  const svc = summarizeServices(a.services||[]) || 'tu tratamiento';
-  return `Hola${name?' '+name:''} 🌸 es Sibana.
-Esperamos que hayas quedado feliz con el resultado de tu ${svc} ✨
-Si tienes un minuto, nos ayudaría muchísimo que nos dejaras tu opinión en Google: https://g.page/r/CRg9v-smnqROECE/review
-
-¡Gracias por confiar en nosotras! 💕`;
-}
 function reviewsModalHtml(){
   const list = reviewCandidates();
   return `
@@ -6382,20 +6360,20 @@ function reviewsModalHtml(){
       <h2 class="serif">Reseñas pendientes</h2>
       <div class="hint">Clientas con un retoque realizado a las que todavía no se les pidió su opinión en Google. (No se piden reseñas de citas anteriores a la fecha en que se activó esta función, para no armar una lista con clientas de meses atrás.)</div>
       <div class="field">
-        <label>Paso 1 — Preguntarle primero cómo le fue (genérico, para copiar a mano si no hay teléfono)</label>
+        <label>Paso 1 — Preguntarle primero cómo le fue (copialo y pegalo en WhatsApp)</label>
         <textarea id="review-checkin-msg" rows="4" readonly style="opacity:.85;">${escapeHtml(genericCheckinMsg())}</textarea>
       </div>
       <button type="button" class="btn btn-ghost" style="margin:-8px 0 14px;" data-act="copy-checkin-msg">📋 Copiar mensaje de "¿cómo te fue?"</button>
-      <div class="hint" style="margin:-8px 0 14px;">Mandá primero este mensaje (el botón de WhatsApp de cada fila ya manda la versión personalizada, con el nombre y el servicio de esa clienta). Solo si te confirma que quedó conforme, pasá al Paso 2. Si tuvo algún problema, resuélvelo primero y no le pidas la reseña todavía — así evitás pedir una opinión pública justo cuando hay algo sin arreglar.</div>
+      <div class="hint" style="margin:-8px 0 14px;">Mandá primero este mensaje. Solo si te confirma que quedó conforme, pasá al Paso 2. Si tuvo algún problema, resuélvelo primero y no le pidas la reseña todavía — así evitás pedir una opinión pública justo cuando hay algo sin arreglar.</div>
       <div class="field">
-        <label>Paso 2 — Pedirle la reseña (solo si ya te confirmó que quedó conforme; genérico, para copiar a mano si no hay teléfono)</label>
+        <label>Paso 2 — Pedirle la reseña (solo si ya te confirmó que quedó conforme)</label>
         <textarea id="review-generic-msg" rows="5" readonly style="opacity:.85;">${escapeHtml(genericReviewMsg())}</textarea>
       </div>
       <button type="button" class="btn btn-ghost" style="margin:-8px 0 14px;" data-act="copy-review-msg">📋 Copiar mensaje de la reseña</button>
       ${list.length===0 ? `<div class="empty-msg">No hay clientas pendientes por ahora.</div>` : `
       <div class="hint">${list.length} clienta${list.length===1?'':'s'} por contactar.</div>
       <div class="table-scroll"><table class="reminders-table">
-        <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th>Paso 1</th><th>Paso 2</th><th>Avisada</th></tr></thead>
+        <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th>WhatsApp (Paso 1)</th><th>Avisada</th></tr></thead>
         <tbody>
           ${list.map(({appt:a,diffDays})=>`
             <tr>
@@ -6404,10 +6382,7 @@ function reviewsModalHtml(){
               <td>${escapeHtml(a.client||'Sin nombre')}${a.phone?'':' <span class="hint">(sin teléfono)</span>'}</td>
               <td>${escapeHtml(summarizeServices(a.services||[]))}</td>
               <td>
-                ${a.phone ? `<a class="btn btn-ghost" target="_blank" rel="noopener" href="${waLink(a.phone, buildCheckinMsg(a))}">WhatsApp</a>` : ''}
-              </td>
-              <td>
-                ${a.phone ? `<a class="btn btn-ghost" target="_blank" rel="noopener" href="${waLink(a.phone, buildReviewMsg(a))}">WhatsApp</a>` : ''}
+                ${a.phone ? `<a class="btn btn-ghost" target="_blank" rel="noopener" href="${waLink(a.phone, genericCheckinMsg())}">WhatsApp</a>` : ''}
               </td>
               <td style="text-align:center;">
                 <input type="checkbox" data-act="toggle-review-avisado" data-id="${a.id}" ${a.reviewAvisada?'checked':''} style="width:18px;height:18px;accent-color:var(--wine);cursor:pointer;">

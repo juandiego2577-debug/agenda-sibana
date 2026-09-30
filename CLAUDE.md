@@ -318,6 +318,18 @@ replantear salvo que surja algo que realmente lo justifique):
   constante. (Esto NO exige subir `APP_VERSION`: es una advertencia que se
   muestra ANTES de guardar, no cambia qué se guarda ni cómo se interpretan
   los datos ya guardados — distinto del caso de `vales` más abajo.)
+  **`NUM_BOXES` nunca permite que UNA MISMA especialista quede agendada dos
+  veces a la vez, sin importar cuántos box haya** — un bug real: al agregar
+  el 2do box, el aviso pasó a mirar solo el total de superposiciones
+  (`overlapping.length >= NUM_BOXES`), así que una sola cita encima de otra
+  de la MISMA especialista (total=1) nunca llegaba al umbral de 2 y dejaba
+  agendar dos citas a la vez para la misma persona — imposible en la vida
+  real (no se puede "duplicar"). En `saveApptFromForm`, antes de mirar
+  `NUM_BOXES`, se filtran las superposiciones por especialista igual a la
+  de la cita que se está guardando (`normalizeName`) y, si hay alguna,
+  siempre avisa — pase lo que pase con `NUM_BOXES`. Recién después de ese
+  filtro se aplica el aviso de "solo hay `NUM_BOXES` box", que sigue siendo
+  solo entre especialistas DISTINTAS.
 - **Aviso de bloqueos nuevos para Admin** (`checkUnseenBlocksIfNeeded`):
   a Juan Diego se le pasó por alto más de una vez que una especialista
   bloqueó una hora, y solo se enteraba días después al intentar agendar

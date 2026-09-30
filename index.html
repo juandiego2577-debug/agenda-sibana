@@ -6159,6 +6159,12 @@ function isEvaluacionAppt(a){
 function isGarantiaAppt(a){
   return (a.services||[]).some(s=>/garant[ií]a/i.test(s||''));
 }
+// El "Lifting de Pestañas" no lleva retoque (a diferencia de micropigmentación,
+// que sí) — a pedido explícito del usuario, quienes se hicieron solo eso no
+// deben aparecer en Retoques pendientes.
+function isLiftingPestanasAppt(a){
+  return (a.services||[]).some(s=>/lifting de pesta[nñ]as/i.test(s||''));
+}
 // Cada cuántos días conviene volver a escribirle a alguien que quedó "en el
 // aire" (no respondió, o dejó en visto) — ni tan seguido que sea molesto, ni
 // tan espaciado que se pierda el impulso antes de que se cierre la ventana.
@@ -6186,6 +6192,7 @@ function touchupCandidates(){
     if(isRetoqueAppt(a)) return; // ya es un retoque, no una sesión inicial
     if(isEvaluacionAppt(a)) return; // una evaluación no es un tratamiento, no le corresponde retoque
     if(isGarantiaAppt(a)) return; // una garantía tampoco es una sesión inicial nueva
+    if(isLiftingPestanasAppt(a)) return; // el lifting de pestañas no lleva retoque
     if(a.cursoId) return; // una clase de un curso no es un tratamiento individual, no le corresponde retoque
     const dt = parseKey(a.date);
     if(dt < minDate || dt > maxDate) return;

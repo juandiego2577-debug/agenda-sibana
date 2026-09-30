@@ -2934,6 +2934,33 @@ function overlappingAppts(candidate){
     apptsOverlap(a, candidate)
   );
 }
+// Cuántas citas quedarían ocupando box AL MISMO TIEMPO si se agrega `candidate`
+// (no basta con contar cuántas citas "tocan" en algún punto el rango de
+// `candidate` — dos citas consecutivas, ej. 15:30–16:30 y 16:30–17:30, nunca
+// están ocurriendo juntas, aunque una cita de 15:30–17:00 toque a ambas).
+// Recorre el rango de `candidate` y devuelve, en el instante de mayor
+// ocupación, cuántas citas (contando la propia `candidate`) están activas a
+// la vez, junto con cuáles son (sin contar `candidate`).
+function peakBoxOccupancy(candidate, overlapping){
+  const cStart = minutesFromMidnight(candidate.start), cEnd = minutesFromMidnight(candidate.end);
+  const points = new Set([cStart, cEnd]);
+  overlapping.forEach(o=>{
+    points.add(Math.max(cStart, minutesFromMidnight(o.start)));
+    points.add(Math.min(cEnd, minutesFromMidnight(o.end)));
+  });
+  const sorted = Array.from(points).sort((a,b)=>a-b);
+  let best = { count: 1, active: [] };
+  for(let i=0;i<sorted.length-1;i++){
+    const mid = (sorted[i]+sorted[i+1])/2;
+    if(mid < cStart || mid >= cEnd) continue;
+    const active = overlapping.filter(o=>{
+      const s = minutesFromMidnight(o.start), e = minutesFromMidnight(o.end);
+      return s <= mid && mid < e;
+    });
+    if(active.length + 1 > best.count) best = { count: active.length + 1, active };
+  }
+  return best;
+}
 
 // ---------------- Bloqueos de hora (especialistas) ----------------
 const ALL_SPECIALISTS_VALUE = '__TODAS__'; // bloqueo general del estudio (ej: corte de luz), no depende de una especialista
@@ -7577,9 +7604,10 @@ function saveApptFromForm(){
     return;
   }
 
-  if(overlapping.length >= NUM_BOXES){
-    const detalle = overlapping.map(o=>`${o.start}–${o.end} (${o.client||'sin nombre'})`).join(', ');
-    showConfirmDialog(`Ya hay ${overlapping.length} cita${overlapping.length===1?'':'s'} en ese horario (${detalle}) y solo hay ${NUM_BOXES} box disponibles. ¿Quieres agendarla igual?`, afterOverlapCheck);
+  const boxPeak = overlapping.length ? peakBoxOccupancy(updated, overlapping) : null;
+  if(boxPeak && boxPeak.count > NUM_BOXES){
+    const detalle = boxPeak.active.map(o=>`${o.start}–${o.end} (${o.client||'sin nombre'})`).join(', ');
+    showConfirmDialog(`En parte de ese horario habría ${boxPeak.count} citas al mismo tiempo (${detalle}) y solo hay ${NUM_BOXES} box disponibles. ¿Quieres agendarla igual?`, afterOverlapCheck);
     return;
   }
 

@@ -3041,6 +3041,46 @@ function checkUnseenBlocksIfNeeded(){
   wrap.querySelector('#dlg-ok').addEventListener('click', dismiss);
   wrap.addEventListener('click', e=>{ if(e.target===wrap) dismiss(); });
 }
+// Aviso de tratamientos nuevos para Especialista (mismo patrón que el aviso
+// de bloqueos para Admin, pero al revés: le interesa a quien atiende, no a
+// quien los agrega). A diferencia de "bloqueosVistosHasta" (compartido en
+// Firestore, porque en la práctica hay un solo Admin), acá SÍ hay varias
+// especialistas distintas, cada una con su propio dispositivo — por eso
+// esto se guarda en localStorage (por dispositivo), no en state.settings.
+const SERVICIOS_VISTOS_KEY = 'sibanaServiciosVistosHasta';
+function checkNewServicesIfNeeded(){
+  if(ui.mode==='admin') return;
+  if(ui.modal) return; // no interrumpir si hay un modal abierto
+  if(document.getElementById('custom-dialog')) return; // ya hay un diálogo mostrándose
+  const cutoff = safeGetLocal(SERVICIOS_VISTOS_KEY) || null;
+  const nuevos = (state.services||[]).filter(s=>s.creadoEn && (!cutoff || s.creadoEn > cutoff));
+  if(!nuevos.length) return;
+  nuevos.sort((a,b)=> (a.creadoEn||'') < (b.creadoEn||'') ? -1 : 1);
+  const wrap = document.createElement('div');
+  wrap.id = 'custom-dialog';
+  wrap.className = 'confirm-overlay';
+  const rows = nuevos.map(s=>`
+    <div style="padding:8px 0;border-bottom:1px solid var(--line);">
+      <div style="font-weight:600;">${escapeHtml(s.name)}</div>
+      <div class="hint" style="margin:2px 0 0;">${fmtCLP(s.price)} · ${s.duration||60} min</div>
+    </div>`).join('');
+  wrap.innerHTML = `
+    <div class="confirm-box" style="max-width:420px;max-height:82vh;overflow-y:auto;text-align:left;">
+      <p style="margin-bottom:8px;">🧾 <b>${nuevos.length===1?'Nuevo tratamiento agregado':`${nuevos.length} tratamientos nuevos agregados`}</b> desde la última vez que entraste:</p>
+      <div>${rows}</div>
+      <div class="confirm-actions" style="margin-top:14px;">
+        <button class="btn btn-primary" id="dlg-ok">Entendido</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  const dismiss = ()=>{
+    if(!wrap.isConnected) return;
+    wrap.remove();
+    safeSetLocal(SERVICIOS_VISTOS_KEY, new Date().toISOString());
+  };
+  wrap.querySelector('#dlg-ok').addEventListener('click', dismiss);
+  wrap.addEventListener('click', e=>{ if(e.target===wrap) dismiss(); });
+}
 function blocksForDate(dateKey){
   const list = allBlocksForDate(dateKey);
   if(ui.specialistFilter==='all') return list;
@@ -3907,6 +3947,7 @@ function startFirestoreSync(){
       if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas || cursoMicropigmentacion || cursoHuerfanoRepair) saveData({recordUndo:false, silent:true});
       runDailyAutoBackupIfNeeded();
       checkUnseenBlocksIfNeeded();
+      checkNewServicesIfNeeded();
     } else {
       // No existe ningún documento en la base de datos. Después de la primera
       // vez que se configuró Firebase, esto NUNCA debería volver a pasar — si
@@ -4357,8 +4398,8 @@ function toolbarHtml(){
       ${specChips}
       <div class="spacer"></div>
       <button class="btn btn-ghost" data-act="new-block">🚫 Bloquear hora</button>
-      <button class="btn btn-ghost" data-act="open-vales">💵 Vale</button>
       ${isAdmin ? `<button class="btn btn-primary" data-act="new-appt">+ Nueva cita</button>` : ''}
+      <button class="btn btn-ghost" data-act="open-vales">💵 Vale</button>
     </div>
   `;
 }
@@ -6907,6 +6948,7 @@ function onAction(e){
         ui.mode = 'staff';
         ui.modal = null;
         render();
+        checkNewServicesIfNeeded();
       } else {
         const pass = state.settings.adminPassword || '';
         if(!pass){
@@ -7365,7 +7407,7 @@ function onAction(e){
       break;
     }
     case 'add-service':
-      state.services.push({name:'Nuevo servicio', price:0, duration:60});
+      state.services.push({name:'Nuevo servicio', price:0, duration:60, creadoEn: new Date().toISOString()});
       render(); break;
     case 'remove-service': {
       const idx = Number(e.currentTarget.dataset.idx);

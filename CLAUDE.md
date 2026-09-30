@@ -314,6 +314,12 @@ replantear salvo que surja algo que realmente lo justifique):
   en Retoques pendientes (`isLiftingPestanasAppt`, mismo patrón que
   `isRetoqueAppt`/`isEvaluacionAppt`/`isGarantiaAppt`: si CUALQUIER
   servicio de la ficha coincide, se excluye la ficha completa).
+  Los mensajes de WhatsApp de cada fila (`buildCheckinMsg`/`buildReviewMsg`)
+  están **personalizados con el nombre y el servicio de esa clienta**
+  (mismo patrón que ya usaba `buildTouchupMsg` en Retoques) — responden
+  mucho más que un mensaje genérico. Los textos genéricos sin nombre
+  (`genericCheckinMsg`/`genericReviewMsg`) se mantienen arriba del modal
+  solo para copiar a mano cuando no hay teléfono guardado.
 - **Cursos** (`state.courses` + `a.cursoId`/`a.cursoNombre` en las citas):
   para clases grupales de un solo día/horario (ej. un curso de
   micropigmentación), NO citas individuales. Un curso es un bloque de

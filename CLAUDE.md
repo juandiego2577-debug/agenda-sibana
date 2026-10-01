@@ -220,6 +220,28 @@ replantear salvo que surja algo que realmente lo justifique):
       peticiones `Listen/channel`; para sin señal: `context.setOffline(true)`
       (`disableNetwork()` NO sirve: las transacciones igual pasan).
 
+13. **Una prueba nunca debe asumir en qué mes/día real se va a correr.**
+    Varias pruebas de Finanzas/Mis ganancias/cursos tenían citas fijas en
+    septiembre u octubre de 2026 y daban por hecho que Finanzas (que por
+    defecto muestra el mes de `new Date()`, es decir "hoy") y la vista Mes
+    (que por defecto muestra `ui.currentDate`, también "hoy") iban a caer
+    solas en el mes correcto, o navegaban con un número fijo de clics
+    "mes siguiente/anterior" calculado a mano. Mientras "hoy" fue
+    septiembre 2026 (mientras se escribieron), funcionaron; en cuanto
+    pasó un día real (1 de octubre) dejaron de pasar, sin que nadie
+    tocara el código de la app — un bug real detectado en esta sesión,
+    nada que ver con el cambio que se estaba probando en ese momento. La
+    corrección: fijar explícitamente `ui.reportsDate`/`ui.currentDate`
+    con `page.evaluate(() => { ui.reportsDate = new Date(2026,8,1);
+    render(); })` (mes 0-indexado) antes de revisar números de un mes en
+    particular, en vez de navegar con clics relativos a "hoy" o confiar
+    en el valor por defecto. Para algo que depende del reloj real en
+    varios puntos a la vez (ej. una migración que calcula "el mes que
+    viene" respecto a hoy, `test_mis_ganancias_cutoff.js`), mejor congelar
+    el reloj completo de la página con `page.clock.install({time: new
+    Date('2026-09-15T12:00:00')})` antes de cargar la agenda, en vez de
+    parchar cada síntoma por separado.
+
 ## Reglas de negocio de Finanzas (definidas explícitamente, no adivinar)
 - **Comisión de especialistas**: 50% por defecto (variable por mes, ver
   punto 8 arriba) sobre lo que genera cada cita — pero NUNCA sobre la
@@ -272,6 +294,24 @@ replantear salvo que surja algo que realmente lo justifique):
   esto en vez del panel completo de Admin — cada especialista elige su
   nombre una vez (se recuerda por dispositivo, `STAFF_IDENTITY_KEY`) y ve
   solo sus propias citas/ingresos/comisión del mes, nada de las demás.
+  **Recordatorio visible de "¿quién eres?"** (`checkStaffIdentityIfNeeded`,
+  `staffIdentityBadgeHtml`, `ui.modal.type==='staff-identity'`): antes,
+  elegir el nombre solo se preguntaba si la especialista entraba por su
+  cuenta a Finanzas → Mis ganancias — si nunca abría esa pestaña, el
+  teléfono se quedaba sin identidad para siempre (y "Vale"/"pago marcado
+  por" le quedaban sin nombre asociado), algo que Juan Diego notó como un
+  problema real. Ahora se pregunta sola (con un modal, mismo patrón que
+  los demás avisos) la primera vez que se entra en modo Especialista sin
+  identidad guardada — tanto al cargar la agenda como al tocar "🔒
+  Especialista" desde Admin — y además queda un recordatorio SIEMPRE
+  visible arriba del todo ("👤 Nombre" o "👤 ¿Quién eres?" si todavía no
+  eligió), que se puede tocar en cualquier momento para elegir o cambiar
+  el nombre, sin tener que entrar a Finanzas. Solo se ve en modo
+  Especialista (Admin nunca lo necesita). Si el aviso automático se
+  descarta sin elegir nombre ("Ahora no"), el aviso de tratamientos
+  nuevos que se había saltado mientras tanto (`checkNewServicesIfNeeded`,
+  que no se muestra si ya hay otro modal abierto) se vuelve a revisar
+  justo después de cerrarlo, para que no se pierda.
 - **Personas por cita** (`a.personas`, por defecto 1, ver `apptPersonas`):
   para fichas donde se atienden varias personas juntas (ej. clienta + amiga).
   "Personas atendidas" NO cuenta citas Cancelada/NoShow

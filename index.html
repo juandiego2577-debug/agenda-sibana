@@ -3320,10 +3320,36 @@ function setServiceQty(idx, qty){
 }
 function recomputeServiceFields(){
   const q = getServiceQuantities();
+  const isNew = ui.modal && ui.modal.mode === 'new';
+  const cremaEl = document.getElementById('f-crema');
+  // En una cita NUEVA, un retoque nunca lleva la crema incluida gratis (se
+  // puede comprar aparte si corresponde, pero no se regala) — sin importar
+  // el interruptor general de "crema incluida". Se revisa cada vez que
+  // cambia la selección de servicios, para que el stepper de crema
+  // aparezca o se esconda solo.
+  if(isNew){
+    const stepperWrap = document.getElementById('crema-stepper-wrap');
+    const note = document.getElementById('crema-incluida-note');
+    if(stepperWrap && note){
+      const isRetoqueNow = q.some(({idx})=>/retoque/i.test(state.services[idx]?.name||''));
+      const showStepper = !state.settings.cremaIncluida || isRetoqueNow;
+      if(showStepper){
+        stepperWrap.style.display = '';
+        note.style.display = 'none';
+      } else {
+        stepperWrap.style.display = 'none';
+        note.style.display = '';
+        if(cremaEl && Number(cremaEl.value)>0){
+          cremaEl.value = 0;
+          const num = document.getElementById(cremaEl.id+'-num');
+          if(num) num.textContent = '0';
+        }
+      }
+    }
+  }
   const totalCount = q.reduce((s,x)=>s+x.qty,0);
   const totalPrice = q.reduce((s,{idx,qty})=> s + (state.services[idx] ? (Number(state.services[idx].price)||0)*qty : 0), 0);
   const totalDuration = getTotalDuration();
-  const cremaEl = document.getElementById('f-crema');
   const cremaExtra = cremaEl ? CREMA_PRICE*(Number(cremaEl.value)||0) : 0;
   const finalPrice = totalPrice + cremaExtra;
 
@@ -3346,7 +3372,6 @@ function recomputeServiceFields(){
   // en una cita NUEVA. En una cita que ya existe, cambiar la cantidad de un
   // servicio (por cualquier motivo, incluso uno que no tenga que ver con el
   // pago) NUNCA debe borrar el abono que ya quedó registrado/cobrado.
-  const isNew = ui.modal && ui.modal.mode === 'new';
   if(isNew && abonoInput){
     abonoInput.value = 5000 * totalCount;
   }
@@ -5051,6 +5076,12 @@ function apptModalHtml(){
   const initialTotalCount = initialEntries.reduce((s,e)=>s+e.qty,0);
   const initialTotalDuration = initialEntries.reduce((s,e)=>s+(Number(state.services[e.idx]?.duration)||0)*e.qty,0);
   const initialTotalPrice = initialEntries.reduce((s,e)=>s+(Number(state.services[e.idx]?.price)||0)*e.qty,0);
+  // Un retoque nunca lleva la crema incluida gratis (se puede comprar
+  // aparte si corresponde, pero no se regala) — solo aplica a una cita
+  // NUEVA; al editar, el interruptor manual (ver más abajo) ya da control
+  // total sobre esa cita en particular.
+  const initialIsRetoque = !isEdit && initialEntries.some(e=>/retoque/i.test(state.services[e.idx]?.name||''));
+  const cremaIncluidaActive = isEdit ? d.cremaIncluidaPolitica : (state.settings.cremaIncluida && !initialIsRetoque);
   const estados = ['Pendiente','Confirmada','Realizada','Cancelada','NoShow'];
   const estadoLabels = {Pendiente:'Pendiente',Confirmada:'Confirmada',Realizada:'Realizada',Cancelada:'Cancelada',NoShow:'No se presentó'};
   const specialistHasLegacyValue = d.specialist && !state.specialists.some(s=>s.name===d.specialist);
@@ -5096,11 +5127,11 @@ function apptModalHtml(){
           <span class="hint" style="margin:0;flex:1;">Ej.: viene con una amiga y se atienden las dos → pon 2</span>
         </div>
       </div>
-      <div id="crema-incluida-note" class="field" style="${(isEdit ? d.cremaIncluidaPolitica : state.settings.cremaIncluida) ? '' : 'display:none;'}">
+      <div id="crema-incluida-note" class="field" style="${cremaIncluidaActive ? '' : 'display:none;'}">
         <label>🧴 Crema post-tratamiento</label>
         <div class="hint" style="margin:0;">Incluida sin costo adicional.</div>
       </div>
-      <div id="crema-stepper-wrap" style="${(isEdit ? d.cremaIncluidaPolitica : state.settings.cremaIncluida) ? 'display:none;' : ''}">
+      <div id="crema-stepper-wrap" style="${cremaIncluidaActive ? 'display:none;' : ''}">
         ${cremaStepperHtml('f-crema', apptCremas(d))}
       </div>
       ${isEdit ? `<button type="button" class="linklike" id="toggle-crema-policy-btn" style="font-size:11px;margin:-6px 0 12px;display:block;">${d.cremaIncluidaPolitica ? 'Esta cita en realidad debía cobrar la crema aparte — cambiar a la condición anterior' : 'Esta cita en realidad debía tener la crema incluida — cambiar a la condición nueva'}</button>` : ''}
@@ -7718,7 +7749,10 @@ function saveApptFromForm(){
   // cambian de condición (mismo patrón que el precio: cada cita se queda con
   // las reglas del día en que se agendó).
   if(ui.modal.mode==='new'){
-    updated.cremaIncluidaPolitica = !!state.settings.cremaIncluida;
+    // Un retoque nunca lleva la crema incluida gratis (se puede comprar
+    // aparte si corresponde, pero no se regala) — sin importar el
+    // interruptor general.
+    updated.cremaIncluidaPolitica = !!state.settings.cremaIncluida && !isRetoqueAppt(updated);
   }
   delete updated.service;
   if(!updated.client){ showAlert('Ingresa el nombre del cliente.'); return; }

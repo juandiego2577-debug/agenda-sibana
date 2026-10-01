@@ -511,6 +511,23 @@ replantear salvo que surja algo que realmente lo justifique):
   SERVICIOS al editar (no solo crema) sigue teniendo este mismo problema
   de fondo — queda pendiente, es parte del trabajo más grande de precios
   que todavía espera la lista completa del usuario.
+  **Un retoque NUNCA lleva la crema incluida gratis** — a pedido
+  explícito del usuario: se puede seguir comprando aparte (ej. si la
+  clienta perdió o se le acabó la que le dieron en el tratamiento
+  inicial), pero no se regala en el retoque, sin importar el interruptor
+  general de "crema incluida". Solo aplica a citas NUEVAS (`isRetoqueAppt`,
+  mismo detector que usa "Retoques pendientes" — si CUALQUIER servicio
+  elegido coincide con "retoque", toda la ficha cuenta como retoque). En
+  `apptModalHtml`, `cremaIncluidaActive` (calculado al abrir el modal) ya
+  descarta la crema incluida si la selección inicial de servicios es un
+  retoque; además, `recomputeServiceFields()` revisa la selección ACTUAL
+  cada vez que cambian los servicios marcados (no solo al abrir el
+  modal), para que el stepper de crema aparezca o se esconda solo según
+  se agregue o quite un retoque — si al esconderlo ya había una cantidad
+  cargada, se resetea a 0 antes de recalcular el precio. Al editar una
+  cita ya existente esto NO se revisa automáticamente (el interruptor
+  manual `#toggle-crema-policy-btn` de más arriba ya da control total
+  sobre esa cita en particular, sin necesitar detección automática ahí).
   **Pago con dos métodos** (ej. parte en efectivo y parte por
   transferencia): botón "➕ Pagó con dos métodos" en la vista de la
   especialista. Usa los mismos campos que Admin (`metodoSaldo2` +

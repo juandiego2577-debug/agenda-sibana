@@ -115,6 +115,13 @@
     color:var(--ink-soft);font-size:11px;padding:5px 12px;cursor:pointer;
     font-family:'Inter',sans-serif;flex-shrink:0;
   }
+  .topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .staff-badge{
+    background:none;border:1px solid var(--line);border-radius:999px;
+    color:var(--ink-soft);font-size:11px;padding:5px 12px;cursor:pointer;
+    font-family:'Inter',sans-serif;flex-shrink:0;
+  }
+  .staff-badge-empty{border-color:var(--wine);color:var(--gold-soft);font-weight:600;}
 
   /* ---------- Toolbar ---------- */
   .toolbar{
@@ -3122,6 +3129,46 @@ function checkNewServicesIfNeeded(){
   wrap.querySelector('#dlg-ok').addEventListener('click', dismiss);
   wrap.addEventListener('click', e=>{ if(e.target===wrap) dismiss(); });
 }
+
+// A Juan Diego le pasó que algunas especialistas nunca llegaban a elegir su
+// nombre, porque eso solo se preguntaba si entraban a Finanzas → Mis
+// ganancias — si nunca abrían esa pestaña, el teléfono se quedaba sin
+// identidad para siempre (y "Vale"/"pago marcado por" le quedaban sin
+// nombre). Ahora se pregunta sola la primera vez que se entra en modo
+// Especialista (mismo patrón que el aviso de tratamientos nuevos), y además
+// queda un recordatorio siempre visible arriba (`staffIdentityBadgeHtml`)
+// para poder elegirla o cambiarla en cualquier momento, sin tener que entrar
+// a Finanzas.
+function checkStaffIdentityIfNeeded(){
+  if(ui.mode==='admin') return;
+  if(ui.modal) return; // no interrumpir si hay un modal abierto
+  if(document.getElementById('custom-dialog')) return; // ya hay un diálogo mostrándose
+  if(safeGetLocal(STAFF_IDENTITY_KEY)) return; // este dispositivo ya se identificó
+  if(!state.specialists.length) return;
+  ui.modal = {type:'staff-identity'};
+  render();
+}
+function staffIdentityBadgeHtml(){
+  const identity = safeGetLocal(STAFF_IDENTITY_KEY);
+  return identity
+    ? `<button type="button" class="staff-badge" data-act="open-staff-identity">👤 ${escapeHtml(identity)}</button>`
+    : `<button type="button" class="staff-badge staff-badge-empty" data-act="open-staff-identity">👤 ¿Quién eres?</button>`;
+}
+function staffIdentityModalHtml(){
+  const identity = safeGetLocal(STAFF_IDENTITY_KEY);
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">¿Quién eres?</h2>
+      <p class="hint">Elige tu nombre para que la agenda sepa qué especialista está usando este teléfono (sirve para "Mis ganancias", los vales y marcar pagos). Este dispositivo lo va a recordar, así que solo hace falta elegirlo una vez.</p>
+      ${state.specialists.map(s=>`<button type="button" class="btn ${s.name===identity?'btn-primary':'btn-ghost'}" style="width:100%;margin-bottom:8px;" data-act="set-staff-identity" data-name="${escapeHtml(s.name)}">${s.name===identity?'✓ ':''}${escapeHtml(s.name)}</button>`).join('')}
+      <div class="modal-actions">
+        <div></div>
+        <div class="right"><button class="btn btn-ghost" data-act="close-modal">${identity?'Cerrar':'Ahora no'}</button></div>
+      </div>
+    </div>
+  </div>`;
+}
 function blocksForDate(dateKey){
   const list = allBlocksForDate(dateKey);
   if(ui.specialistFilter==='all') return list;
@@ -3988,6 +4035,7 @@ function startFirestoreSync(){
       if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas || cursoMicropigmentacion || cursoHuerfanoRepair) saveData({recordUndo:false, silent:true});
       runDailyAutoBackupIfNeeded();
       checkUnseenBlocksIfNeeded();
+      checkStaffIdentityIfNeeded();
       checkNewServicesIfNeeded();
     } else {
       // No existe ningún documento en la base de datos. Después de la primera
@@ -4319,7 +4367,10 @@ function render(){
         <img src="${LOGO_SRC}" alt="Sibana" />
         <span class="tagline">Santiago · Panel interno</span>
       </div>
-      <button class="mode-toggle" data-act="toggle-mode">${ui.mode==='admin' ? '🔓 Admin' : '🔒 Especialista'}</button>
+      <div class="topbar-right">
+        ${ui.mode!=='admin' ? staffIdentityBadgeHtml() : ''}
+        <button class="mode-toggle" data-act="toggle-mode">${ui.mode==='admin' ? '🔓 Admin' : '🔒 Especialista'}</button>
+      </div>
     </header>
     ${sectionTabsHtml()}
     ${ui.section==='finanzas' ? `
@@ -4813,6 +4864,7 @@ function modalHtml(){
   if(ui.modal.type==='curso') return cursoModalHtml();
   if(ui.modal.type==='curso-attendee') return cursoAttendeeModalHtml();
   if(ui.modal.type==='vales') return valesModalHtml();
+  if(ui.modal.type==='staff-identity') return staffIdentityModalHtml();
   if(ui.modal.type==='appt' && ui.mode!=='admin') return apptViewOnlyHtml(ui.modal.data);
   return apptModalHtml();
 }
@@ -6995,6 +7047,7 @@ function onAction(e){
         ui.mode = 'staff';
         ui.modal = null;
         render();
+        checkStaffIdentityIfNeeded();
         checkNewServicesIfNeeded();
       } else {
         const pass = state.settings.adminPassword || '';
@@ -7330,11 +7383,19 @@ function onAction(e){
       ui.reportsDate = addMonths(ui.reportsDate||new Date(), -1); render(); break;
     case 'reports-next-month':
       ui.reportsDate = addMonths(ui.reportsDate||new Date(), 1); render(); break;
-    case 'set-staff-identity':
+    case 'set-staff-identity': {
       safeSetLocal(STAFF_IDENTITY_KEY, e.currentTarget.dataset.name);
-      render(); break;
+      const wasIdentity = ui.modal && ui.modal.type==='staff-identity';
+      if(wasIdentity) ui.modal = null;
+      render();
+      if(wasIdentity) checkNewServicesIfNeeded();
+      break;
+    }
     case 'reset-staff-identity':
       safeRemoveLocal(STAFF_IDENTITY_KEY);
+      render(); break;
+    case 'open-staff-identity':
+      ui.modal = {type:'staff-identity'};
       render(); break;
     case 'save-comision-pct': {
       const input = document.getElementById('f-comision-pct');
@@ -7423,12 +7484,19 @@ function onAction(e){
     case 'save-stock':
       saveStockFromForm(); break;
     case 'close-modal':
-    case 'overlay-close':
+    case 'overlay-close': {
       if(staffHasUnsavedPayment()){
         showConfirmDialog('No has guardado el pago: elegiste el método de pago o las cremas, pero no tocaste el botón "Marcar como realizada". Si cierras ahora, no queda nada guardado. ¿Cerrar igual?', ()=>{ ui.modal = null; render(); });
         break;
       }
-      ui.modal = null; render(); break;
+      // Si se cerró el aviso de "¿Quién eres?" (eligiendo nombre o con "Ahora
+      // no"), se revisa si también había tratamientos nuevos para avisar —
+      // ese chequeo se saltó mientras este modal estaba abierto.
+      const wasIdentity = ui.modal && ui.modal.type==='staff-identity';
+      ui.modal = null; render();
+      if(wasIdentity) checkNewServicesIfNeeded();
+      break;
+    }
     case 'save-appt':
       saveApptFromForm(); break;
     case 'delete-appt': {

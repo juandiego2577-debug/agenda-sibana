@@ -5096,7 +5096,14 @@ function apptModalHtml(){
           <span class="hint" style="margin:0;flex:1;">Ej.: viene con una amiga y se atienden las dos → pon 2</span>
         </div>
       </div>
-      ${(isEdit ? d.cremaIncluidaPolitica : state.settings.cremaIncluida) ? '<div class="field"><label>🧴 Crema post-tratamiento</label><div class="hint" style="margin:0;">Incluida sin costo adicional.</div></div>' : cremaStepperHtml('f-crema', apptCremas(d))}
+      <div id="crema-incluida-note" class="field" style="${(isEdit ? d.cremaIncluidaPolitica : state.settings.cremaIncluida) ? '' : 'display:none;'}">
+        <label>🧴 Crema post-tratamiento</label>
+        <div class="hint" style="margin:0;">Incluida sin costo adicional.</div>
+      </div>
+      <div id="crema-stepper-wrap" style="${(isEdit ? d.cremaIncluidaPolitica : state.settings.cremaIncluida) ? 'display:none;' : ''}">
+        ${cremaStepperHtml('f-crema', apptCremas(d))}
+      </div>
+      ${isEdit ? `<button type="button" class="linklike" id="toggle-crema-policy-btn" style="font-size:11px;margin:-6px 0 12px;display:block;">${d.cremaIncluidaPolitica ? 'Esta cita en realidad debía cobrar la crema aparte — cambiar a la condición anterior' : 'Esta cita en realidad debía tener la crema incluida — cambiar a la condición nueva'}</button>` : ''}
       <div class="field"><label>Especialista</label>
         <select id="f-specialist">
           <option value="">— Sin asignar —</option>
@@ -6908,12 +6915,33 @@ function attachEvents(){
       const inc = e.target.closest('[data-crema-inc]');
       const dec = e.target.closest('[data-crema-dec]');
       if(!inc && !dec) return;
-      const n = Math.max(0, Math.min(9, (Number(input.value)||0) + (inc?1:-1)));
+      const prev = Number(input.value)||0;
+      const n = Math.max(0, Math.min(9, prev + (inc?1:-1)));
       input.value = n;
       document.getElementById(input.id+'-num').textContent = n;
       wrap.querySelector('[data-crema-dec]').disabled = n<=0;
       wrap.querySelector('[data-crema-inc]').disabled = n>=9;
-      if(input.id==='f-crema') recomputeServiceFields();
+      if(input.id==='f-crema'){
+        if(ui.modal && ui.modal.mode==='new'){
+          recomputeServiceFields();
+        } else if(ui.modal && ui.modal.data && n!==prev){
+          // Editando una cita YA existente: solo se ajusta por el cambio
+          // real de cremas, sin recalcular el resto del precio desde la
+          // lista de servicios actual — así nunca se pisa el precio
+          // histórico de la cita, aunque los precios de la lista hayan
+          // cambiado después (ver "Crema incluida" en CLAUDE.md).
+          const priceInput = document.getElementById('f-price');
+          const abonoInput = document.getElementById('f-abono');
+          const saldoInput = document.getElementById('f-saldo');
+          const delta = (n - prev) * CREMA_PRICE;
+          if(priceInput) priceInput.value = Math.max(0, (Number(priceInput.value)||0) + delta);
+          if(saldoInput && abonoInput && priceInput){
+            const splitSaldoBox = document.getElementById('split-saldo');
+            const saldoIsSplit = splitSaldoBox && splitSaldoBox.style.display !== 'none';
+            if(!saldoIsSplit) saldoInput.value = Math.max(0, (Number(priceInput.value)||0) - (Number(abonoInput.value)||0));
+          }
+        }
+      }
       if(input.id==='f-staff-crema' && ui.modal && ui.modal.data){
         // El monto a cobrar se actualiza al tiro con las cremas elegidas.
         const d = ui.modal.data;
@@ -6924,6 +6952,48 @@ function attachEvents(){
       }
     });
   });
+  // Botón discreto (solo Admin, editando una cita ya existente) para corregir
+  // a mano una cita ambigua con el cambio de "crema incluida" — por ejemplo,
+  // una agendada justo en el momento del corte, que quedó con la condición
+  // que no correspondía. Cambia solo ESA cita; no toca el interruptor
+  // general de Configuración ni ninguna otra cita.
+  const togglePolicyBtn = document.getElementById('toggle-crema-policy-btn');
+  if(togglePolicyBtn){
+    togglePolicyBtn.addEventListener('click', ()=>{
+      const d = ui.modal.data;
+      const cremaInput = document.getElementById('f-crema');
+      const currentQty = cremaInput ? Math.max(0, Math.min(9, Number(cremaInput.value)||0)) : apptCremas(d);
+      d.cremaIncluidaPolitica = !d.cremaIncluidaPolitica;
+      const note = document.getElementById('crema-incluida-note');
+      const stepperWrap = document.getElementById('crema-stepper-wrap');
+      if(d.cremaIncluidaPolitica){
+        // Pasa a "incluida": si tenía cremas cobradas aparte, se descuenta
+        // ese monto del precio/saldo (ya no corresponde cobrarlas). El
+        // resto del precio NO se toca — no se recalcula desde la lista de
+        // precios actual, para no pisar el precio congelado de esta cita.
+        if(currentQty>0){
+          const priceInput = document.getElementById('f-price');
+          const abonoInput = document.getElementById('f-abono');
+          const saldoInput = document.getElementById('f-saldo');
+          const diff = currentQty*CREMA_PRICE;
+          if(priceInput) priceInput.value = Math.max(0, (Number(priceInput.value)||0) - diff);
+          if(saldoInput && abonoInput && priceInput) saldoInput.value = Math.max(0, (Number(priceInput.value)||0) - (Number(abonoInput.value)||0));
+        }
+        if(cremaInput){
+          cremaInput.value = 0;
+          const num = document.getElementById(cremaInput.id+'-num');
+          if(num) num.textContent = '0';
+        }
+        note.style.display = '';
+        stepperWrap.style.display = 'none';
+        togglePolicyBtn.textContent = 'Esta cita en realidad debía cobrar la crema aparte — cambiar a la condición anterior';
+      } else {
+        note.style.display = 'none';
+        stepperWrap.style.display = '';
+        togglePolicyBtn.textContent = 'Esta cita en realidad debía tener la crema incluida — cambiar a la condición nueva';
+      }
+    });
+  }
   const personasInput = document.getElementById('f-personas');
   if(personasInput){
     const wrap = personasInput.parentElement;

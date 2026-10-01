@@ -485,6 +485,32 @@ replantear salvo que surja algo que realmente lo justifique):
   precio). Las citas VIEJAS (de antes de esta función, sin
   `cremaIncluidaPolitica`) siguen mostrando el stepper normal siempre,
   sin importar el estado actual del interruptor.
+  **Corregir una cita ambigua a mano** (botón discreto
+  `#toggle-crema-policy-btn`, solo Admin, solo al EDITAR una cita ya
+  existente — nunca en "Nueva cita"): a pedido explícito del usuario, por
+  si alguna cita quedó agendada justo en el momento ambiguo del cambio
+  (con la condición que no correspondía). El botón muestra, en texto
+  chico, la acción contraria a la condición actual de ESA cita
+  (`d.cremaIncluidaPolitica`) y permite cambiarla — solo para esa cita,
+  sin tocar el interruptor general ni ninguna otra cita. Al pasar a
+  "incluida" descuenta del precio/saldo justo el monto de las cremas que
+  ya tenía cargadas (y las deja en 0); al volver a la condición anterior,
+  simplemente vuelve a mostrar el stepper de crema normal, sin alterar el
+  precio hasta que se toque el stepper. **Importante:** este botón
+  expuso un bug real y pre-existente (no causado por él, pero sí
+  encontrado al construirlo): tocar el stepper de crema al EDITAR una
+  cita ya existente llamaba a `recomputeServiceFields()`, que recalcula
+  el precio total desde la lista de precios ACTUAL de `state.services` —
+  contradice directamente la regla ya confirmada de que una cita vieja
+  mantiene su precio congelado aunque se edite después (ver "Crema
+  incluida" más arriba). Se corrigió de forma acotada: el stepper de
+  crema, SOLO al editar (no al crear una cita nueva, donde sí corresponde
+  recalcular todo desde la lista actual), ahora ajusta el precio/saldo
+  únicamente por la diferencia de cremas (±$5.000 por unidad), sin tocar
+  el resto del precio. La recalculación general de PRECIO POR CANTIDAD DE
+  SERVICIOS al editar (no solo crema) sigue teniendo este mismo problema
+  de fondo — queda pendiente, es parte del trabajo más grande de precios
+  que todavía espera la lista completa del usuario.
   **Pago con dos métodos** (ej. parte en efectivo y parte por
   transferencia): botón "➕ Pagó con dos métodos" en la vista de la
   especialista. Usa los mismos campos que Admin (`metodoSaldo2` +

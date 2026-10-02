@@ -614,6 +614,31 @@ replantear salvo que surja algo que realmente lo justifique):
   comisión / vales / neto a pagar, tanto en "Mis ganancias" como en el
   panel de Finanzas de Admin (`payoutWeekBoxHtml`/`payoutRows`,
   `finanzasResumenHtml`).
+- **Correo de la clienta** (`a.email`, campo "Correo electrónico" debajo
+  del teléfono en la cita): se guarda limpio y en minúsculas, se valida el
+  formato al guardar (vacío se permite) y, al elegir una clienta del
+  autocompletado, se rellena solo con el correo de su cita más reciente que
+  tenga uno (`lastEmailForClient` — NO se guarda en `state.clients`). La
+  especialista lo ve en la vista de solo-lectura pero no lo edita. Viaja
+  solo al respaldo de Sheets/Calendar (va dentro de la cita). No exigió
+  subir `APP_VERSION`: no es un `DOC_KEYS` nuevo, y un teléfono viejo que
+  edite la cita conserva el campo (`saveApptFromForm` parte de `...d`).
+  **Para qué es (pendiente, decidido con el usuario):** mandar sola, por
+  correo, la información post-tratamiento, que hoy se olvida mandar a mano.
+  Reglas ya confirmadas: se manda todas las noches a las **20:30 hora de
+  Chile** (`America/Santiago`) a todas las citas de ese día que tengan
+  correo, MENOS Cancelada/NoShow (no se exige "Realizada", para no depender
+  de que alguien la marque), evaluaciones, retoques (ya lo recibieron en la
+  sesión inicial) e inscritos a cursos; nunca dos veces a la misma cita. El
+  post-tratamiento son IMÁGENES (una o varias), distintas por tratamiento —
+  plan: una carpeta de Google Drive por tratamiento, el correo adjunta todas
+  las imágenes de la carpeta que corresponda (varios tratamientos en una
+  cita = un solo correo con todas). Debe salir desde `sibana.cl@gmail.com`:
+  hacerlo con un Apps Script aparte, creado en esa cuenta, sin tocar el
+  script de respaldo que ya funciona. Falta: las imágenes por tratamiento.
+  El usuario NO usa el botón "Enviar recordatorio" de la agenda (manda la
+  confirmación como respuesta rápida de WhatsApp, reenviada a todas) y está
+  pensando en quitarlo — no invertir en ese botón.
 
 ## Cómo se trabaja en este proyecto
 - **Siempre probar antes de entregar.** Este proyecto se construyó

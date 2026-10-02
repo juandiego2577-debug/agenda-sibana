@@ -3231,6 +3231,18 @@ function upsertClient(name, phone, service){
     state.clients.push({id:uid(), name, phone, lastService:service, lastDate:toKey(new Date())});
   }
 }
+// Correo de la clienta: se toma de su cita más reciente que tenga uno (no se
+// guarda aparte en state.clients), para autocompletarlo al elegirla.
+function lastEmailForClient(name){
+  const key = normalizeName(name);
+  const withEmail = state.appointments
+    .filter(a=>a.email && normalizeName(a.client)===key)
+    .sort((a,b)=>(b.date+b.start).localeCompare(a.date+a.start));
+  return withEmail.length ? withEmail[0].email : '';
+}
+function isValidEmail(v){
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+}
 function findClientMatches(query){
   const q = normalizeName(query);
   if(!q) return [];
@@ -5015,6 +5027,7 @@ function apptViewOnlyHtml(d){
       <div class="field"><label>Cliente</label><div>${escapeHtml(d.client||'Sin nombre')}</div></div>
       ${d.client && d.client.trim() ? `<button type="button" class="btn btn-ghost" style="margin:0 0 14px;font-size:12.5px;" data-act="view-consent" data-client="${escapeHtml(d.client)}" data-appt-id="${escapeHtml(d.id||'')}" data-consent-id="${escapeHtml(d.consentId||'')}">${d.consentId ? 'Ver consentimiento firmado ✓' : 'Ver consentimiento firmado'}</button>` : ''}
       ${d.phone ? `<div class="field"><label>Teléfono</label><div>${escapeHtml(d.phone)}</div></div>` : ''}
+      ${d.email ? `<div class="field"><label>Correo electrónico</label><div>${escapeHtml(d.email)}</div></div>` : ''}
       <div class="field"><label>Servicio</label><div>${escapeHtml(summarizeServices(d.services||[])) || '—'}</div></div>
       ${apptPersonas(d)>1 ? `<div class="field"><label>Personas</label><div>👥 ${apptPersonas(d)} personas en esta ficha</div></div>` : ''}
       ${apptCremas(d)>0 && (d.estado==='Cancelada' || d.estado==='NoShow') ? `<div class="field"><label>Crema post-tratamiento</label><div>🧴 Sí, compró ${apptCremas(d)===1?'1 crema':apptCremas(d)+' cremas'} (entregar)</div></div>` : ''}
@@ -5109,6 +5122,7 @@ function apptModalHtml(){
       </div>
       ${d.client && d.client.trim() ? `<button type="button" class="btn btn-ghost" style="margin:-4px 0 14px;font-size:12.5px;" data-act="view-consent" data-client="${escapeHtml(d.client)}" data-appt-id="${escapeHtml(d.id||'')}" data-consent-id="${escapeHtml(d.consentId||'')}">${d.consentId ? 'Ver consentimiento firmado ✓' : 'Ver consentimiento firmado'}</button>` : ''}
       <div class="field"><label>Teléfono</label><input type="text" id="f-phone" value="${escapeHtml(d.phone)}" placeholder="+56 9…"></div>
+      <div class="field"><label>Correo electrónico <span class="hint" style="margin:0;">(para mandarle los cuidados post-tratamiento)</span></label><input type="email" id="f-email" value="${escapeHtml(d.email||'')}" placeholder="correo@ejemplo.com" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
       <div class="field">
         <label>Servicios (puedes elegir más de uno — ej. combo)</label>
         <div class="svc-picker" id="svc-picker">${svcRows}</div>
@@ -7730,6 +7744,7 @@ function saveApptFromForm(){
     ...d,
     date: get('f-date'), start: get('f-start'), end: get('f-end'),
     client: get('f-client').trim(), phone: get('f-phone').trim(),
+    email: document.getElementById('f-email') ? get('f-email').trim().toLowerCase() : (d.email||''),
     services, specialist: get('f-specialist'),
     estado: get('f-estado'),
     price: Number(get('f-price'))||0, abono: Number(get('f-abono'))||0,
@@ -7756,6 +7771,7 @@ function saveApptFromForm(){
   }
   delete updated.service;
   if(!updated.client){ showAlert('Ingresa el nombre del cliente.'); return; }
+  if(updated.email && !isValidEmail(updated.email)){ showAlert('El correo electrónico no parece estar bien escrito (ej. nombre@gmail.com). Corrígelo o déjalo vacío.'); return; }
   if(!updated.services.length){ showAlert('Elige al menos un servicio.'); return; }
   if(updated.end <= updated.start){ showAlert('La hora de fin debe ser posterior a la hora de inicio.'); return; }
 
@@ -8069,6 +8085,11 @@ document.addEventListener('mousedown', e=>{
   const phoneInput = document.getElementById('f-phone');
   if(nameInput) nameInput.value = item.dataset.name;
   if(phoneInput && item.dataset.phone) phoneInput.value = item.dataset.phone;
+  const emailInput = document.getElementById('f-email');
+  if(emailInput && !emailInput.value.trim()){
+    const email = lastEmailForClient(item.dataset.name);
+    if(email) emailInput.value = email;
+  }
   const box = document.getElementById('client-ac');
   if(box){ box.style.display='none'; box.innerHTML=''; }
 });

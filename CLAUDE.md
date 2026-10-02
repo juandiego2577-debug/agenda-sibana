@@ -635,7 +635,28 @@ replantear salvo que surja algo que realmente lo justifique):
   las imágenes de la carpeta que corresponda (varios tratamientos en una
   cita = un solo correo con todas). Debe salir desde `sibana.cl@gmail.com`:
   hacerlo con un Apps Script aparte, creado en esa cuenta, sin tocar el
-  script de respaldo que ya funciona. Falta: las imágenes por tratamiento.
+  script de respaldo que ya funciona.
+  **El script está en `apps-script/correo-postratamiento.gs`** (este repo
+  solo lo guarda; se instala pegándolo a mano en script.google.com con la
+  cuenta sibana.cl). Lee la agenda directo de Firestore por REST, entrando
+  como `equipo@sibanasantiago.app` (contraseña en la propiedad del script
+  `CLAVE_EQUIPO`, nunca en el código). Toma citas de hoy Y de ayer (si una
+  noche falla, se recupera al día siguiente); anota cada envío en una Hoja
+  "Registro correos post-tratamiento" (Drive de sibana.cl), que es lo que
+  evita repetir. Qué correo le toca a cada cita sale de `TRATAMIENTOS` (por
+  palabras en el nombre del servicio; un servicio con "retoque" nunca
+  cuenta): cejas = microblading/sombreado/mixbrows, labios = full lips.
+  **Pendiente:** el usuario debe confirmar si Perfeccionamiento y Realce
+  son micropigmentación de cejas (por ahora NO se les manda). Delineado de
+  ojos no se manda hasta que haya imágenes de ojos. Imágenes: carpeta
+  `Post-tratamiento/Cejas` y `/Labios` en ese Drive, en orden alfabético
+  (Cejas: cuidados, proceso de cicatrización, retención de pigmento;
+  Labios: cuidados, proceso de cicatrización, fotos día a día — los
+  "cuidados" son diseños propios con la marca Sibana; los demás son
+  imágenes del usuario con el logo cambiado a Sibana). Probado con un
+  simulador de los servicios de Google (Node + mocks), no contra Google
+  real. Al agregar la sede Copiapó, este script también tendrá que leer
+  `sibana-agenda/copiapo`.
   El usuario NO usa el botón "Enviar recordatorio" de la agenda (manda la
   confirmación como respuesta rápida de WhatsApp, reenviada a todas) y está
   pensando en quitarlo — no invertir en ese botón.

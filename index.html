@@ -425,6 +425,7 @@
   .modal-actions{display:flex;justify-content:space-between;margin-top:18px;gap:8px;}
   .modal-actions .right{display:flex;gap:8px;}
   .hint{font-size:11px;color:var(--ink-soft);margin-top:-6px;margin-bottom:10px;}
+  #postcare-status:empty{display:none;}
 
   /* selector de varios servicios (combos) */
   .svc-picker{
@@ -4511,7 +4512,6 @@ function toolbarHtml(){
             <button data-act="open-noshows">Historial de no-shows</button>
             <hr>
             <div class="moremenu-label">Seguimiento</div>
-            <button data-act="open-reminders">📲 Recordatorios de mañana</button>
             <button data-act="open-touchups">💆 Retoques pendientes (30–45 días)</button>
             <button data-act="open-reviews">🌟 Reseñas pendientes</button>
             <hr>
@@ -4891,7 +4891,6 @@ function modalHtml(){
   if(ui.modal.type==='clients') return clientsModalHtml();
   if(ui.modal.type==='block') return blockModalHtml();
   if(ui.modal.type==='blocks-list') return blocksListModalHtml();
-  if(ui.modal.type==='reminders') return remindersModalHtml();
   if(ui.modal.type==='touchups') return touchupsModalHtml();
   if(ui.modal.type==='reviews') return reviewsModalHtml();
   if(ui.modal.type==='search') return searchModalHtml();
@@ -4952,6 +4951,100 @@ function blockModalHtml(){
 // usa igual en el formulario de Admin y en la vista de la especialista).
 // Cuándo y quién marcó el pago desde la vista de la especialista — así, si
 // una cita aparece sin marcar, se puede saber si de verdad nunca se marcó.
+// ---------------- Correo de cuidados post-tratamiento ----------------
+// El correo lo manda SOLO un programa aparte (apps-script/correo-postratamiento.gs,
+// instalado en la cuenta sibana.cl), todas las noches a las 20:30 hora de
+// Chile. Cada vez que manda uno, lo anota en la colección de Firestore
+// POSTCARE_COLLECTION (un documento por cita, con el mismo id de la cita) —
+// aparte del documento de la agenda, para nunca pisar citas. Aquí solo se
+// LEE eso, para mostrar dentro de la cita si se mandó, cuándo se va a mandar
+// o si falta el correo.
+const POSTCARE_COLLECTION = 'sibana-correos-postratamiento';
+const POSTCARE_DESDE = '2026-10-03'; // día en que empezó el envío: citas anteriores no muestran nada
+const POSTCARE_HORA = '20:30';
+// OJO: mantener igual que TRATAMIENTOS en apps-script/correo-postratamiento.gs.
+const POSTCARE_TRATAMIENTOS = [
+  {nombre:'cejas',  palabras:['microblading','sombreado','mixbrows']},
+  {nombre:'labios', palabras:['full lips']},
+];
+const postcareCache = {}; // id de cita -> {rec, at} (rec: datos del envío, null si no hay, 'error' si no se pudo leer)
+
+function postcareTreatments(a){
+  const out = [];
+  (a.services||[]).forEach(svc=>{
+    const n = String(svc||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+    if(n.includes('retoque')) return;
+    POSTCARE_TRATAMIENTOS.forEach(t=>{
+      if(t.palabras.some(p=>n.includes(p)) && !out.includes(t.nombre)) out.push(t.nombre);
+    });
+  });
+  return out;
+}
+// Fecha y hora "de Chile", aunque el teléfono/computador esté en otro país.
+function chileNow(){
+  const s = new Date().toLocaleString('sv-SE',{timeZone:'America/Santiago'}); // "2026-10-03 21:05:00"
+  return {date: s.slice(0,10), time: s.slice(11,16)};
+}
+function ddmm(ymd){ const p=String(ymd||'').split('-'); return p.length===3 ? p[2]+'/'+p[1] : ymd; }
+
+function loadPostcareRecord(id){
+  const c = postcareCache[id];
+  if(c && (c.loading || Date.now()-c.at < 60000)) return;
+  postcareCache[id] = {rec: c ? c.rec : undefined, at: Date.now(), loading: true};
+  if(!FIREBASE_READY || !db) { postcareCache[id] = {rec:'error', at:Date.now()}; return; }
+  db.collection(POSTCARE_COLLECTION).doc(id).get().then(snap=>{
+    postcareCache[id] = {rec: snap.exists ? snap.data() : null, at: Date.now()};
+  }).catch(err=>{
+    console.error('No se pudo leer el estado del correo post-tratamiento', err);
+    postcareCache[id] = {rec:'error', at: Date.now()};
+  }).then(()=>{
+    // Se actualiza solo ese pedacito (no se re-dibuja todo: no interrumpe a
+    // quien esté escribiendo en el formulario).
+    const el = document.getElementById('postcare-status');
+    if(el && el.dataset.apptId===id && ui.modal && ui.modal.data && ui.modal.data.id===id){
+      el.innerHTML = postcareStatusInner(ui.modal.data);
+    }
+  });
+}
+
+function postcareStatusInner(a){
+  if(!a || !a.id || a.cursoId || a.estado==='Cancelada' || a.estado==='NoShow') return '';
+  const trats = postcareTreatments(a);
+  if(!trats.length) return '';
+  const que = trats.join(' y ');
+  const c = postcareCache[a.id];
+  const rec = c ? c.rec : undefined;
+  if(rec && rec !== 'error'){
+    const dt = new Date(rec.en);
+    // Siempre en hora de Chile y formato 24 h, sin importar el país/idioma del teléfono.
+    const cl = isNaN(dt) ? '' : dt.toLocaleString('sv-SE',{timeZone:'America/Santiago'}); // "2026-10-04 20:31:00"
+    const cuando = cl ? ' el ' + ddmm(cl.slice(0,10)) + ' a las ' + cl.slice(11,16) : '';
+    if(String(rec.estado||'')==='Enviado'){
+      return `✅ 📧 Cuidados de ${escapeHtml(rec.tratamientos||que)} enviados por correo${cuando}${rec.email ? ' a '+escapeHtml(rec.email) : ''}.`;
+    }
+    return `⚠️ No se pudo enviar el correo de cuidados${cuando}${rec.email ? ' a '+escapeHtml(rec.email) : ''}. Se vuelve a intentar a la noche siguiente; si sigue fallando, revisa que el correo esté bien escrito.`;
+  }
+  if(a.date < POSTCARE_DESDE) return '';
+  if(!a.email) return `⚠️ Sin correo anotado: no se le enviarán los cuidados post-tratamiento. Pídele su correo para anotarlo en la cita.`;
+  const now = chileNow();
+  const ayer = toKey(addDays(new Date(now.date+'T12:00:00'), -1));
+  if(a.date > now.date) return `📧 Los cuidados de ${que} se le enviarán por correo el ${ddmm(a.date)} a las ${POSTCARE_HORA}.`;
+  if(rec === undefined) return `📧 Revisando si ya se enviaron los cuidados por correo…`;
+  if(rec === 'error') return '';
+  if(a.date === now.date) return now.time < POSTCARE_HORA
+    ? `📧 Los cuidados de ${que} se le enviarán por correo hoy a las ${POSTCARE_HORA}.`
+    : `📧 Los cuidados de ${que} se están enviando por correo (se mandan alrededor de las ${POSTCARE_HORA}).`;
+  if(a.date === ayer) return `📧 Los cuidados todavía no aparecen enviados: se vuelve a intentar hoy a las ${POSTCARE_HORA}.`;
+  return `⚠️ No se le enviaron los cuidados por correo (probablemente el correo se anotó después). Si quieres, mándaselos a mano.`;
+}
+
+function postcareStatusHtml(a, style){
+  if(!a || !a.id) return '';
+  // Solo se consulta la base cuando de verdad pudo haberse enviado algo.
+  if(a.date >= POSTCARE_DESDE && a.date <= chileNow().date && !a.cursoId && postcareTreatments(a).length) loadPostcareRecord(a.id);
+  return `<div id="postcare-status" class="hint" data-appt-id="${escapeHtml(a.id)}" style="${style||''}">${postcareStatusInner(a)}</div>`;
+}
+
 function pagoMarcadoHtml(d){
   const m = d.pagoMarcadoPor;
   if(!m || !m.en) return '';
@@ -5028,6 +5121,7 @@ function apptViewOnlyHtml(d){
       ${d.client && d.client.trim() ? `<button type="button" class="btn btn-ghost" style="margin:0 0 14px;font-size:12.5px;" data-act="view-consent" data-client="${escapeHtml(d.client)}" data-appt-id="${escapeHtml(d.id||'')}" data-consent-id="${escapeHtml(d.consentId||'')}">${d.consentId ? 'Ver consentimiento firmado ✓' : 'Ver consentimiento firmado'}</button>` : ''}
       ${d.phone ? `<div class="field"><label>Teléfono</label><div>${escapeHtml(d.phone)}</div></div>` : ''}
       ${d.email ? `<div class="field"><label>Correo electrónico</label><div>${escapeHtml(d.email)}</div></div>` : ''}
+      ${postcareStatusHtml(d, 'margin:-4px 0 14px;')}
       <div class="field"><label>Servicio</label><div>${escapeHtml(summarizeServices(d.services||[])) || '—'}</div></div>
       ${apptPersonas(d)>1 ? `<div class="field"><label>Personas</label><div>👥 ${apptPersonas(d)} personas en esta ficha</div></div>` : ''}
       ${apptCremas(d)>0 && (d.estado==='Cancelada' || d.estado==='NoShow') ? `<div class="field"><label>Crema post-tratamiento</label><div>🧴 Sí, compró ${apptCremas(d)===1?'1 crema':apptCremas(d)+' cremas'} (entregar)</div></div>` : ''}
@@ -5123,6 +5217,7 @@ function apptModalHtml(){
       ${d.client && d.client.trim() ? `<button type="button" class="btn btn-ghost" style="margin:-4px 0 14px;font-size:12.5px;" data-act="view-consent" data-client="${escapeHtml(d.client)}" data-appt-id="${escapeHtml(d.id||'')}" data-consent-id="${escapeHtml(d.consentId||'')}">${d.consentId ? 'Ver consentimiento firmado ✓' : 'Ver consentimiento firmado'}</button>` : ''}
       <div class="field"><label>Teléfono</label><input type="text" id="f-phone" value="${escapeHtml(d.phone)}" placeholder="+56 9…"></div>
       <div class="field"><label>Correo electrónico <span class="hint" style="margin:0;">(para mandarle los cuidados post-tratamiento)</span></label><input type="email" id="f-email" value="${escapeHtml(d.email||'')}" placeholder="correo@ejemplo.com" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+      ${ui.modal.mode==='edit' ? postcareStatusHtml(d, 'margin:-6px 0 14px;') : ''}
       <div class="field">
         <label>Servicios (puedes elegir más de uno — ej. combo)</label>
         <div class="svc-picker" id="svc-picker">${svcRows}</div>
@@ -6410,26 +6505,7 @@ function finanzasGraficosHtml(year, month){
   `;
 }
 
-// ---------------- Recordatorios de WhatsApp (día siguiente) ----------------
-function buildReminderMsg(a){
-  const name = (a.client||'').trim().split(' ')[0] || '';
-  return `Hola${name?' '+name:''}, buenas noches 🌃 es Sibana.
-Le escribo para confirmar su cita de mañana.
-Por favor, confirma su asistencia respondiendo este mensaje.
-
-✨Ten en cuenta que un retraso de más de 20 min. se considerará inasistencia.
-
-✅En caso de tener necesidad de cancelar la cita notificarlo al menos 12 horas antes de la hora establecida; de lo contrario pierde la reserva.
-Recuerda que por espacio físico no se aceptan acompañantes.🚫
-
-📍Lota 2267 Edificio Columbia Of 208 (tocar citofono 208 y dale al botón de la campana)
-•
-Ten en cuenta que tenemos problemas con TRANSBANK, prefiere transferencia bancaria o efectivo para tu pago.
-•
-Te recomendamos, para ayudar a fijar mejor el resultado, comprar nuestra crema post-tratamiento por sólo $5.000 (valor en el mercado $8.000).
-•
-Te esperamos ❤️`;
-}
+// ---------------- WhatsApp: enlaces y copiar al portapapeles ----------------
 
 function waPhoneDigits(phone){
   let d = (phone||'').replace(/\D/g,'');
@@ -6459,40 +6535,6 @@ function legacyCopy(text){
   ta.select();
   try{ document.execCommand('copy'); }catch(err){}
   document.body.removeChild(ta);
-}
-
-function remindersModalHtml(){
-  const tomorrowKey = toKey(addDays(new Date(), 1)); // "mañana" es respecto a hoy de verdad, no al día que estés mirando en la agenda
-  const list = apptsForDate(tomorrowKey)
-    .filter(a=>a.estado!=='Cancelada' && a.estado!=='NoShow')
-    .sort((a,b)=>a.start.localeCompare(b.start));
-  return `
-  <div class="overlay" data-act="overlay-close">
-    <div class="modal" data-stop="1">
-      <h2 class="serif">Recordatorios para mañana</h2>
-      <div class="hint">Toca "Enviar recordatorio" para cada clienta — se abre WhatsApp con el mensaje completo ya escrito, listo para enviar. Nada se manda solo, tú apruetas Enviar.</div>
-      ${list.length===0 ? `<div class="empty-msg">No hay citas para mañana.</div>` : `
-      <div class="table-scroll"><table class="reminders-table">
-        <thead><tr><th>Hora</th><th>Clienta</th><th></th></tr></thead>
-        <tbody>
-          ${list.map(a=>`
-            <tr>
-              <td>${a.start}</td>
-              <td>${escapeHtml(a.client||'Sin nombre')}${a.phone?'':' <span class="hint">(sin teléfono)</span>'}</td>
-              <td>
-                ${a.phone ? `
-                  <a class="btn btn-primary" target="_blank" rel="noopener" href="${waLink(a.phone, buildReminderMsg(a))}">Enviar recordatorio</a>
-                ` : ''}
-              </td>
-            </tr>`).join('')}
-        </tbody>
-      </table></div>`}
-      <div class="modal-actions">
-        <div></div>
-        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
-      </div>
-    </div>
-  </div>`;
 }
 
 // ---------------- Retoques: clientas atendidas hace 30–45 días ----------------
@@ -7117,7 +7159,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-specialists','add-specialist','remove-specialist','save-specialists',
   'open-schedule','toggle-day-closed','save-schedule',
   'open-clients','toggle-client','delete-client',
-  'open-noshows','open-autobackups','download-autobackup','sync-all-backup','open-security','save-security','forget-device','open-reminders','open-blocks-list','open-touchups',
+  'open-noshows','open-autobackups','download-autobackup','sync-all-backup','open-security','save-security','forget-device','open-blocks-list','open-touchups',
   'copy-touchup-msg','mark-touchup-avisado',
   'open-reviews','copy-checkin-msg','copy-review-msg','toggle-review-avisado',
   'finance-tab','save-comision-pct','save-mis-ganancias-desde',
@@ -7437,8 +7479,6 @@ function onAction(e){
       undoLastChange(); break;
     case 'open-search':
       ui.modal = {type:'search'}; render(); break;
-    case 'open-reminders':
-      ui.modal = {type:'reminders'}; ui.menuOpen = false; render(); break;
     case 'open-blocks-list':
       ui.modal = {type:'blocks-list'}; ui.menuOpen = false; render(); break;
     case 'open-vales':

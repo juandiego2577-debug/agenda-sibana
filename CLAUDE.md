@@ -5,10 +5,13 @@ Una agenda interna para el negocio de micropigmentación/belleza "Sibana", hecha
 como **un solo archivo HTML** autocontenido (todo el CSS y JS adentro, sin
 build ni dependencias que instalar). Se publica tal cual en GitHub Pages.
 
-## Próximo paso arquitectónico (en curso)
-Actualmente el archivo sirve solo a la sede de **Santiago**. Se va a extender
-para servir también a **Copiapó**, de la siguiente forma (ya decidido, no
-replantear salvo que surja algo que realmente lo justifique):
+## Posible extensión a Copiapó (en pausa, probablemente no se haga)
+**Actualización (oct 2026):** la sede de Copiapó al parecer prefiere seguir
+con AgendaPro (ya están acostumbrados), así que esto quizás nunca se
+empiece — no avanzar en nada de esto salvo que el usuario lo pida. Si algún
+día se retoma, lo que ya se había decidido era:
+Actualmente el archivo sirve solo a la sede de **Santiago**. Se extendería
+para servir también a **Copiapó**, de la siguiente forma:
 
 - **Un solo archivo / una sola app** — no dos HTML separados. La razón:
   evitar duplicar cada cambio futuro en dos codebases que se van
@@ -635,10 +638,47 @@ replantear salvo que surja algo que realmente lo justifique):
   las imágenes de la carpeta que corresponda (varios tratamientos en una
   cita = un solo correo con todas). Debe salir desde `sibana.cl@gmail.com`:
   hacerlo con un Apps Script aparte, creado en esa cuenta, sin tocar el
-  script de respaldo que ya funciona. Falta: las imágenes por tratamiento.
-  El usuario NO usa el botón "Enviar recordatorio" de la agenda (manda la
-  confirmación como respuesta rápida de WhatsApp, reenviada a todas) y está
-  pensando en quitarlo — no invertir en ese botón.
+  script de respaldo que ya funciona.
+  **El script está en `apps-script/correo-postratamiento.gs`** (este repo
+  solo lo guarda; se instala pegándolo a mano en script.google.com con la
+  cuenta sibana.cl). Lee la agenda directo de Firestore por REST, entrando
+  como `equipo@sibanasantiago.app` (contraseña en la propiedad del script
+  `CLAVE_EQUIPO`, nunca en el código). Toma citas de hoy Y de ayer (si una
+  noche falla, se recupera al día siguiente); anota cada envío en una Hoja
+  "Registro correos post-tratamiento" (Drive de sibana.cl), que es lo que
+  evita repetir. Qué correo le toca a cada cita sale de `TRATAMIENTOS` (por
+  palabras en el nombre del servicio; un servicio con "retoque" nunca
+  cuenta): cejas = microblading/sombreado/mixbrows, labios = full lips.
+  **Pendiente:** el usuario debe confirmar si Perfeccionamiento y Realce
+  son micropigmentación de cejas (por ahora NO se les manda). Delineado de
+  ojos no se manda hasta que haya imágenes de ojos. Imágenes: carpeta
+  `Post-tratamiento/Cejas` y `/Labios` en ese Drive, en orden alfabético
+  (Cejas: cuidados, proceso de cicatrización, retención de pigmento;
+  Labios: cuidados, proceso de cicatrización, fotos día a día — los
+  "cuidados" son diseños propios con la marca Sibana; los demás son
+  imágenes del usuario con el logo cambiado a Sibana). Probado con un
+  simulador de los servicios de Google (Node + mocks), no contra Google
+  real. Al agregar la sede Copiapó, este script también tendrá que leer
+  `sibana-agenda/copiapo`.
+  **Aviso dentro de la cita** (`postcareStatusHtml`, en el formulario de
+  Admin al editar y en la vista de la especialista): el script, además de la
+  Hoja, anota cada envío en Firestore, colección
+  `sibana-correos-postratamiento` (un doc por cita, id = id de la cita,
+  `{en, estado, email, tratamientos, fecha}`) — APARTE del documento de la
+  agenda a propósito, para que un programa externo nunca escriba sobre las
+  citas (lección 12). La agenda solo lee ese doc al abrir la cita y muestra:
+  ✅ enviado (fecha/hora de Chile), ⚠️ error, ⚠️ "sin correo anotado" (para
+  pedirlo antes de que la clienta se vaya), "se enviará el DD/MM a las
+  20:30", o ⚠️ "no se le enviaron" si ya pasó. "Hoy" y la hora se calculan
+  en hora de Chile (`chileNow`), porque Juan Diego a veces usa la agenda
+  desde otro país. Citas anteriores a `POSTCARE_DESDE` (2026-10-03) no
+  muestran nada. `POSTCARE_TRATAMIENTOS` (agenda) y `TRATAMIENTOS`
+  (script) deben mantenerse iguales. Solo se sabe que el correo SE ENVIÓ,
+  no si la clienta lo leyó (si rebota, el aviso de Google llega a la
+  bandeja de sibana.cl).
+  El botón "📲 Recordatorios de mañana" (Más → Seguimiento) se QUITÓ a
+  pedido del usuario: nunca lo usaban (mandan la confirmación como
+  respuesta rápida de WhatsApp, reenviada a todas). No volver a agregarlo.
 
 ## Cómo se trabaja en este proyecto
 - **Siempre probar antes de entregar.** Este proyecto se construyó

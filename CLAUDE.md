@@ -658,24 +658,24 @@ para servir también a **Copiapó**, de la siguiente forma:
   "cuidados" son diseños propios con la marca Sibana; los demás son
   imágenes del usuario con el logo cambiado a Sibana). Probado con un
   simulador de los servicios de Google (Node + mocks), no contra Google
-  real. Al agregar la sede Copiapó, este script también tendrá que leer
-  `sibana-agenda/copiapo`.
+  real (aunque la prueba de envío real del usuario funcionó). Instalado y
+  con el envío diario programado (`instalarEnvioDiario`) el 03/10/2026.
   **Aviso dentro de la cita** (`postcareStatusHtml`, en el formulario de
-  Admin al editar y en la vista de la especialista): el script, además de la
-  Hoja, anota cada envío en Firestore, colección
-  `sibana-correos-postratamiento` (un doc por cita, id = id de la cita,
-  `{en, estado, email, tratamientos, fecha}`) — APARTE del documento de la
-  agenda a propósito, para que un programa externo nunca escriba sobre las
-  citas (lección 12). La agenda solo lee ese doc al abrir la cita y muestra:
-  ✅ enviado (fecha/hora de Chile), ⚠️ error, ⚠️ "sin correo anotado" (para
-  pedirlo antes de que la clienta se vaya), "se enviará el DD/MM a las
-  20:30", o ⚠️ "no se le enviaron" si ya pasó. "Hoy" y la hora se calculan
-  en hora de Chile (`chileNow`), porque Juan Diego a veces usa la agenda
-  desde otro país. Citas anteriores a `POSTCARE_DESDE` (2026-10-03) no
-  muestran nada. `POSTCARE_TRATAMIENTOS` (agenda) y `TRATAMIENTOS`
-  (script) deben mantenerse iguales. Solo se sabe que el correo SE ENVIÓ,
-  no si la clienta lo leyó (si rebota, el aviso de Google llega a la
-  bandeja de sibana.cl).
+  Admin al editar y en la vista de la especialista): SOLO mientras el envío
+  está pendiente (cita futura, u hoy antes de las 20:30 hora de Chile —
+  `chileNow`, porque Juan Diego a veces usa la agenda desde otro país)
+  muestra "📧 se le enviarán por correo hoy/el DD/MM a las 20:30" o
+  "⚠️ Sin correo anotado" (para pedirlo antes de que la clienta se vaya).
+  Después no muestra nada. **La agenda NO sabe si un correo ya salió**: se
+  probó una versión en que el script anotaba cada envío en una colección
+  aparte de Firestore para mostrar "✅ enviado" en la cita, pero exigía
+  que el usuario volviera a pegar el script en Google y decidió que no
+  valía la pena (opción "B") — se volvió atrás en ambos lados; el registro
+  de envíos queda solo en la Hoja "Registro correos post-tratamiento". El
+  script del repo es exactamente el que está instalado. No volver a
+  proponer el ✅ salvo que el usuario lo pida. Citas anteriores a
+  `POSTCARE_DESDE` (2026-10-03) no muestran nada. `POSTCARE_TRATAMIENTOS`
+  (agenda) y `TRATAMIENTOS` (script) deben mantenerse iguales.
   El botón "📲 Recordatorios de mañana" (Más → Seguimiento) se QUITÓ a
   pedido del usuario: nunca lo usaban (mandan la confirmación como
   respuesta rápida de WhatsApp, reenviada a todas). No volver a agregarlo.

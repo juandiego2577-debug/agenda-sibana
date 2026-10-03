@@ -17,10 +17,6 @@
  *    "Registro correos post-tratamiento" (en el Drive de esta cuenta).
  *  - Si la misma clienta tiene varias citas/tratamientos el mismo día, le
  *    llega UN solo correo con todas las imágenes que correspondan.
- *  - Cada envío se anota también en Firestore (colección
- *    sibana-correos-postratamiento, un documento por cita) para que la
- *    agenda muestre dentro de la cita "✅ Cuidados enviados por correo el…".
- *    Es un lugar APARTE del documento de la agenda: nunca toca las citas.
  *
  * Instalación (una sola vez):
  *  1. Drive de sibana.cl: carpeta "Post-tratamiento" con dos carpetas dentro,
@@ -41,14 +37,12 @@ const ZONA = 'America/Santiago';
 const HORA_ENVIO = 20, MINUTO_ENVIO = 30;
 const CARPETA_RAIZ = 'Post-tratamiento';
 const NOMBRE_REGISTRO = 'Registro correos post-tratamiento';
-const COLECCION_AVISOS = 'sibana-correos-postratamiento'; // la agenda lee de aquí (POSTCARE_COLLECTION)
 
 // Qué correo le toca a cada tratamiento, según el NOMBRE del servicio en la
 // agenda (sin importar mayúsculas ni tildes). Un servicio que contenga
 // "retoque" nunca cuenta. Para sumar un tratamiento: agregar una palabra a
 // la lista. Para un tratamiento nuevo (ej. ojos): agregar otra entrada aquí
 // y una carpeta con el mismo nombre en Drive.
-// OJO: mantener igual que POSTCARE_TRATAMIENTOS en index.html de la agenda.
 const TRATAMIENTOS = [
   {carpeta: 'Cejas',  nombre: 'cejas',  palabras: ['microblading', 'sombreado', 'mixbrows']},
   {carpeta: 'Labios', nombre: 'labios', palabras: ['full lips']},
@@ -59,21 +53,15 @@ function enviarPostTratamientos() {
   const hoy = Utilities.formatDate(new Date(), ZONA, 'yyyy-MM-dd');
   const registro = abrirRegistro_();
   const yaEnviadas = idsYaEnviados_(registro);
-  const token = tokenEquipo_();
-  const citas = leerCitas_(token);
+  const citas = leerCitas_();
   const pendientes = correosParaEnviar_(citas, [hoy, diaAnterior_(hoy)], yaEnviadas);
   pendientes.forEach(p => {
-    const que = p.tratamientos.map(t => t.nombre).join(' + ');
-    let resultado = 'Enviado';
     try {
       mandarCorreo_(p.email, p.nombre, p.tratamientos);
+      p.citas.forEach(c => registro.appendRow([new Date(), c.date, c.id, p.nombre, p.email, p.tratamientos.map(t => t.nombre).join(' + '), 'Enviado']));
     } catch (e) {
-      resultado = 'ERROR: ' + e.message;
+      p.citas.forEach(c => registro.appendRow([new Date(), c.date, c.id, p.nombre, p.email, p.tratamientos.map(t => t.nombre).join(' + '), 'ERROR: ' + e.message]));
     }
-    p.citas.forEach(c => {
-      const aviso = anotarEnAgenda_(token, c, p.email, que, resultado);
-      registro.appendRow([new Date(), c.date, c.id, p.nombre, p.email, que, resultado, aviso]);
-    });
   });
   console.log('Correos enviados hoy (' + hoy + '): ' + pendientes.length);
 }
@@ -180,7 +168,7 @@ function escaparHtml_(s) {
 }
 
 // ---------------- Leer la agenda (Firestore) ----------------
-function tokenEquipo_() {
+function leerCitas_() {
   const clave = PropertiesService.getScriptProperties().getProperty('CLAVE_EQUIPO');
   if (!clave) throw new Error('Falta la propiedad CLAVE_EQUIPO (contraseña del equipo) en la configuración del proyecto');
   const login = UrlFetchApp.fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + FIREBASE_API_KEY, {
@@ -188,40 +176,13 @@ function tokenEquipo_() {
     payload: JSON.stringify({email: EQUIPO_EMAIL, password: clave, returnSecureToken: true}),
   });
   if (login.getResponseCode() !== 200) throw new Error('No se pudo entrar a la agenda (¿contraseña del equipo correcta?): ' + login.getContentText());
-  return JSON.parse(login.getContentText()).idToken;
-}
-
-function leerCitas_(token) {
+  const token = JSON.parse(login.getContentText()).idToken;
   const resp = UrlFetchApp.fetch('https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT + '/databases/(default)/documents/' + AGENDA_DOC, {
     headers: {Authorization: 'Bearer ' + token}, muteHttpExceptions: true,
   });
   if (resp.getResponseCode() !== 200) throw new Error('No se pudo leer la agenda: ' + resp.getContentText());
   const doc = desdeFirestore_({mapValue: {fields: JSON.parse(resp.getContentText()).fields || {}}});
   return doc.appointments || [];
-}
-
-// Deja anotado en Firestore que a esta cita se le mandó (o no) el correo,
-// para que la agenda lo muestre. Si falla, el correo igual ya salió: solo se
-// anota en el registro que el aviso en la agenda no quedó.
-function anotarEnAgenda_(token, cita, email, que, resultado) {
-  if (!cita.id) return 'Sin ID de cita';
-  try {
-    const url = 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT + '/databases/(default)/documents/' + COLECCION_AVISOS + '/' + encodeURIComponent(cita.id);
-    const resp = UrlFetchApp.fetch(url, {
-      method: 'patch', contentType: 'application/json', muteHttpExceptions: true,
-      headers: {Authorization: 'Bearer ' + token},
-      payload: JSON.stringify({fields: {
-        en: {stringValue: new Date().toISOString()},
-        estado: {stringValue: resultado},
-        email: {stringValue: email},
-        tratamientos: {stringValue: que.replace(/ \+ /g, ' y ')},
-        fecha: {stringValue: String(cita.date || '')},
-      }}),
-    });
-    return resp.getResponseCode() === 200 ? 'Aviso en agenda OK' : 'Aviso en agenda falló: ' + resp.getResponseCode();
-  } catch (e) {
-    return 'Aviso en agenda falló: ' + e.message;
-  }
 }
 
 // Convierte el formato de Firestore ({stringValue:...}, {arrayValue:...}) a
@@ -249,15 +210,11 @@ function abrirRegistro_() {
   const props = PropertiesService.getScriptProperties();
   const id = props.getProperty('REGISTRO_ID');
   if (id) {
-    try {
-      const h = SpreadsheetApp.openById(id).getSheets()[0];
-      if (!h.getRange(1, 8).getValue()) h.getRange(1, 8).setValue('Aviso en la agenda'); // registros creados antes de esta columna
-      return h;
-    } catch (e) { /* se borró: se crea otra */ }
+    try { return SpreadsheetApp.openById(id).getSheets()[0]; } catch (e) { /* se borró: se crea otra */ }
   }
   const ss = SpreadsheetApp.create(NOMBRE_REGISTRO);
   const hoja = ss.getSheets()[0];
-  hoja.appendRow(['Enviado el', 'Fecha de la cita', 'ID de la cita', 'Clienta', 'Correo', 'Tratamiento', 'Resultado', 'Aviso en la agenda']);
+  hoja.appendRow(['Enviado el', 'Fecha de la cita', 'ID de la cita', 'Clienta', 'Correo', 'Tratamiento', 'Resultado']);
   hoja.setFrozenRows(1);
   props.setProperty('REGISTRO_ID', ss.getId());
   return hoja;
@@ -285,7 +242,7 @@ function probarEnvio() {
 // Muestra (sin mandar nada) a quién se le enviaría hoy si fueran las 20:30.
 function verQueSeEnviariaHoy() {
   const hoy = Utilities.formatDate(new Date(), ZONA, 'yyyy-MM-dd');
-  const lista = correosParaEnviar_(leerCitas_(tokenEquipo_()), [hoy, diaAnterior_(hoy)], idsYaEnviados_(abrirRegistro_()));
+  const lista = correosParaEnviar_(leerCitas_(), [hoy, diaAnterior_(hoy)], idsYaEnviados_(abrirRegistro_()));
   if (!lista.length) console.log('Hoy (' + hoy + ') no hay correos para enviar.');
   lista.forEach(p => console.log(p.nombre + ' <' + p.email + '>: ' + p.tratamientos.map(t => t.nombre).join(' + ')));
 }

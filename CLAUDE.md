@@ -694,6 +694,17 @@ para servir también a **Copiapó**, de la siguiente forma:
 - Responder siempre en español (el usuario y su equipo son de Chile).
 - El usuario (Juan Diego) no es programador — las explicaciones deben ser
   simples, paso a paso, sin dar por sentado vocabulario técnico.
+- **"+ Nueva cita" siempre arriba a la derecha (computador, modo Admin).**
+  Al agregar una 4ta especialista, la fila de filtros por especialista
+  crecía y empujaba "+ Nueva cita" a la segunda línea (abajo a la
+  izquierda) — el usuario pidió que quede SIEMPRE en el mismo lugar. Ahora
+  (CSS `.toolbar.toolbar-admin`, solo pantallas >720px) es la fila de
+  filtros la que se achica y, si no caben, sus botones bajan a una 2da línea
+  dentro de su propio espacio; "💵 Vale" va siempre al inicio de la 2da
+  línea (`.toolbar-break`). Modo Especialista y teléfono NO cambian. Se
+  midió con 3, 4 y 5 especialistas a 1024–1517px de ancho (la pantalla de
+  Juan Diego equivale a ~1517px): con 3 especialistas todo quedó en la
+  misma posición exacta que antes.
 - **Orden de los botones: nunca mover uno ya existente.** El equipo ya
   está acostumbrado a dónde está cada botón (sobre todo en la barra
   principal) — un botón nuevo se agrega estrictamente al final de donde

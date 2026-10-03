@@ -694,7 +694,11 @@ para servir también a **Copiapó**, de la siguiente forma:
 - Antes de agregar algo complejo, explicar ventajas/desventajas y
   preguntar si de verdad hace falta — no implementar todo lo que se
   ocurra sin filtro.
-- Responder siempre en español (el usuario y su equipo son de Chile).
+- Responder siempre en español. **Juan Diego es venezolano** (el negocio y
+  las clientas son de Chile): con él usar español neutro, SIN modismos
+  chilenos ("al tiro", "te tinca", "lata", "cachai", etc.) — lo pidió
+  explícitamente. Los textos que van dirigidos a las clientas sí pueden
+  sonar a Chile.
 - El usuario (Juan Diego) no es programador — las explicaciones deben ser
   simples, paso a paso, sin dar por sentado vocabulario técnico.
 - **"+ Nueva cita" siempre arriba a la derecha (computador, modo Admin).**

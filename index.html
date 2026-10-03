@@ -448,7 +448,6 @@
   .modal-actions{display:flex;justify-content:space-between;margin-top:18px;gap:8px;}
   .modal-actions .right{display:flex;gap:8px;}
   .hint{font-size:11px;color:var(--ink-soft);margin-top:-6px;margin-bottom:10px;}
-  #postcare-status:empty{display:none;}
 
   /* selector de varios servicios (combos) */
   .svc-picker{
@@ -4982,12 +4981,12 @@ function blockModalHtml(){
 // ---------------- Correo de cuidados post-tratamiento ----------------
 // El correo lo manda SOLO un programa aparte (apps-script/correo-postratamiento.gs,
 // instalado en la cuenta sibana.cl), todas las noches a las 20:30 hora de
-// Chile. Cada vez que manda uno, lo anota en la colección de Firestore
-// POSTCARE_COLLECTION (un documento por cita, con el mismo id de la cita) —
-// aparte del documento de la agenda, para nunca pisar citas. Aquí solo se
-// LEE eso, para mostrar dentro de la cita si se mandó, cuándo se va a mandar
-// o si falta el correo.
-const POSTCARE_COLLECTION = 'sibana-correos-postratamiento';
+// Chile. La agenda NO sabe si un correo ya salió (el registro de envíos está
+// en la Hoja de Google "Registro correos post-tratamiento"): aquí solo se
+// avisa, dentro de la cita, lo que sirve en el momento — que falta anotar el
+// correo, o cuándo se le va a enviar. Decidido así con el usuario (no
+// mostrar "enviado / no enviado", para no tener que mantener otra versión
+// del programa en Google).
 const POSTCARE_DESDE = '2026-10-03'; // día en que empezó el envío: citas anteriores no muestran nada
 const POSTCARE_HORA = '20:30';
 // OJO: mantener igual que TRATAMIENTOS en apps-script/correo-postratamiento.gs.
@@ -4995,7 +4994,6 @@ const POSTCARE_TRATAMIENTOS = [
   {nombre:'cejas',  palabras:['microblading','sombreado','mixbrows']},
   {nombre:'labios', palabras:['full lips']},
 ];
-const postcareCache = {}; // id de cita -> {rec, at} (rec: datos del envío, null si no hay, 'error' si no se pudo leer)
 
 function postcareTreatments(a){
   const out = [];
@@ -5015,62 +5013,22 @@ function chileNow(){
 }
 function ddmm(ymd){ const p=String(ymd||'').split('-'); return p.length===3 ? p[2]+'/'+p[1] : ymd; }
 
-function loadPostcareRecord(id){
-  const c = postcareCache[id];
-  if(c && (c.loading || Date.now()-c.at < 60000)) return;
-  postcareCache[id] = {rec: c ? c.rec : undefined, at: Date.now(), loading: true};
-  if(!FIREBASE_READY || !db) { postcareCache[id] = {rec:'error', at:Date.now()}; return; }
-  db.collection(POSTCARE_COLLECTION).doc(id).get().then(snap=>{
-    postcareCache[id] = {rec: snap.exists ? snap.data() : null, at: Date.now()};
-  }).catch(err=>{
-    console.error('No se pudo leer el estado del correo post-tratamiento', err);
-    postcareCache[id] = {rec:'error', at: Date.now()};
-  }).then(()=>{
-    // Se actualiza solo ese pedacito (no se re-dibuja todo: no interrumpe a
-    // quien esté escribiendo en el formulario).
-    const el = document.getElementById('postcare-status');
-    if(el && el.dataset.apptId===id && ui.modal && ui.modal.data && ui.modal.data.id===id){
-      el.innerHTML = postcareStatusInner(ui.modal.data);
-    }
-  });
-}
-
-function postcareStatusInner(a){
+function postcareStatusHtml(a, style){
   if(!a || !a.id || a.cursoId || a.estado==='Cancelada' || a.estado==='NoShow') return '';
+  if(a.date < POSTCARE_DESDE) return '';
   const trats = postcareTreatments(a);
   if(!trats.length) return '';
-  const que = trats.join(' y ');
-  const c = postcareCache[a.id];
-  const rec = c ? c.rec : undefined;
-  if(rec && rec !== 'error'){
-    const dt = new Date(rec.en);
-    // Siempre en hora de Chile y formato 24 h, sin importar el país/idioma del teléfono.
-    const cl = isNaN(dt) ? '' : dt.toLocaleString('sv-SE',{timeZone:'America/Santiago'}); // "2026-10-04 20:31:00"
-    const cuando = cl ? ' el ' + ddmm(cl.slice(0,10)) + ' a las ' + cl.slice(11,16) : '';
-    if(String(rec.estado||'')==='Enviado'){
-      return `✅ 📧 Cuidados de ${escapeHtml(rec.tratamientos||que)} enviados por correo${cuando}${rec.email ? ' a '+escapeHtml(rec.email) : ''}.`;
-    }
-    return `⚠️ No se pudo enviar el correo de cuidados${cuando}${rec.email ? ' a '+escapeHtml(rec.email) : ''}. Se vuelve a intentar a la noche siguiente; si sigue fallando, revisa que el correo esté bien escrito.`;
-  }
-  if(a.date < POSTCARE_DESDE) return '';
-  if(!a.email) return `⚠️ Sin correo anotado: no se le enviarán los cuidados post-tratamiento. Pídele su correo para anotarlo en la cita.`;
   const now = chileNow();
-  const ayer = toKey(addDays(new Date(now.date+'T12:00:00'), -1));
-  if(a.date > now.date) return `📧 Los cuidados de ${que} se le enviarán por correo el ${ddmm(a.date)} a las ${POSTCARE_HORA}.`;
-  if(rec === undefined) return `📧 Revisando si ya se enviaron los cuidados por correo…`;
-  if(rec === 'error') return '';
-  if(a.date === now.date) return now.time < POSTCARE_HORA
-    ? `📧 Los cuidados de ${que} se le enviarán por correo hoy a las ${POSTCARE_HORA}.`
-    : `📧 Los cuidados de ${que} se están enviando por correo (se mandan alrededor de las ${POSTCARE_HORA}).`;
-  if(a.date === ayer) return `📧 Los cuidados todavía no aparecen enviados: se vuelve a intentar hoy a las ${POSTCARE_HORA}.`;
-  return `⚠️ No se le enviaron los cuidados por correo (probablemente el correo se anotó después). Si quieres, mándaselos a mano.`;
-}
-
-function postcareStatusHtml(a, style){
-  if(!a || !a.id) return '';
-  // Solo se consulta la base cuando de verdad pudo haberse enviado algo.
-  if(a.date >= POSTCARE_DESDE && a.date <= chileNow().date && !a.cursoId && postcareTreatments(a).length) loadPostcareRecord(a.id);
-  return `<div id="postcare-status" class="hint" data-appt-id="${escapeHtml(a.id)}" style="${style||''}">${postcareStatusInner(a)}</div>`;
+  // Solo antes de que se mande (hoy antes de las 20:30, o una cita futura):
+  // después ya no hay nada útil que decir aquí.
+  const pendiente = a.date > now.date || (a.date === now.date && now.time < POSTCARE_HORA);
+  if(!pendiente) return '';
+  const que = trats.join(' y ');
+  const cuando = a.date === now.date ? 'hoy' : 'el ' + ddmm(a.date);
+  const txt = a.email
+    ? `📧 Los cuidados de ${que} se le enviarán por correo ${cuando} a las ${POSTCARE_HORA}.`
+    : `⚠️ Sin correo anotado: no se le enviarán los cuidados post-tratamiento. Pídele su correo para anotarlo en la cita.`;
+  return `<div class="hint" style="${style||''}">${txt}</div>`;
 }
 
 function pagoMarcadoHtml(d){

@@ -36,6 +36,13 @@
   manifestLink.rel = "manifest";
   manifestLink.href = URL.createObjectURL(blob);
   document.head.appendChild(manifestLink);
+  // Al entrar ya se sabe la sede (Santiago / Buenos Aires): se ajusta el
+  // nombre con que se instala la app en el teléfono.
+  window.__setManifestName = function(name){
+    if(manifest.name === name) return;
+    manifest.name = name;
+    manifestLink.href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: "application/manifest+json"}));
+  };
 
   var appleIcon = document.createElement("link");
   appleIcon.rel = "apple-touch-icon";
@@ -672,9 +679,9 @@ document.getElementById('root').innerHTML = loadingScreenHtml();
 const BACKUP_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwyqBvf-NPV06Mc1eiIUM86ySn-NKxtuoJ-YBimjDwP7XwflMcaVp7P2E3mNT7c1gw6XA/exec';
 
 function syncToBackupWebhook(action, appt){
-  if(!BACKUP_WEBHOOK_URL || BACKUP_WEBHOOK_URL.indexOf('PEGA_AQUI') === 0) return;
+  if(!backupWebhookActivo()) return; // cada sede manda a su propio script (SEDE.backupWebhookUrl)
   try{
-    fetch(BACKUP_WEBHOOK_URL, {
+    fetch(SEDE.backupWebhookUrl, {
       method: 'POST',
       mode: 'no-cors', // los Apps Script publicados como "cualquiera" se llaman así desde el navegador
       headers: {'Content-Type': 'text/plain;charset=utf-8'},
@@ -690,7 +697,7 @@ function syncToBackupWebhook(action, appt){
 // Se puede usar las veces que quieras — como ya identifica cada cita por su
 // ID, nunca duplica filas ni eventos, solo los actualiza si ya existían.
 function runFullBackupSync(){
-  if(!BACKUP_WEBHOOK_URL || BACKUP_WEBHOOK_URL.indexOf('PEGA_AQUI') === 0){
+  if(!backupWebhookActivo()){
     showAlert('Todavía no has conectado ninguna Hoja/Calendar (falta pegar la URL del script). Pídele a Claude que te ayude con ese paso primero.');
     return;
   }
@@ -721,6 +728,93 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "925854566824",
   appId: "1:925854566824:web:116dde164888fe0217759d"
 };
+// ---------------- Sedes (Santiago / Buenos Aires) ----------------
+// Una sola app para las dos sedes. Los datos de cada sede viven en su propio
+// documento (sibana-agenda/<id>) y NUNCA se mezclan. La sede (y si se entra
+// como Admin o como Especialista) la decide la contraseña con la que se
+// entra — ver CUENTAS más abajo. Todo lo que cambia de un país a otro va
+// acá, nunca escrito suelto en el código.
+const SEDES = {
+  santiago: {
+    id: 'santiago', nombre: 'Santiago', pais: 'Chile',
+    zonaHoraria: 'America/Santiago',
+    telPais: '56',
+    docIdentidad: 'RUT', docPlaceholder: '12.345.678-9',
+    consentCollection: 'sibana-consentimientos',
+    backupWebhookUrl: BACKUP_WEBHOOK_URL,
+    resenaLink: 'https://g.page/r/CRg9v-smnqROECE/review',
+    correoPostratamiento: true, // apps-script/correo-postratamiento.gs (cuenta sibana.cl)
+    reglaComision: 'santiago', // % sobre la cita, sin las cremas (ver apptCommissionBase)
+    abonoSugerido: 5000, // por tratamiento, solo en citas nuevas
+    migraciones: true, // las cargas/correcciones de datos viejos (solo existen en Santiago)
+  },
+  buenosaires: {
+    id: 'buenosaires', nombre: 'Buenos Aires', pais: 'Argentina',
+    zonaHoraria: 'America/Argentina/Buenos_Aires',
+    telPais: '54',
+    docIdentidad: 'DNI', docPlaceholder: '12.345.678',
+    consentCollection: 'sibana-consentimientos-buenosaires',
+    // Su propio script de respaldo (Hoja + Calendar del Gmail de Buenos
+    // Aires). Mientras diga PEGA_AQUI, no se manda nada.
+    backupWebhookUrl: 'PEGA_AQUI_LA_URL_DEL_SCRIPT_DE_BUENOS_AIRES',
+    resenaLink: '',
+    correoPostratamiento: false, // todavía no hay script de correo para Buenos Aires
+    reglaComision: 'descuentoUSD', // resta 10 dólares por tratamiento antes del % (ver apptCommissionBase)
+    abonoSugerido: null, // se configura en Más → "Valores en pesos argentinos"
+    migraciones: false,
+  },
+};
+// Cada contraseña es una cuenta distinta de Firebase Authentication. El
+// correo es solo un identificador técnico (nadie lo escribe): en la pantalla
+// de entrada solo se pone la contraseña, y se prueba con cada cuenta en este
+// orden. Por eso las tres contraseñas deben ser DISTINTAS entre sí.
+// - equipo: entra a UNA sede, siempre como Especialista.
+// - duenos (Juan Diego y su papá): entran como Admin y pueden cambiar de sede.
+const CUENTAS = [
+  {email: 'equipo@sibanasantiago.app', rol: 'equipo', sede: 'santiago'},
+  {email: 'equipo@sibanabuenosaires.app', rol: 'equipo', sede: 'buenosaires'},
+  {email: 'duenos@sibana.app', rol: 'duenos'},
+];
+// Mientras esto esté en false, el equipo de Santiago sigue viendo el botón
+// "🔒 Especialista / 🔓 Admin" igual que siempre (entrar a Admin con la
+// contraseña de administrador). Pasarlo a true recién cuando Juan Diego y su
+// papá ya entren con la cuenta de dueños en sus teléfonos: desde ahí, la
+// cuenta del equipo de Santiago queda siempre en modo Especialista.
+const SOLO_DUENOS_ADMIN_SANTIAGO = false;
+const SEDE_DUENOS_KEY = 'sibanaSedeDuenos'; // última sede que eligió un dueño en este dispositivo
+let CUENTA = null; // {email, rol, sede} de la sesión actual
+let SEDE = SEDES.santiago;
+// Decide sede y rol según la cuenta con la que se entró. Una cuenta que no
+// esté en la lista (no debería pasar) se trata como el equipo de Santiago,
+// que es exactamente como funcionaba la agenda antes de las sedes.
+function aplicarCuenta(user){
+  const email = ((user && user.email) || '').toLowerCase();
+  const c = CUENTAS.find(x=>x.email===email) || CUENTAS[0];
+  let sede = c.sede;
+  if(c.rol==='duenos'){
+    const guardada = safeGetLocal(SEDE_DUENOS_KEY);
+    sede = SEDES[guardada] ? guardada : 'santiago';
+  }
+  CUENTA = {email, rol: c.rol, sede};
+  SEDE = SEDES[sede];
+  DOC_REF = db.collection('sibana-agenda').doc(SEDE.id);
+  if(c.rol==='duenos') ui.mode = 'admin';
+  else if(!puedeCambiarModo()){ ui.mode = 'staff'; safeRemoveLocal(ADMIN_TRUST_KEY); }
+  // (si puede cambiar de modo, ui.mode queda como ya venía: recordado por dispositivo)
+  document.title = 'Agenda Sibana ' + SEDE.nombre;
+  if(window.__setManifestName) window.__setManifestName('Sibana ' + SEDE.nombre + ' - Agenda');
+}
+// Solo el equipo de Santiago (mientras SOLO_DUENOS_ADMIN_SANTIAGO siga en
+// false) tiene el botón para pasar de Especialista a Admin con contraseña.
+function puedeCambiarModo(){
+  return !!CUENTA && CUENTA.rol==='equipo' && CUENTA.sede==='santiago' && !SOLO_DUENOS_ADMIN_SANTIAGO;
+}
+function esDueno(){ return !!CUENTA && CUENTA.rol==='duenos'; }
+function backupWebhookActivo(){
+  const u = SEDE.backupWebhookUrl;
+  return !!u && u.indexOf('PEGA_AQUI') !== 0;
+}
+
 let db, DOC_REF, FIREBASE_READY = false;
 try{
   firebase.initializeApp(FIREBASE_CONFIG);
@@ -730,7 +824,7 @@ try{
   // tiempo real por defecto de Firestore. Esto evita ese error sin afectar
   // nada del funcionamiento normal en un navegador común.
   db.settings({ experimentalForceLongPolling: true });
-  DOC_REF = db.collection('sibana-agenda').doc('santiago');
+  // DOC_REF (el documento de la sede) se elige al entrar, en aplicarCuenta().
   FIREBASE_READY = true;
 }catch(e){
   console.error('No se pudo inicializar Firebase', e);
@@ -2703,7 +2797,7 @@ function renderConsentSearch(box, allDocs, initialQuery, close, apptId, linkedCo
           <span style="font-size:11.5px;color:#a89a83;white-space:nowrap;">${fmt(e.submittedAtClient)}</span>
         </div>
         <div style="font-size:12.5px;line-height:1.6;margin-top:6px;">
-          <div><b>RUT:</b> ${escapeHtml(e.rut||'—')}</div>
+          <div><b>${SEDE.docIdentidad}:</b> ${escapeHtml(e.rut||'—')}</div>
           <div><b>Teléfono:</b> ${escapeHtml(e.telefono||'—')}</div>
           <div><b>Técnica:</b> ${escapeHtml(e.tecnica||'—')}</div>
           <div><b>Diseño aprobado por la clienta:</b> ${yn(e.diseno_aprobado)}</div>
@@ -2728,7 +2822,7 @@ function renderConsentSearch(box, allDocs, initialQuery, close, apptId, linkedCo
 
   box.innerHTML = `
     <p style="margin-top:0">Buscar en las ${allDocs.length} ficha${allDocs.length===1?'':'s'} firmada${allDocs.length===1?'':'s'}:</p>
-    <input type="text" id="consent-search-input" class="client-search-input" style="margin-bottom:10px" value="${escapeHtml(initialQuery||'')}" placeholder="Nombre, RUT o teléfono">
+    <input type="text" id="consent-search-input" class="client-search-input" style="margin-bottom:10px" value="${escapeHtml(initialQuery||'')}" placeholder="Nombre, ${SEDE.docIdentidad} o teléfono">
     <div id="consent-search-results">${renderList(initialQuery||'')}</div>
     <div class="confirm-actions"><button class="btn btn-primary" id="dlg-ok2">Cerrar</button></div>
   `;
@@ -2794,7 +2888,7 @@ function renderConsentSearch(box, allDocs, initialQuery, close, apptId, linkedCo
           okBtn.disabled = true;
           cancelBtn.disabled = true;
           okBtn.textContent = 'Eliminando…';
-          db.collection('sibana-consentimientos').doc(id).delete()
+          db.collection(SEDE.consentCollection).doc(id).delete()
             .then(()=>{
               const idx = allDocs.findIndex(d=>d._id===id);
               if(idx>=0) allDocs.splice(idx,1);
@@ -2873,7 +2967,7 @@ function viewConsent(clientName, apptId, knownConsentId){
   // Si esta cita ya tiene una ficha vinculada a mano, vamos directo a ella
   // en vez de mostrar la búsqueda — es el camino rápido de aquí en más.
   if(knownConsentId){
-    db.collection('sibana-consentimientos').doc(knownConsentId).get()
+    db.collection(SEDE.consentCollection).doc(knownConsentId).get()
       .then(doc=>{
         const box = wrap.querySelector('.confirm-box');
         if(!box) return;
@@ -2904,7 +2998,7 @@ function viewConsent(clientName, apptId, knownConsentId){
 
 function loadFullSearch(box, clientName, apptId, close, linkedConsentId){
   box.innerHTML = `<p style="margin-top:0">Cargando fichas de consentimiento…</p>`;
-  db.collection('sibana-consentimientos').orderBy('submittedAtClient','desc').limit(500).get()
+  db.collection(SEDE.consentCollection).orderBy('submittedAtClient','desc').limit(500).get()
     .then(snap=>{
       if(!box.isConnected) return; // el diálogo ya se cerró
       const allDocs = snap.docs.map(d=> Object.assign({_id:d.id}, d.data()));
@@ -3408,7 +3502,7 @@ function recomputeServiceFields(){
   // servicio (por cualquier motivo, incluso uno que no tenga que ver con el
   // pago) NUNCA debe borrar el abono que ya quedó registrado/cobrado.
   if(isNew && abonoInput){
-    abonoInput.value = 5000 * totalCount;
+    abonoInput.value = abonoSugeridoPorTratamiento() * totalCount;
   }
   if(abonoInput && saldoInput){
     // Si el saldo está dividido entre dos métodos de pago, su valor ya lo
@@ -3441,13 +3535,16 @@ function normalizeDoc(data){
     a.cremaCantidad = apptCremas(a);
     return a;
   });
-  const services = (d.services && d.services.length) ? d.services : JSON.parse(JSON.stringify(DEFAULT_SERVICES));
+  // Las listas por defecto (servicios con precios en pesos chilenos, y las
+  // especialistas de Santiago) son solo de Santiago: otra sede arranca vacía.
+  const conDefaults = SEDE.id==='santiago';
+  const services = (d.services && d.services.length) ? d.services : (conDefaults ? JSON.parse(JSON.stringify(DEFAULT_SERVICES)) : []);
   services.forEach(s=>{ if(s.duration==null) s.duration = 60; });
   services.sort((a,b)=>(a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'}));
   return {
     appointments,
     services,
-    specialists: (d.specialists && d.specialists.length) ? d.specialists : DEFAULT_SPECIALISTS.map(s=>Object.assign({}, s)),
+    specialists: (d.specialists && d.specialists.length) ? d.specialists : (conDefaults ? DEFAULT_SPECIALISTS.map(s=>Object.assign({}, s)) : []),
     clients: (d.clients && d.clients.length) ? d.clients : deriveClientsFromAppointments(appointments),
     blocks: d.blocks || [],
     courses: d.courses || [],
@@ -3939,12 +4036,11 @@ function runStockSeedIfNeeded(){
   return true;
 }
 
-// Contraseña compartida por todo el equipo (Admin y Especialistas) para poder
-// ver el calendario — el correo es solo un identificador técnico que pide
-// Firebase por dentro, nadie lo escribe ni lo ve. El "Modo administrador"
-// sigue existiendo tal cual estaba, como una segunda puerta encima de esta,
-// solo para poder editar.
-const TEAM_EMAIL = 'equipo@sibanasantiago.app';
+// Contraseñas para ver el calendario: una por cada cuenta de CUENTAS (equipo
+// de Santiago, equipo de Buenos Aires, dueños). El correo es solo un
+// identificador técnico que pide Firebase por dentro, nadie lo escribe ni lo
+// ve. La cuenta con la que se entra decide la sede y el modo (ver
+// aplicarCuenta).
 
 function startRealtimeSync(){
   if(!FIREBASE_READY){
@@ -3956,6 +4052,7 @@ function startRealtimeSync(){
     if(syncStarted) return;
     if(user && !user.isAnonymous){
       syncStarted = true;
+      aplicarCuenta(user);
       startFirestoreSync();
     } else {
       showTeamLoginGate();
@@ -4039,7 +4136,14 @@ function showTeamLoginGate(){
     btn.disabled = true;
     btn.textContent = 'Entrando…';
     errBox.textContent = '';
-    firebase.auth().signInWithEmailAndPassword(TEAM_EMAIL, pass).catch(err=>{
+    // Solo se escribe la contraseña: se prueba con cada cuenta, en orden
+    // (primero el equipo de Santiago, así a ellas les funciona igual que
+    // siempre). Si ninguna la acepta, es una contraseña incorrecta.
+    const tryAccount = i=>{
+      if(i >= CUENTAS.length) return Promise.reject(new Error('Ninguna cuenta aceptó la contraseña'));
+      return firebase.auth().signInWithEmailAndPassword(CUENTAS[i].email, pass).catch(()=>tryAccount(i+1));
+    };
+    tryAccount(0).catch(err=>{
       console.error('No se pudo iniciar sesión', err);
       errBox.textContent = 'Contraseña incorrecta. Intenta de nuevo.';
       btn.disabled = false;
@@ -4051,6 +4155,32 @@ function showTeamLoginGate(){
   btn.addEventListener('click', submit);
   input.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
   input.focus();
+}
+
+// Todas las cargas/correcciones automáticas de datos (corren una sola vez
+// cada una, marcadas en settings). Devuelve true si alguna cambió algo.
+function runSantiagoMigrations(){
+  const imported = runHistoricalImportIfNeeded();
+  const sabado12 = runSabado12ImportIfNeeded();
+  const sept5a11 = runSept5a11ImportIfNeeded();
+  const julio2026 = runJulio2026ImportIfNeeded();
+  const gastosFijos = runRecurringExpensesImportIfNeeded();
+  const ingresoBox = runRecurringIncomeImportIfNeeded();
+  const corrected = runCorrectionsIfNeeded();
+  const priceFixed = runPriceCorrectionsIfNeeded();
+  const passwordInit = runPasswordInitIfNeeded();
+  const specialistAgosto = runSpecialistAgostoIfNeeded();
+  const mairelynFix = runMairelynFixIfNeeded();
+  const saldoFix = runSaldoFixIfNeeded();
+  const paymentNormalize = runPaymentMethodNormalizeIfNeeded();
+  const noLunch = runNoLunchIfNeeded();
+  const stockSeed = runStockSeedIfNeeded();
+  const salomeRename = runSalomeRenameIfNeeded();
+  const gananciasCutoff = runMisGananciasCutoffIfNeeded();
+  const personasNotas = runPersonasFromNotesIfNeeded();
+  const cursoMicropigmentacion = runCursoMicropigmentacion20261025IfNeeded();
+  const cursoHuerfanoRepair = runCursoHuerfanoRepairIfNeeded();
+  return !!(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas || cursoMicropigmentacion || cursoHuerfanoRepair);
 }
 
 function startFirestoreSync(){
@@ -4067,32 +4197,15 @@ function startFirestoreSync(){
     if(snap.exists){
       checkRemoteVersion(snap.data());
       applyRemoteData(snap.data());
-      const imported = runHistoricalImportIfNeeded();
-      const sabado12 = runSabado12ImportIfNeeded();
-      const sept5a11 = runSept5a11ImportIfNeeded();
-      const julio2026 = runJulio2026ImportIfNeeded();
-      const gastosFijos = runRecurringExpensesImportIfNeeded();
-      const ingresoBox = runRecurringIncomeImportIfNeeded();
-      const corrected = runCorrectionsIfNeeded();
-      const priceFixed = runPriceCorrectionsIfNeeded();
-      const passwordInit = runPasswordInitIfNeeded();
-      const specialistAgosto = runSpecialistAgostoIfNeeded();
-      const mairelynFix = runMairelynFixIfNeeded();
-      const saldoFix = runSaldoFixIfNeeded();
-      const paymentNormalize = runPaymentMethodNormalizeIfNeeded();
-      const noLunch = runNoLunchIfNeeded();
-      const stockSeed = runStockSeedIfNeeded();
-      const salomeRename = runSalomeRenameIfNeeded();
-      const gananciasCutoff = runMisGananciasCutoffIfNeeded();
-      const personasNotas = runPersonasFromNotesIfNeeded();
-      const cursoMicropigmentacion = runCursoMicropigmentacion20261025IfNeeded();
-      const cursoHuerfanoRepair = runCursoHuerfanoRepairIfNeeded();
+      // Las cargas y correcciones de datos viejos son SOLO de Santiago (datos
+      // reales de Santiago): nunca deben correr en otra sede.
+      const migrated = SEDE.migraciones ? runSantiagoMigrations() : false;
       ui.loaded = true;
       // Si hay un modal abierto (alguien escribiendo), no lo interrumpimos con un
       // re-render completo — los datos ya quedaron actualizados por dentro y se
       // van a ver apenas cierre ese modal.
       if(!ui.modal) render();
-      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas || cursoMicropigmentacion || cursoHuerfanoRepair) saveData({recordUndo:false, silent:true});
+      if(migrated) saveData({recordUndo:false, silent:true});
       runDailyAutoBackupIfNeeded();
       checkUnseenBlocksIfNeeded();
       checkStaffIdentityIfNeeded();
@@ -4105,6 +4218,9 @@ function startFirestoreSync(){
       // en este caso: así un error pasajero de lectura no puede borrar datos
       // reales que sí existen del otro lado.
       ui.loaded = true;
+      // Una sede nueva (Buenos Aires) arranca sin documento: solo un dueño
+      // puede crearlo, y solo tocando el botón a propósito — nunca solo.
+      if(SEDE.id!=='santiago'){ document.getElementById('root').innerHTML = sedeSinCrearHtml(); return; }
       document.getElementById('root').innerHTML = '<div class="loading">⚠️ No se pudo leer la base de datos (o aparenta estar vacía). Por seguridad, la agenda no va a guardar ni sobrescribir nada mientras esto pase — no agendes nada aquí y avísale a Juan Diego antes de seguir. Prueba recargando la página o revisando tu conexión a internet.</div>';
     }
   }, err=>{
@@ -4112,6 +4228,99 @@ function startFirestoreSync(){
     ui.loaded = true;
     render();
     showAlert('No se pudo conectar con la base de datos compartida (Firebase). Revisa tu conexión a internet o la configuración del proyecto.');
+  });
+}
+
+// ---------------- Sede nueva / cambiar de sede ----------------
+function sedeSinCrearHtml(){
+  if(!esDueno()){
+    return `<div class="loading">La agenda de ${escapeHtml(SEDE.nombre)} todavía no está lista. Avísale a Juan Diego.</div>`;
+  }
+  return `
+    <div class="login-gate">
+      <img src="${LOGO_SRC}" alt="Sibana" class="login-gate-logo">
+      <h1 class="serif">Agenda ${escapeHtml(SEDE.nombre)}</h1>
+      <p class="hint">La agenda de ${escapeHtml(SEDE.nombre)} todavía no está creada. Al crearla arranca vacía: sin citas, sin especialistas, y con la misma lista de servicios de Santiago pero con todos los precios en $0, para que ustedes pongan los precios de ${escapeHtml(SEDE.nombre)}. Nada de Santiago se toca ni se mezcla.</p>
+      <div class="login-gate-box">
+        <div id="crear-sede-error" class="login-gate-error"></div>
+        <button class="btn btn-primary" id="crear-sede-btn" style="width:100%;" onclick="crearAgendaSede()">Crear la agenda de ${escapeHtml(SEDE.nombre)}</button>
+        <button class="btn btn-ghost" style="width:100%;margin-top:10px;" onclick="cambiarSede('santiago')">Volver a Santiago</button>
+      </div>
+    </div>`;
+}
+// Crea el documento de una sede nueva. Es la ÚNICA forma en que la agenda
+// crea un documento (lección 1 de CLAUDE.md): solo un dueño, solo con el
+// botón, nunca Santiago, y dentro de una transacción que no hace nada si el
+// documento ya existe (si "no existe" fue un error de lectura, no se pisa
+// nada).
+async function crearAgendaSede(){
+  if(!esDueno() || SEDE.id==='santiago') return;
+  const btn = document.getElementById('crear-sede-btn');
+  const errBox = document.getElementById('crear-sede-error');
+  if(btn){ btn.disabled = true; btn.textContent = 'Creando…'; }
+  try{
+    let services = [];
+    try{
+      const snap = await db.collection('sibana-agenda').doc('santiago').get();
+      if(snap.exists) services = (snap.data().services||[]).map(x=>({name: x.name, price: 0, duration: x.duration||60}));
+    }catch(e){ console.error('No se pudo leer la lista de servicios de Santiago (se crea vacía)', e); }
+    const settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+    settings.cremaIncluida = true; // en Buenos Aires la crema va incluida desde el primer día
+    settings.creadaEn = new Date().toISOString();
+    const inicial = {
+      appointments: [], services, specialists: [], clients: [], blocks: [], courses: [],
+      expenses: [], recurringExpenses: [], recurringIncomes: [], stockItems: [], vales: [],
+      settings, appVersion: APP_VERSION,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+    await db.runTransaction(async tx=>{
+      const snap = await tx.get(DOC_REF);
+      if(snap.exists) return; // ya existía: no se toca
+      tx.set(DOC_REF, inicial);
+    });
+    // La conexión en tiempo real recibe el documento nuevo y muestra la agenda.
+  }catch(e){
+    console.error('No se pudo crear la agenda de la sede', e);
+    if(errBox) errBox.textContent = 'No se pudo crear (' + (e.code||e.message||'error') + '). Revisa la conexión y vuelve a intentarlo.';
+    if(btn){ btn.disabled = false; btn.textContent = 'Crear la agenda de ' + SEDE.nombre; }
+  }
+}
+// Solo los dueños cambian de sede. Se recarga la página entera: así no queda
+// en memoria nada de la sede anterior (ni datos, ni guardados a medias).
+function cambiarSede(id){
+  if(!esDueno() || !SEDES[id]) return;
+  if(ui.saving || pendingSaves.length){
+    showAlert('Espera un momento a que termine de guardarse el último cambio, y vuelve a intentarlo.');
+    return;
+  }
+  safeSetLocal(SEDE_DUENOS_KEY, id);
+  if(id===SEDE.id){ ui.modal = null; render(); return; }
+  document.getElementById('root').innerHTML = loadingScreenHtml('Cambiando a ' + SEDES[id].nombre + '…');
+  reloadFresh();
+}
+function sedeModalHtml(){
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">¿Qué sede quieres ver?</h2>
+      <p class="hint">Cada sede tiene sus propias citas, especialistas, precios y finanzas. Nunca se mezclan.</p>
+      ${Object.values(SEDES).map(x=>`<button type="button" class="btn ${x.id===SEDE.id?'btn-primary':'btn-ghost'}" style="width:100%;margin-bottom:8px;" data-act="set-sede" data-sede="${x.id}">${x.id===SEDE.id?'✓ ':''}📍 ${escapeHtml(x.nombre)}</button>`).join('')}
+      <div class="modal-actions">
+        <div></div>
+        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+// Para entrar con otra contraseña (ej. un dueño en un teléfono donde se entró
+// con la del equipo).
+function cambiarDeCuenta(){
+  if(ui.saving || pendingSaves.length){
+    showAlert('Espera un momento a que termine de guardarse el último cambio, y vuelve a intentarlo.');
+    return;
+  }
+  showConfirmDialog('¿Salir de esta cuenta para entrar con otra contraseña? Vas a tener que escribir la contraseña de nuevo en este dispositivo.', ()=>{
+    firebase.auth().signOut().catch(err=>console.error(err)).finally(()=>reloadFresh());
   });
 }
 
@@ -4425,11 +4634,12 @@ function render(){
     <header class="topbar">
       <div class="brand">
         <img src="${LOGO_SRC}" alt="Sibana" />
-        <span class="tagline">Santiago · Panel interno</span>
+        <span class="tagline">${escapeHtml(SEDE.nombre)} · Panel interno</span>
       </div>
       <div class="topbar-right">
         ${ui.mode!=='admin' ? staffIdentityBadgeHtml() : ''}
-        <button class="mode-toggle" data-act="toggle-mode">${ui.mode==='admin' ? '🔓 Admin' : '🔒 Especialista'}</button>
+        ${esDueno() ? `<button class="mode-toggle" data-act="open-sede">📍 ${escapeHtml(SEDE.nombre)}</button>`
+          : puedeCambiarModo() ? `<button class="mode-toggle" data-act="toggle-mode">${ui.mode==='admin' ? '🔓 Admin' : '🔒 Especialista'}</button>` : ''}
       </div>
     </header>
     ${sectionTabsHtml()}
@@ -4547,7 +4757,9 @@ function toolbarHtml(){
             <button data-act="open-blocks-list">🚫 Ver bloqueos</button>
             <hr>
             <button data-act="open-autobackups">🗓️ Respaldos</button>
-            <button data-act="open-security">Seguridad</button>
+            ${SEDE.id==='santiago' ? `<button data-act="open-security">Seguridad</button>` : ''}
+            ${SEDE.reglaComision==='descuentoUSD' ? `<button data-act="open-valores-sede">💱 Valores en pesos argentinos</button>` : ''}
+            <button data-act="cambiar-cuenta">🔑 Entrar con otra contraseña</button>
           </div>` : ''}
       </div>` : ''}
       ${specChips}
@@ -4928,6 +5140,8 @@ function modalHtml(){
   if(ui.modal.type==='curso-attendee') return cursoAttendeeModalHtml();
   if(ui.modal.type==='vales') return valesModalHtml();
   if(ui.modal.type==='staff-identity') return staffIdentityModalHtml();
+  if(ui.modal.type==='sede') return sedeModalHtml();
+  if(ui.modal.type==='valores-sede') return valoresSedeModalHtml();
   if(ui.modal.type==='appt' && ui.mode!=='admin') return apptViewOnlyHtml(ui.modal.data);
   return apptModalHtml();
 }
@@ -5006,18 +5220,20 @@ function postcareTreatments(a){
   });
   return out;
 }
-// Fecha y hora "de Chile", aunque el teléfono/computador esté en otro país.
-function chileNow(){
-  const s = new Date().toLocaleString('sv-SE',{timeZone:'America/Santiago'}); // "2026-10-03 21:05:00"
+// Fecha y hora de la sede (Chile para Santiago), aunque el teléfono/computador
+// esté en otro país.
+function sedeNow(){
+  const s = new Date().toLocaleString('sv-SE',{timeZone:SEDE.zonaHoraria}); // "2026-10-03 21:05:00"
   return {date: s.slice(0,10), time: s.slice(11,16)};
 }
 
 function postcareStatusHtml(a, style){
+  if(!SEDE.correoPostratamiento) return ''; // esta sede todavía no tiene envío de correos
   if(!a || !a.id || a.cursoId || a.estado==='Cancelada' || a.estado==='NoShow') return '';
   if(a.date < POSTCARE_DESDE) return '';
   const trats = postcareTreatments(a);
   if(!trats.length) return '';
-  const now = chileNow();
+  const now = sedeNow();
   // Solo antes de que se mande (hoy antes de las 20:30, o una cita futura):
   // después ya no hay nada útil que decir aquí.
   const pendiente = a.date > now.date || (a.date === now.date && now.time < POSTCARE_HORA);
@@ -5403,7 +5619,7 @@ function cursoAttendeeModalHtml(){
       <h2 class="serif">${isEdit?'Editar inscrito':'Agregar inscrito'} — ${escapeHtml(d.cursoNombre||'')}</h2>
       <div class="field"><label>Nombre completo</label><input type="text" id="f-cur-client" value="${escapeHtml(d.client)}" placeholder="Nombre y apellido"></div>
       <div class="row2">
-        <div class="field"><label>RUT</label><input type="text" id="f-cur-rut" value="${escapeHtml(d.rut||'')}" placeholder="12.345.678-9"></div>
+        <div class="field"><label>${SEDE.docIdentidad}</label><input type="text" id="f-cur-rut" value="${escapeHtml(d.rut||'')}" placeholder="${SEDE.docPlaceholder}"></div>
         <div class="field"><label>Correo electrónico</label><input type="text" id="f-cur-email" value="${escapeHtml(d.email||'')}" placeholder="correo@ejemplo.com"></div>
       </div>
       <div class="field"><label>Teléfono (opcional)</label><input type="text" id="f-cur-phone" value="${escapeHtml(d.phone||'')}" placeholder="+56 9…"></div>
@@ -5866,10 +6082,52 @@ function apptRevenue(a){
 // Base sobre la que se calcula la comisión de la especialista: igual que
 // apptRevenue, pero sin los $5.000 de CADA crema post-tratamiento — esa plata
 // es 100% para el dueño, la especialista no se queda con nada de la crema.
+//
+// Buenos Aires tiene su propia regla (SEDE.reglaComision 'descuentoUSD',
+// definida con Juan Diego): a cada tratamiento se le restan primero 10
+// dólares (en pesos, ver descuentoUSDParaFecha) y recién eso se reparte con
+// el % — salvo retoques (ahí es 50/50 directo) y cursos (sin descuento). Si
+// la clienta cancela o no viene, el abono que pierde es 100% del negocio: no
+// genera comisión.
 function apptCommissionBase(a){
   const rev = apptRevenue(a);
-  if(a.estado!=='Cancelada' && a.estado!=='NoShow') return Math.max(0, rev - CREMA_PRICE*apptCremas(a));
+  const cancelada = a.estado==='Cancelada' || a.estado==='NoShow';
+  if(SEDE.reglaComision==='descuentoUSD'){
+    if(cancelada) return 0;
+    return Math.max(0, rev - CREMA_PRICE*apptCremas(a) - apptDescuentoUSD(a));
+  }
+  if(!cancelada) return Math.max(0, rev - CREMA_PRICE*apptCremas(a));
   return rev;
+}
+// ---- Buenos Aires: los 10 dólares por tratamiento ----
+// Cuánto son 10 dólares en pesos va cambiando, así que se guarda un historial
+// (state.settings.descuentoUSDHistory = [{desde:'YYYY-MM-DD', monto}]) y cada
+// cita usa el valor vigente el día de la cita: cambiar el valor hoy NUNCA
+// recalcula citas ni semanas ya pasadas (mismo cuidado que comisionHistory).
+const DESCUENTO_USD = 10;
+function descuentoUSDParaFecha(dateKey){
+  const h = state.settings.descuentoUSDHistory;
+  if(!Array.isArray(h)) return 0;
+  let monto = 0;
+  h.slice().sort((a,b)=>(a.desde||'').localeCompare(b.desde||'')).forEach(x=>{
+    if(x.desde && x.desde<=dateKey) monto = Math.max(0, Number(x.monto)||0);
+  });
+  return monto;
+}
+// Cuántos tratamientos de la cita llevan el descuento: cada servicio anotado
+// cuenta una vez por cada unidad (si vienen 2 personas y se anota el
+// tratamiento 2 veces, se descuenta 2 veces). No cuentan retoques, ni los
+// servicios gratis (evaluación, garantía), ni las citas de curso.
+function tratamientosConDescuento(a){
+  if(a.cursoId) return 0;
+  return (a.services||[]).filter(s=>!/retoque/i.test(s||'') && !/evaluaci[oó]n/i.test(s||'') && !/garant[ií]a/i.test(s||'')).length;
+}
+function apptDescuentoUSD(a){
+  return descuentoUSDParaFecha(a.date) * tratamientosConDescuento(a);
+}
+function abonoSugeridoPorTratamiento(){
+  if(SEDE.abonoSugerido!=null) return SEDE.abonoSugerido;
+  return Math.max(0, Number(state.settings.abonoSugerido)||0);
 }
 // Lo que falta cobrarle a la clienta en la cita: precio total (ya con
 // cualquier descuento que se haya puesto directo en el campo Precio) menos
@@ -6073,6 +6331,70 @@ function payoutWeekBoxHtml(specialist){
     </div>`;
 }
 
+// Explicación (y aviso si falta el valor) de la regla de Buenos Aires, en Finanzas.
+function reglaDescuentoUSDHtml(){
+  const hoy = descuentoUSDParaFecha(toKey(new Date()));
+  if(!hoy) return `<div class="hint" style="margin-bottom:8px;color:var(--danger);">⚠️ Falta cargar cuánto son ${DESCUENTO_USD} dólares en pesos (Más → "💱 Valores en pesos argentinos"). Mientras no esté, la comisión se calcula sin restar los ${DESCUENTO_USD} dólares.</div>`;
+  return `<div class="hint" style="margin-bottom:8px;">Antes de repartir, a cada tratamiento se le restan ${DESCUENTO_USD} dólares (hoy ${fmtCLP(hoy)}), que quedan para el negocio. Los retoques y los cursos no llevan descuento. Si la clienta cancela o no viene, el abono queda entero para el negocio.</div>`;
+}
+function valoresSedeModalHtml(){
+  const h = (state.settings.descuentoUSDHistory||[]).slice().sort((a,b)=>(b.desde||'').localeCompare(a.desde||''));
+  const hoyKey = toKey(new Date());
+  const vigente = descuentoUSDParaFecha(hoyKey);
+  const fmtFecha = k=>{ const d = parseKey(k); return `${d.getDate()} de ${MONTHS[d.getMonth()]} ${d.getFullYear()}`; };
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">💱 Valores en pesos argentinos</h2>
+      <h3 class="fin-sub" style="margin-top:4px;">${DESCUENTO_USD} dólares por tratamiento</h3>
+      <p class="hint">Antes de calcular la comisión, a cada tratamiento se le restan ${DESCUENTO_USD} dólares. Anota acá cuánto son en pesos y actualízalo cuando cambie el dólar. Cada valor nuevo aplica a las citas <b>desde la fecha que elijas</b> en adelante: las citas anteriores se quedan con el valor que tenían, así nunca cambia una comisión ya pagada.</p>
+      <div class="hint" style="margin-bottom:8px;">Valor de hoy: <b>${vigente ? fmtCLP(vigente) : 'todavía no hay ninguno cargado'}</b></div>
+      <div class="field-row">
+        <div class="field"><label>${DESCUENTO_USD} dólares = $ (pesos)</label><input type="number" id="f-usd-monto" min="0" step="1" placeholder="Ej. 12000"></div>
+        <div class="field"><label>Desde (fecha de las citas)</label><input type="date" id="f-usd-desde" value="${hoyKey}"></div>
+      </div>
+      ${h.length ? `<table class="fin-table" style="margin-bottom:6px;"><thead><tr><th>Desde</th><th>${DESCUENTO_USD} dólares =</th><th></th></tr></thead><tbody>
+        ${h.map(x=>`<tr><td>${fmtFecha(x.desde)}</td><td>${fmtCLP(x.monto)}</td><td><button type="button" class="btn btn-ghost" style="font-size:11.5px;padding:4px 10px;" data-act="remove-descuento-usd" data-desde="${x.desde}">Quitar</button></td></tr>`).join('')}
+      </tbody></table>` : ''}
+      <h3 class="fin-sub">Abono sugerido</h3>
+      <p class="hint">Al crear una cita nueva, el abono se completa solo con este monto por cada tratamiento (se puede cambiar en cada cita). 0 = no sugerir nada.</p>
+      <div class="field"><label>Abono por tratamiento ($)</label><input type="number" id="f-abono-sugerido" min="0" step="1" value="${Number(state.settings.abonoSugerido)||0}"></div>
+      <div class="modal-actions">
+        <div></div>
+        <div class="right">
+          <button class="btn btn-ghost" data-act="close-modal">Cerrar</button>
+          <button class="btn btn-primary" data-act="save-valores-sede">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function saveValoresSedeFromForm(){
+  const montoRaw = document.getElementById('f-usd-monto').value.trim();
+  const desde = document.getElementById('f-usd-desde').value;
+  const abono = Math.max(0, Math.round(Number(document.getElementById('f-abono-sugerido').value)||0));
+  if(montoRaw!==''){
+    const monto = Math.round(Number(montoRaw));
+    if(!(monto>0)){ showAlert('Escribe cuántos pesos son ' + DESCUENTO_USD + ' dólares (un número mayor que 0).'); return; }
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(desde)){ showAlert('Elige desde qué fecha aplica el valor nuevo.'); return; }
+    const h = Array.isArray(state.settings.descuentoUSDHistory) ? state.settings.descuentoUSDHistory.slice() : [];
+    const i = h.findIndex(x=>x.desde===desde);
+    if(i>=0) h[i] = {desde, monto}; else h.push({desde, monto});
+    state.settings.descuentoUSDHistory = h;
+  }
+  state.settings.abonoSugerido = abono;
+  ui.modal = null;
+  render();
+  saveData();
+}
+function removeDescuentoUSD(desde){
+  showConfirmDialog('¿Quitar este valor? Las citas desde esa fecha van a usar el valor anterior (y su comisión puede cambiar).', ()=>{
+    state.settings.descuentoUSDHistory = (state.settings.descuentoUSDHistory||[]).filter(x=>x.desde!==desde);
+    render();
+    saveData();
+  });
+}
+
 function finanzasPageHtml(){
   if(!ui.reportsDate) ui.reportsDate = new Date();
   if(!ui.financeTab) ui.financeTab = 'resumen';
@@ -6164,6 +6486,7 @@ function finanzasResumenHtml(year, month){
       <button class="btn btn-ghost" data-act="save-comision-pct" data-year="${year}" data-month="${month}" style="font-size:12px;padding:6px 12px;">Guardar %</button>
     </div>
     <div class="hint" style="margin-bottom:8px;">Aplica desde <b>${MONTHS[month]} ${year}</b> en adelante — los meses anteriores se quedan con el % que tenían.</div>
+    ${SEDE.reglaComision==='descuentoUSD' ? reglaDescuentoUSDHtml() : ''}
     <table class="fin-table">
       <thead><tr><th>Especialista</th><th>Citas</th><th>Generó</th><th>Comisión</th></tr></thead>
       <tbody>${espRows}</tbody>
@@ -6491,9 +6814,26 @@ function finanzasGraficosHtml(year, month){
 function waPhoneDigits(phone){
   let d = (phone||'').replace(/\D/g,'');
   if(!d) return '';
+  if(SEDE.telPais==='54') return waPhoneDigitsArgentina(d);
   if(d.startsWith('56')) return d; // ya tiene código de país
   if(d.length===9 && d.startsWith('9')) return '56'+d; // celular chileno sin código de país
   if(d.length===8) return '569'+d; // celular chileno sin el 9 inicial
+  return d; // lo que haya, mejor eso que nada
+}
+// WhatsApp exige los celulares argentinos como 54 + 9 + código de área (sin
+// el 0) + número (sin el 15). Ej.: "011 15 2345-6789" → 5491123456789.
+function waPhoneDigitsArgentina(d){
+  if(d.startsWith('549')) return d; // ya está completo
+  if(d.startsWith('54')) d = d.slice(2); // código de país sin el 9
+  if(d.startsWith('0')) d = d.slice(1); // 0 del código de área
+  // El "15" de los celulares va después del código de área (2 a 4 dígitos):
+  // con él, el número queda con 12 dígitos en vez de 10.
+  if(d.length===12){
+    for(const area of [2,3,4]){
+      if(d.slice(area, area+2)==='15'){ d = d.slice(0, area) + d.slice(area+2); break; }
+    }
+  }
+  if(d.length===10) return '549'+d;
   return d; // lo que haya, mejor eso que nada
 }
 function waLink(phone, msg){
@@ -6727,7 +7067,7 @@ Cualquier duda o detalle que quieras contarnos, escríbenos y te ayudamos ensegu
 function genericReviewMsg(){
   return `Hola 🌸 somos Sibana.
 Esperamos que te haya encantado el resultado final de tu tratamiento ✨
-Si tienes un minuto, nos ayudaría muchísimo que nos dejaras tu opinión en Google: https://g.page/r/CRg9v-smnqROECE/review
+Si tienes un minuto, nos ayudaría muchísimo que nos dejaras tu opinión en Google: ${SEDE.resenaLink || '(falta el link de Google de esta sede)'}
 
 ¡Gracias por confiar en nosotras! 💕`;
 }
@@ -6783,7 +7123,7 @@ function reviewsModalHtml(){
 // diario, y lo que se descarga desde Más → Respaldos.
 function fullBackupPayload(){
   return {
-    respaldoDe: 'Sibana Santiago',
+    respaldoDe: 'Sibana ' + SEDE.nombre,
     fecha: new Date().toISOString(),
     appointments: state.appointments,
     services: state.services,
@@ -6803,7 +7143,7 @@ function downloadBackupFile(payload, dateKey){
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `Sibana-Santiago-respaldo-${dateKey}.json`;
+  link.download = `Sibana-${SEDE.nombre.replace(/\s+/g,'')}-respaldo-${dateKey}.json`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -7152,6 +7492,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-courses','new-course','edit-course','save-course','delete-course',
   'curso-add-attendee','curso-edit-attendee','save-curso-attendee','delete-curso-attendee',
   'delete-vale',
+  'open-valores-sede','save-valores-sede','remove-descuento-usd',
 ]);
 
 // ¿La especialista cambió el método de pago o las cremas en la vista de una
@@ -7181,6 +7522,7 @@ function onAction(e){
   if(ui.mode!=='admin' && ADMIN_ONLY_ACTIONS.has(act)) return; // protección extra, además de ocultar los botones
   switch(act){
     case 'toggle-mode': {
+      if(!puedeCambiarModo()) break; // los dueños y el equipo de Buenos Aires no tienen este botón
       if(ui.mode==='admin'){
         ui.mode = 'staff';
         ui.modal = null;
@@ -7209,6 +7551,19 @@ function onAction(e){
       }
       break;
     }
+    case 'open-sede':
+      if(!esDueno()) break;
+      ui.modal = {type:'sede'}; render(); break;
+    case 'set-sede':
+      cambiarSede(e.currentTarget.dataset.sede); break;
+    case 'cambiar-cuenta':
+      cambiarDeCuenta(); break;
+    case 'open-valores-sede':
+      ui.modal = {type:'valores-sede'}; render(); break;
+    case 'save-valores-sede':
+      saveValoresSedeFromForm(); break;
+    case 'remove-descuento-usd':
+      removeDescuentoUSD(e.currentTarget.dataset.desde); break;
     case 'prev':
       ui.currentDate = ui.view==='day' ? addDays(ui.currentDate,-1) : ui.view==='week' ? addDays(ui.currentDate,-7) : addMonths(ui.currentDate,-1);
       render(); break;

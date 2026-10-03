@@ -5,6 +5,68 @@ Una agenda interna para el negocio de micropigmentación/belleza "Sibana", hecha
 como **un solo archivo HTML** autocontenido (todo el CSS y JS adentro, sin
 build ni dependencias que instalar). Se publica tal cual en GitHub Pages.
 
+## Sede de Buenos Aires (en construcción, oct 2026)
+Juan Diego va a abrir un Sibana en **Buenos Aires** y pidió tener la agenda
+lo antes posible. Decidido con él (no cambiar sin preguntar):
+- **Una sola app** (este mismo `index.html`), no una copia — mismo
+  razonamiento que se había decidido para Copiapó. Todo funciona "lo más
+  copia y pega posible" igual que en Santiago (semana de pago lun–sáb,
+  vales, Mis ganancias, retoques, reseñas, etc.), salvo lo que se lista acá.
+- **La contraseña con la que se entra decide sede y rol** (`CUENTAS`,
+  `aplicarCuenta`). Nunca se pregunta "¿qué sede?" (al usuario le parecía
+  tedioso). Tres cuentas de Firebase Auth, con contraseñas DISTINTAS entre
+  sí (el login solo pide la contraseña y la prueba con cada cuenta en orden):
+  - `equipo@sibanasantiago.app` → Santiago, Especialista. Mientras
+    `SOLO_DUENOS_ADMIN_SANTIAGO` sea `false` conserva el botón
+    "🔒 Especialista / 🔓 Admin" de siempre (para no dejar a Juan Diego sin
+    Admin antes de que use la cuenta de dueños). El usuario pidió quitar ese
+    botón: pasar la constante a `true` cuando él y su papá ya entren con la
+    cuenta de dueños en sus teléfonos.
+  - `equipo@sibanabuenosaires.app` → Buenos Aires, siempre Especialista,
+    sin botón de Admin.
+  - `duenos@sibana.app` → Juan Diego y su papá: siempre Admin, con un botón
+    "📍 Sede" arriba para cambiar (`cambiarSede` guarda la elección en
+    `SEDE_DUENOS_KEY` y RECARGA la página, para no arrastrar nada en memoria).
+  - Más → "🔑 Entrar con otra contraseña" (`cambiarDeCuenta`) cierra la sesión.
+  - **Estado (03/10/2026):** las dos cuentas nuevas TODAVÍA NO EXISTEN en
+    Firebase, y las reglas nuevas (`firestore.rules`, probadas con el
+    emulador) TODAVÍA NO están publicadas — hay que hacerlo con el usuario,
+    comparando antes con las reglas que hay hoy publicadas. Mientras tanto,
+    Santiago funciona exactamente igual que antes.
+- **Todo lo que cambia por país vive en `SEDES`** (zona horaria, código de
+  teléfono +54 con su formato de WhatsApp `waPhoneDigitsArgentina`,
+  RUT/DNI, colección de consentimientos, URL del script de respaldo, link de
+  reseñas, correo post-tratamiento, regla de comisión, abono sugerido). Nada
+  de eso se escribe suelto en el código.
+- **Datos separados**: documento `sibana-agenda/buenosaires`, respaldos
+  `buenosaires_YYYY-MM-DD`, consentimientos en
+  `sibana-consentimientos-buenosaires`. Las migraciones/cargas de datos
+  viejos (`runSantiagoMigrations`) y las listas por defecto
+  (`DEFAULT_SERVICES`/`DEFAULT_SPECIALISTS`) son SOLO de Santiago.
+- **El documento de Buenos Aires lo crea un dueño a mano** con el botón
+  "Crear la agenda de Buenos Aires" (`crearAgendaSede`): única excepción a
+  la lección 1, y es segura (transacción que no hace nada si ya existe;
+  nunca para Santiago; nunca automático). Arranca vacío, con los nombres de
+  servicios de Santiago a precio $0 y la crema incluida.
+- **Comisión en Buenos Aires** (`reglaComision:'descuentoUSD'`, confirmado
+  con el usuario): a cada tratamiento se le restan 10 dólares (en pesos) y
+  recién eso se divide 50/50. Por tratamiento: cada servicio anotado, una vez
+  por unidad (2 personas con el tratamiento anotado ×2 = 2 descuentos). NO
+  llevan descuento: retoques (50/50 directo), cursos, evaluación, garantía.
+  Cancelada/NoShow: el abono queda 100% para el negocio (comisión 0). Ver
+  `apptCommissionBase`/`tratamientosConDescuento`. El valor en pesos de los
+  10 dólares es un historial por FECHA de cita
+  (`settings.descuentoUSDHistory`, `descuentoUSDParaFecha`), editable en Más
+  → "💱 Valores en pesos argentinos" (también el abono sugerido): cambiarlo
+  nunca recalcula citas anteriores. En Santiago no hay ningún descuento.
+- Finanzas de cada sede por separado (no se suman entre sí: son monedas
+  distintas). Admin: Juan Diego y su papá en ambas. Gmail aparte para
+  Buenos Aires (su propio script de respaldo, todavía sin URL).
+- **Pendiente con el usuario:** colores de Buenos Aires (lo consulta con su
+  papá; los colores de Sibana "son los que son"), monto del abono sugerido,
+  textos de WhatsApp para clientas con "vos", link de reseñas de Google, y
+  si los servicios baratos (ej. perfilado) también llevan los 10 dólares.
+
 ## Posible extensión a Copiapó (en pausa, probablemente no se haga)
 **Actualización (oct 2026):** la sede de Copiapó al parecer prefiere seguir
 con AgendaPro (ya están acostumbrados), así que esto quizás nunca se
@@ -665,7 +727,7 @@ para servir también a **Copiapó**, de la siguiente forma:
   **Aviso dentro de la cita** (`postcareStatusHtml`, en el formulario de
   Admin al editar y en la vista de la especialista): SOLO "⚠️ Sin correo
   anotado" y solo mientras el envío está pendiente (cita futura, u hoy
-  antes de las 20:30 hora de Chile — `chileNow`, porque Juan Diego a veces
+  antes de las 20:30 hora de Chile — `sedeNow`, porque Juan Diego a veces
   usa la agenda desde otro país); para pedirle el correo a la clienta antes
   de que se vaya. Con correo anotado no se muestra nada: una versión que
   decía "se le enviarán por correo hoy a las 20:30" se quitó a pedido del

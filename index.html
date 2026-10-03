@@ -173,16 +173,21 @@
   /* En computador, "+ Nueva cita" (y "Bloquear hora") se quedan SIEMPRE arriba
      a la derecha, sin importar cuántas especialistas haya: antes, al agregar
      una 4ta, la fila de filtros crecía y empujaba "+ Nueva cita" a la segunda
-     línea. Ahora es la fila de filtros la que se achica (y, si de verdad no
-     caben, sus botones bajan a una segunda línea DENTRO de su propio espacio).
+     línea. Ahora es la fila de filtros la que se achica: SIEMPRE en una sola
+     línea (nunca un bloque de dos líneas, que se veía feo); con más de 3
+     especialistas sus botones se hacen un poco más compactos
+     (`.specfilter-compact`), y si aun así no caben, esa fila se desliza de
+     lado (sin barra visible).
      En modo Admin, "💵 Vale" va siempre al comienzo de la segunda línea,
      donde ya estaba (en modo Especialista no hay "+ Nueva cita" y Vale se
-     queda donde siempre: en ese modo no se cambia nada). Los botones de la primera línea se alinean arriba
-     para que no "bajen" cuando los filtros ocupan dos líneas. */
+     queda donde siempre: en ese modo no se cambia nada). */
   @media (min-width:721px){
-    .toolbar.toolbar-admin{align-items:flex-start;}
-    .toolbar.toolbar-admin .specfilter{flex:1 1 0;min-width:200px;margin-top:4px;}
-    .toolbar.toolbar-admin .datenav{margin-top:3px;}
+    .toolbar.toolbar-admin .specfilter{flex:1 1 0;min-width:200px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;}
+    .toolbar.toolbar-admin .specfilter::-webkit-scrollbar{display:none;}
+    .toolbar.toolbar-admin .specfilter button{flex-shrink:0;white-space:nowrap;}
+    .toolbar.toolbar-admin .specfilter.specfilter-compact{gap:4px;}
+    .toolbar.toolbar-admin .specfilter.specfilter-compact button{padding:7px 9px;gap:5px;}
+    .toolbar.toolbar-admin .specfilter.has-more{-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent);}
     .toolbar.toolbar-admin .spacer{display:none;}
     .toolbar-break{display:block;flex-basis:100%;height:0;}
     .toolbar-break + .btn{margin-top:-14px;} /* que el salto de línea no sume un espacio extra (el gap de .toolbar) */
@@ -4447,6 +4452,10 @@ function render(){
   `;
   root.innerHTML = html;
   attachEvents();
+  // Si no caben todas las especialistas en su fila (5 o más), el borde
+  // derecho se difumina para que se note que hay más deslizando de lado.
+  const sf = root.querySelector('.toolbar-admin .specfilter');
+  if(sf && sf.scrollWidth > sf.clientWidth + 1) sf.classList.add('has-more');
 
   if(prevScrollTop!=null){
     const newModal = root.querySelector('.modal');
@@ -4488,7 +4497,7 @@ function toolbarHtml(){
     : `${MONTHS[d.getMonth()][0].toUpperCase()}${MONTHS[d.getMonth()].slice(1)} ${d.getFullYear()}`;
 
   const specChips = `
-    <div class="specfilter">
+    <div class="specfilter${state.specialists.length>3 ? ' specfilter-compact' : ''}">
       <button class="${ui.specialistFilter==='all'?'active':''}" data-act="filter-specialist" data-spec="all">Todas</button>
       ${state.specialists.map(s=>`
         <button class="${ui.specialistFilter===s.name?'active':''}" data-act="filter-specialist" data-spec="${escapeHtml(s.name)}">

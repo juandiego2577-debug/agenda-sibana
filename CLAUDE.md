@@ -699,9 +699,14 @@ para servir también a **Copiapó**, de la siguiente forma:
   crecía y empujaba "+ Nueva cita" a la segunda línea (abajo a la
   izquierda) — el usuario pidió que quede SIEMPRE en el mismo lugar. Ahora
   (CSS `.toolbar.toolbar-admin`, solo pantallas >720px) es la fila de
-  filtros la que se achica y, si no caben, sus botones bajan a una 2da línea
-  dentro de su propio espacio; "💵 Vale" va siempre al inicio de la 2da
-  línea (`.toolbar-break`). Modo Especialista y teléfono NO cambian. Se
+  filtros la que se achica, SIEMPRE en una sola línea (una primera versión
+  la partía en dos líneas y al usuario le pareció muy feo — no volver a
+  eso): con más de 3 especialistas los botones se compactan
+  (`.specfilter-compact`) y, si aun así no caben (5+), la fila se desliza de
+  lado con el borde derecho difuminado (`.has-more`, se calcula en
+  `render()`). "💵 Vale" va siempre al inicio de la 2da línea
+  (`.toolbar-break`). En la práctica hay 2 especialistas fijas (Salomé y
+  Lucy) más 1–2 de reemplazo. Modo Especialista y teléfono NO cambian. Se
   midió con 3, 4 y 5 especialistas a 1024–1517px de ancho (la pantalla de
   Juan Diego equivale a ~1517px): con 3 especialistas todo quedó en la
   misma posición exacta que antes.

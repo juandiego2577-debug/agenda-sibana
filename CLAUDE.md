@@ -274,8 +274,9 @@ para servir también a **Copiapó**, de la siguiente forma:
   precio es uno solo, fijo por curso, igual para todos los inscritos (no
   hay precio distinto por persona).
 - **Setiembre 2026 fue el mes de transición** de la agenda anterior (en
-  papel/informal) a esta — tiene datos incompletos conocidos (ver el 12
-  de septiembre, pendiente de que el usuario consiga los datos reales).
+  papel/informal) a esta — tiene datos incompletos conocidos (ej. el 12
+  de septiembre; en oct 2026 el usuario pidió sacarlo de la lista de
+  pendientes: no se van a conseguir los datos reales, no volver a pedirlos).
   Por eso "Mis ganancias" (el panel que ve cada especialista) no muestra
   nada de septiembre para atrás hasta `state.settings.misGananciasDesde`
   (por defecto, el mes siguiente al que se activó esto) — el modo Admin
@@ -512,8 +513,9 @@ para servir también a **Copiapó**, de la siguiente forma:
   únicamente por la diferencia de cremas (±$5.000 por unidad), sin tocar
   el resto del precio. La recalculación general de PRECIO POR CANTIDAD DE
   SERVICIOS al editar (no solo crema) sigue teniendo este mismo problema
-  de fondo — queda pendiente, es parte del trabajo más grande de precios
-  que todavía espera la lista completa del usuario.
+  de fondo (en oct 2026 el usuario pidió sacar "la lista completa de
+  precios" de los pendientes — no insistir; arreglarlo solo si vuelve a
+  aparecer como problema real).
   **Un retoque NUNCA lleva la crema incluida gratis** — a pedido
   explícito del usuario: se puede seguir comprando aparte (ej. si la
   clienta perdió o se le acabó la que le dieron en el tratamiento
@@ -661,12 +663,13 @@ para servir también a **Copiapó**, de la siguiente forma:
   real (aunque la prueba de envío real del usuario funcionó). Instalado y
   con el envío diario programado (`instalarEnvioDiario`) el 03/10/2026.
   **Aviso dentro de la cita** (`postcareStatusHtml`, en el formulario de
-  Admin al editar y en la vista de la especialista): SOLO mientras el envío
-  está pendiente (cita futura, u hoy antes de las 20:30 hora de Chile —
-  `chileNow`, porque Juan Diego a veces usa la agenda desde otro país)
-  muestra "📧 se le enviarán por correo hoy/el DD/MM a las 20:30" o
-  "⚠️ Sin correo anotado" (para pedirlo antes de que la clienta se vaya).
-  Después no muestra nada. **La agenda NO sabe si un correo ya salió**: se
+  Admin al editar y en la vista de la especialista): SOLO "⚠️ Sin correo
+  anotado" y solo mientras el envío está pendiente (cita futura, u hoy
+  antes de las 20:30 hora de Chile — `chileNow`, porque Juan Diego a veces
+  usa la agenda desde otro país); para pedirle el correo a la clienta antes
+  de que se vaya. Con correo anotado no se muestra nada: una versión que
+  decía "se le enviarán por correo hoy a las 20:30" se quitó a pedido del
+  usuario (siempre dice lo mismo, no aporta). **La agenda NO sabe si un correo ya salió**: se
   probó una versión en que el script anotaba cada envío en una colección
   aparte de Firestore para mostrar "✅ enviado" en la cita, pero exigía
   que el usuario volviera a pegar el script en Google y decidió que no

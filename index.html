@@ -4983,10 +4983,10 @@ function blockModalHtml(){
 // instalado en la cuenta sibana.cl), todas las noches a las 20:30 hora de
 // Chile. La agenda NO sabe si un correo ya salió (el registro de envíos está
 // en la Hoja de Google "Registro correos post-tratamiento"): aquí solo se
-// avisa, dentro de la cita, lo que sirve en el momento — que falta anotar el
-// correo, o cuándo se le va a enviar. Decidido así con el usuario (no
-// mostrar "enviado / no enviado", para no tener que mantener otra versión
-// del programa en Google).
+// avisa, dentro de la cita, cuando FALTA anotar el correo (para pedírselo
+// antes de que la clienta se vaya). Decidido así con el usuario: no mostrar
+// "enviado / no enviado" (exigiría otra versión del programa en Google) ni
+// "se enviará hoy a las 20:30" (es siempre igual, no aporta nada).
 const POSTCARE_DESDE = '2026-10-03'; // día en que empezó el envío: citas anteriores no muestran nada
 const POSTCARE_HORA = '20:30';
 // OJO: mantener igual que TRATAMIENTOS en apps-script/correo-postratamiento.gs.
@@ -5011,7 +5011,6 @@ function chileNow(){
   const s = new Date().toLocaleString('sv-SE',{timeZone:'America/Santiago'}); // "2026-10-03 21:05:00"
   return {date: s.slice(0,10), time: s.slice(11,16)};
 }
-function ddmm(ymd){ const p=String(ymd||'').split('-'); return p.length===3 ? p[2]+'/'+p[1] : ymd; }
 
 function postcareStatusHtml(a, style){
   if(!a || !a.id || a.cursoId || a.estado==='Cancelada' || a.estado==='NoShow') return '';
@@ -5023,12 +5022,8 @@ function postcareStatusHtml(a, style){
   // después ya no hay nada útil que decir aquí.
   const pendiente = a.date > now.date || (a.date === now.date && now.time < POSTCARE_HORA);
   if(!pendiente) return '';
-  const que = trats.join(' y ');
-  const cuando = a.date === now.date ? 'hoy' : 'el ' + ddmm(a.date);
-  const txt = a.email
-    ? `📧 Los cuidados de ${que} se le enviarán por correo ${cuando} a las ${POSTCARE_HORA}.`
-    : `⚠️ Sin correo anotado: no se le enviarán los cuidados post-tratamiento. Pídele su correo para anotarlo en la cita.`;
-  return `<div class="hint" style="${style||''}">${txt}</div>`;
+  if(a.email) return '';
+  return `<div class="hint" style="${style||''}">⚠️ Sin correo anotado: no se le enviarán los cuidados post-tratamiento. Pídele su correo para anotarlo en la cita.</div>`;
 }
 
 function pagoMarcadoHtml(d){

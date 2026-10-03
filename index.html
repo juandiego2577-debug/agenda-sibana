@@ -169,6 +169,24 @@
 
   /* ---------- Specialist filter ---------- */
   .specfilter{display:flex;gap:6px;flex-wrap:wrap;}
+  .toolbar-break{display:none;}
+  /* En computador, "+ Nueva cita" (y "Bloquear hora") se quedan SIEMPRE arriba
+     a la derecha, sin importar cuántas especialistas haya: antes, al agregar
+     una 4ta, la fila de filtros crecía y empujaba "+ Nueva cita" a la segunda
+     línea. Ahora es la fila de filtros la que se achica (y, si de verdad no
+     caben, sus botones bajan a una segunda línea DENTRO de su propio espacio).
+     En modo Admin, "💵 Vale" va siempre al comienzo de la segunda línea,
+     donde ya estaba (en modo Especialista no hay "+ Nueva cita" y Vale se
+     queda donde siempre: en ese modo no se cambia nada). Los botones de la primera línea se alinean arriba
+     para que no "bajen" cuando los filtros ocupan dos líneas. */
+  @media (min-width:721px){
+    .toolbar.toolbar-admin{align-items:flex-start;}
+    .toolbar.toolbar-admin .specfilter{flex:1 1 0;min-width:200px;margin-top:4px;}
+    .toolbar.toolbar-admin .datenav{margin-top:3px;}
+    .toolbar.toolbar-admin .spacer{display:none;}
+    .toolbar-break{display:block;flex-basis:100%;height:0;}
+    .toolbar-break + .btn{margin-top:-14px;} /* que el salto de línea no sume un espacio extra (el gap de .toolbar) */
+  }
   .specfilter button{
     border:1px solid var(--line);background:var(--panel-2);color:var(--ink-soft);
     border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;
@@ -4481,7 +4499,7 @@ function toolbarHtml(){
   const isAdmin = ui.mode==='admin';
 
   return `
-    <div class="toolbar">
+    <div class="toolbar${isAdmin ? ' toolbar-admin' : ''}">
       <div class="datenav">
         <button class="arrow" data-act="prev">‹</button>
         <div class="curdate">${label}</div>
@@ -4528,6 +4546,7 @@ function toolbarHtml(){
       <div class="spacer"></div>
       <button class="btn btn-ghost" data-act="new-block">🚫 Bloquear hora</button>
       ${isAdmin ? `<button class="btn btn-primary" data-act="new-appt">+ Nueva cita</button>` : ''}
+      ${isAdmin ? `<div class="toolbar-break"></div>` : ''}
       <button class="btn btn-ghost" data-act="open-vales">💵 Vale</button>
     </div>
   `;

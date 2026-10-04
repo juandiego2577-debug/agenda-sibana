@@ -7384,7 +7384,7 @@ function downloadBackupFile(payload, dateKey){
 // algo saliera mal con la agenda, las copias de los días anteriores quedan
 // intactas. Se guardan los últimos AUTO_BACKUP_KEEP_DAYS días.
 const AUTO_BACKUP_COLLECTION = 'sibana-agenda-respaldos';
-const AUTO_BACKUP_KEEP_DAYS = 60;
+const AUTO_BACKUP_KEEP_DAYS = 30; // un mes completo (antes 60: al usuario le parecían demasiados; con uso diario, 30 alcanzan)
 // Día (YYYY-MM-DD) para el que ya se revisó el respaldo en esta pestaña. Se
 // guarda el día y no un simple "ya lo hice", porque la agenda puede quedar
 // abierta varios días seguidos (ej. en la laptop de Juan Diego) sin recargar.
@@ -7407,16 +7407,23 @@ async function runDailyAutoBackupIfNeeded(){
       creado: firebase.firestore.FieldValue.serverTimestamp(),
       data: fullBackupPayload(),
     });
-    const old = [];
-    for(let d=AUTO_BACKUP_KEEP_DAYS; d<AUTO_BACKUP_KEEP_DAYS+10; d++) old.push(toKey(addDays(new Date(), -d)));
     await col.doc(`${site}_indice`).set({
       fechas: firebase.firestore.FieldValue.arrayUnion(today),
     }, {merge:true});
-    if(old.length){
-      await col.doc(`${site}_indice`).set({
-        fechas: firebase.firestore.FieldValue.arrayRemove(...old),
-      }, {merge:true});
-      old.forEach(k=>col.doc(`${site}_${k}`).delete().catch(()=>{}));
+    // Se borran TODOS los respaldos más viejos que AUTO_BACKUP_KEEP_DAYS que
+    // figuren en el índice (no solo los de una ventana fija de días: así,
+    // al bajar de 60 a 30 días, también se van los de 31–60 días). Lo mismo
+    // con las copias "antes de restaurar".
+    const corte = toKey(addDays(new Date(), -AUTO_BACKUP_KEEP_DAYS));
+    const idx = await col.doc(`${site}_indice`).get();
+    const viejos = ((idx.exists && idx.data().fechas) || []).filter(k=>k <= corte);
+    const antesViejos = ((idx.exists && idx.data().antesDeRestaurar) || []).filter(k=>k.replace('antes-restaurar-','').slice(0,10) <= corte);
+    if(viejos.length || antesViejos.length){
+      const upd = {};
+      if(viejos.length) upd.fechas = firebase.firestore.FieldValue.arrayRemove(...viejos);
+      if(antesViejos.length) upd.antesDeRestaurar = firebase.firestore.FieldValue.arrayRemove(...antesViejos);
+      await col.doc(`${site}_indice`).set(upd, {merge:true});
+      viejos.concat(antesViejos).forEach(k=>col.doc(`${site}_${k}`).delete().catch(()=>{}));
     }
   }catch(e){
     console.error('No se pudo crear el respaldo automático del día', e);

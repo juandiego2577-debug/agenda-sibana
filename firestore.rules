@@ -1,0 +1,52 @@
+rules_version = '2';
+// Reglas de Firestore PROPUESTAS para cuando exista la sede de Buenos Aires.
+// Este archivo solo guarda el texto: para que tengan efecto hay que pegarlas
+// a mano en Firebase Console → Firestore Database → Reglas → Publicar.
+// ANTES de pegarlas, comparar con las reglas que hay hoy publicadas (por si
+// tienen algo que acá no esté) y crear primero las cuentas nuevas en
+// Authentication (equipo@sibanabuenosaires.app y duenos@sibana.app).
+//
+// Qué hacen:
+// - Cada sede solo la puede leer/escribir su propio equipo, más los dueños.
+//   El equipo de Buenos Aires no puede ver nada de Santiago, ni al revés.
+// - Los respaldos diarios ("<sede>_YYYY-MM-DD") siguen la misma regla, según
+//   el nombre del documento.
+// - Fichas de consentimiento: cualquiera puede FIRMAR (crear) con la sesión
+//   anónima invisible, pero solo el equipo de esa sede (y los dueños) puede
+//   leerlas, editarlas o borrarlas.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function conCuenta() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+    function correo() {
+      return request.auth.token.email;
+    }
+    function puedeSede(sede) {
+      return conCuenta() && (
+        correo() == 'duenos@sibana.app'
+        || (sede == 'santiago' && correo() == 'equipo@sibanasantiago.app')
+        || (sede == 'buenosaires' && correo() == 'equipo@sibanabuenosaires.app')
+      );
+    }
+
+    match /sibana-agenda/{sede} {
+      allow read, write: if puedeSede(sede);
+    }
+
+    match /sibana-agenda-respaldos/{respaldo} {
+      allow read, write: if puedeSede(respaldo.split('_')[0]);
+    }
+
+    match /sibana-consentimientos/{ficha} {
+      allow create: if request.auth != null;
+      allow read, update, delete: if puedeSede('santiago');
+    }
+
+    match /sibana-consentimientos-buenosaires/{ficha} {
+      allow create: if request.auth != null;
+      allow read, update, delete: if puedeSede('buenosaires');
+    }
+  }
+}

@@ -36,13 +36,6 @@
   manifestLink.rel = "manifest";
   manifestLink.href = URL.createObjectURL(blob);
   document.head.appendChild(manifestLink);
-  // Al entrar ya se sabe la sede (Santiago / Buenos Aires): se ajusta el
-  // nombre con que se instala la app en el teléfono.
-  window.__setManifestName = function(name){
-    if(manifest.name === name) return;
-    manifest.name = name;
-    manifestLink.href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: "application/manifest+json"}));
-  };
 
   var appleIcon = document.createElement("link");
   appleIcon.rel = "apple-touch-icon";
@@ -679,9 +672,9 @@ document.getElementById('root').innerHTML = loadingScreenHtml();
 const BACKUP_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwyqBvf-NPV06Mc1eiIUM86ySn-NKxtuoJ-YBimjDwP7XwflMcaVp7P2E3mNT7c1gw6XA/exec';
 
 function syncToBackupWebhook(action, appt){
-  if(!backupWebhookActivo()) return; // cada sede manda a su propio script (SEDE.backupWebhookUrl)
+  if(!BACKUP_WEBHOOK_URL || BACKUP_WEBHOOK_URL.indexOf('PEGA_AQUI') === 0) return;
   try{
-    fetch(SEDE.backupWebhookUrl, {
+    fetch(BACKUP_WEBHOOK_URL, {
       method: 'POST',
       mode: 'no-cors', // los Apps Script publicados como "cualquiera" se llaman así desde el navegador
       headers: {'Content-Type': 'text/plain;charset=utf-8'},
@@ -697,7 +690,7 @@ function syncToBackupWebhook(action, appt){
 // Se puede usar las veces que quieras — como ya identifica cada cita por su
 // ID, nunca duplica filas ni eventos, solo los actualiza si ya existían.
 function runFullBackupSync(){
-  if(!backupWebhookActivo()){
+  if(!BACKUP_WEBHOOK_URL || BACKUP_WEBHOOK_URL.indexOf('PEGA_AQUI') === 0){
     showAlert('Todavía no has conectado ninguna Hoja/Calendar (falta pegar la URL del script). Pídele a Claude que te ayude con ese paso primero.');
     return;
   }
@@ -728,153 +721,6 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "925854566824",
   appId: "1:925854566824:web:116dde164888fe0217759d"
 };
-// ---------------- Sedes (Santiago / Buenos Aires) ----------------
-// Una sola app para las dos sedes. Los datos de cada sede viven en su propio
-// documento (sibana-agenda/<id>) y NUNCA se mezclan. La sede (y si se entra
-// como Admin o como Especialista) la decide la contraseña con la que se
-// entra — ver CUENTAS más abajo. Todo lo que cambia de un país a otro va
-// acá, nunca escrito suelto en el código.
-// Colores de Buenos Aires: los de la bandera argentina (celeste, blanco y el
-// dorado del sol), a pedido de Juan Diego, para que de un vistazo no quede
-// duda de en qué sede se está. Santiago no se toca: se generan a partir de
-// la hoja de estilos de Santiago reemplazando cada color (de → a).
-const TEMA_BANDERA_ARGENTINA = {
-  reemplazos: [
-    ['#C9A227', '#74ACDF'], // dorado principal → celeste
-    ['#4A3608', '#0B2A47'], // texto sobre el acento → azul muy oscuro
-    ['#F0D889', '#D6EBFA'], // dorado claro → celeste muy claro
-    ['#D9BB6E', '#9FCBEE'], // dorado suave → celeste suave
-    ['#0C0B0A', '#0A1826'], // negro → azul noche
-    ['#1B1713', '#10243A'], ['#242019', '#17304A'], ['#1a140c', '#0C1D2E'], ['#0a0908', '#081521'],
-    ['#F1E8D6', '#F3F8FD'], ['#E7DFCE', '#E3EEF8'], // textos claros → blanco
-    ['#B3A688', '#A7C1D9'], ['#382E1F', '#244260'], ['#403A30', '#2E4A66'],
-    ['#1B1710', '#0D2033'], ['#6B6152', '#5E7B98'], ['#5A5348', '#4D6884'],
-    ['rgba(201,162,39,', 'rgba(116,172,223,'], ['rgba(240,216,137,', 'rgba(214,235,250,'],
-  ],
-  extra: `
-    :root{ --warn:#F6B40E; }
-    /* Franja celeste-blanca-celeste arriba, como la bandera */
-    header.topbar{ background:linear-gradient(180deg,#74ACDF 0 6px,#FFFFFF 6px 12px,#74ACDF 12px 18px,#0A1826 18px 100%); padding-top:30px; }
-    /* El logo es un PNG con fondo negro: así se funde con el azul */
-    img[alt="Sibana"]{ mix-blend-mode:lighten; }
-    /* "Confirmada" sigue siendo amarilla (el sol de la bandera), para no confundirla con el celeste */
-    .appt.st-Confirmada{ background:#F6B40E; border-color:#8A6100; color:#1B1710; }
-    .legend-dot.st-Confirmada{ background:#F6B40E; }
-  `,
-  themeColor: '#0A1826',
-};
-const SEDES = {
-  santiago: {
-    id: 'santiago', nombre: 'Santiago', pais: 'Chile',
-    zonaHoraria: 'America/Santiago',
-    telPais: '56',
-    docIdentidad: 'RUT', docPlaceholder: '12.345.678-9',
-    consentCollection: 'sibana-consentimientos',
-    backupWebhookUrl: BACKUP_WEBHOOK_URL,
-    resenaLink: 'https://g.page/r/CRg9v-smnqROECE/review',
-    correoPostratamiento: true, // apps-script/correo-postratamiento.gs (cuenta sibana.cl)
-    // A cada micropigmentación se le resta un monto antes de repartir el %
-    // (ver apptCommissionBase). En Santiago: $10.000 fijos, solo en las citas
-    // con los precios nuevos (la subida de octubre 2026, que llegó junto con
-    // la crema incluida); las citas con precio viejo se reparten como antes.
-    descuentoMicro: {tipo: 'fijo', pesos: 10000, soloPrecioNuevo: true},
-    // Desde esta fecha (citas de ese día en adelante), el abono que pierde una
-    // clienta que cancela o no viene queda 100% para el negocio, sin comisión.
-    // Antes de esa fecha la especialista se llevaba su % del abono, y esos
-    // meses se dejan tal como se calcularon y pagaron.
-    abonoPerdidoSoloNegocioDesde: '2026-10-05',
-    moneda: 'CLP',
-    abonoSugerido: 5000, // por tratamiento, solo en citas nuevas
-    migraciones: true, // las cargas/correcciones de datos viejos (solo existen en Santiago)
-  },
-  buenosaires: {
-    id: 'buenosaires', nombre: 'Buenos Aires', pais: 'Argentina',
-    zonaHoraria: 'America/Argentina/Buenos_Aires',
-    telPais: '54',
-    docIdentidad: 'DNI', docPlaceholder: '12.345.678',
-    consentCollection: 'sibana-consentimientos-buenosaires',
-    // Su propio script de respaldo (Hoja + Calendar del Gmail de Buenos
-    // Aires). Mientras diga PEGA_AQUI, no se manda nada.
-    backupWebhookUrl: 'PEGA_AQUI_LA_URL_DEL_SCRIPT_DE_BUENOS_AIRES',
-    resenaLink: '',
-    correoPostratamiento: false, // todavía no hay script de correo para Buenos Aires
-    descuentoMicro: {tipo: 'dolar', dolares: 10}, // 10 dólares en pesos (ver valorDolarParaFecha)
-    abonoPerdidoSoloNegocioDesde: '0000-00-00', // siempre (desde el primer día)
-    moneda: 'ARS',
-    abonoSugerido: null, // = abonoSugeridoUSD dólares en pesos (ver abonoSugeridoPorTratamiento)
-    abonoSugeridoUSD: 5,
-    voseo: true, // los mensajes de WhatsApp a las clientas van con "vos"
-    migraciones: false,
-    tema: TEMA_BANDERA_ARGENTINA,
-  },
-};
-// Cada contraseña es una cuenta distinta de Firebase Authentication. El
-// correo es solo un identificador técnico (nadie lo escribe): en la pantalla
-// de entrada solo se pone la contraseña, y se prueba con cada cuenta en este
-// orden. Por eso las tres contraseñas deben ser DISTINTAS entre sí.
-// - equipo: entra a UNA sede, siempre como Especialista.
-// - duenos (Juan Diego y su papá): entran como Admin y pueden cambiar de sede.
-const CUENTAS = [
-  {email: 'equipo@sibanasantiago.app', rol: 'equipo', sede: 'santiago'},
-  {email: 'equipo@sibanabuenosaires.app', rol: 'equipo', sede: 'buenosaires'},
-  {email: 'duenos@sibana.app', rol: 'duenos'},
-];
-// Mientras esto esté en false, el equipo de Santiago sigue viendo el botón
-// "🔒 Especialista / 🔓 Admin" igual que siempre (entrar a Admin con la
-// contraseña de administrador). Pasarlo a true recién cuando Juan Diego y su
-// papá ya entren con la cuenta de dueños en sus teléfonos: desde ahí, la
-// cuenta del equipo de Santiago queda siempre en modo Especialista.
-const SOLO_DUENOS_ADMIN_SANTIAGO = false;
-const SEDE_DUENOS_KEY = 'sibanaSedeDuenos'; // última sede que eligió un dueño en este dispositivo
-let CUENTA = null; // {email, rol, sede} de la sesión actual
-let SEDE = SEDES.santiago;
-// Decide sede y rol según la cuenta con la que se entró. Una cuenta que no
-// esté en la lista (no debería pasar) se trata como el equipo de Santiago,
-// que es exactamente como funcionaba la agenda antes de las sedes.
-function aplicarCuenta(user){
-  const email = ((user && user.email) || '').toLowerCase();
-  const c = CUENTAS.find(x=>x.email===email) || CUENTAS[0];
-  let sede = c.sede;
-  if(c.rol==='duenos'){
-    const guardada = safeGetLocal(SEDE_DUENOS_KEY);
-    sede = SEDES[guardada] ? guardada : 'santiago';
-  }
-  CUENTA = {email, rol: c.rol, sede};
-  SEDE = SEDES[sede];
-  DOC_REF = db.collection('sibana-agenda').doc(SEDE.id);
-  if(c.rol==='duenos') ui.mode = 'admin';
-  else if(!puedeCambiarModo()){ ui.mode = 'staff'; safeRemoveLocal(ADMIN_TRUST_KEY); }
-  // (si puede cambiar de modo, ui.mode queda como ya venía: recordado por dispositivo)
-  aplicarTemaSede();
-  document.title = 'Agenda Sibana ' + SEDE.nombre;
-  if(window.__setManifestName) window.__setManifestName('Sibana ' + SEDE.nombre + ' - Agenda');
-}
-// Cambia los colores de toda la agenda a los de la sede (si tiene propios).
-function aplicarTemaSede(){
-  const tema = SEDE.tema;
-  if(!tema) return;
-  const hoja = document.querySelector('head style');
-  if(!hoja || hoja.dataset.tema===SEDE.id) return;
-  let css = hoja.textContent;
-  tema.reemplazos.forEach(([de, a])=>{
-    css = css.replace(new RegExp(de.replace(/[()]/g, '\\$&'), 'gi'), a);
-  });
-  hoja.textContent = css + tema.extra;
-  hoja.dataset.tema = SEDE.id;
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if(meta && tema.themeColor) meta.setAttribute('content', tema.themeColor);
-}
-// Solo el equipo de Santiago (mientras SOLO_DUENOS_ADMIN_SANTIAGO siga en
-// false) tiene el botón para pasar de Especialista a Admin con contraseña.
-function puedeCambiarModo(){
-  return !!CUENTA && CUENTA.rol==='equipo' && CUENTA.sede==='santiago' && !SOLO_DUENOS_ADMIN_SANTIAGO;
-}
-function esDueno(){ return !!CUENTA && CUENTA.rol==='duenos'; }
-function backupWebhookActivo(){
-  const u = SEDE.backupWebhookUrl;
-  return !!u && u.indexOf('PEGA_AQUI') !== 0;
-}
-
 let db, DOC_REF, FIREBASE_READY = false;
 try{
   firebase.initializeApp(FIREBASE_CONFIG);
@@ -884,7 +730,7 @@ try{
   // tiempo real por defecto de Firestore. Esto evita ese error sin afectar
   // nada del funcionamiento normal en un navegador común.
   db.settings({ experimentalForceLongPolling: true });
-  // DOC_REF (el documento de la sede) se elige al entrar, en aplicarCuenta().
+  DOC_REF = db.collection('sibana-agenda').doc('santiago');
   FIREBASE_READY = true;
 }catch(e){
   console.error('No se pudo inicializar Firebase', e);
@@ -2857,7 +2703,7 @@ function renderConsentSearch(box, allDocs, initialQuery, close, apptId, linkedCo
           <span style="font-size:11.5px;color:#a89a83;white-space:nowrap;">${fmt(e.submittedAtClient)}</span>
         </div>
         <div style="font-size:12.5px;line-height:1.6;margin-top:6px;">
-          <div><b>${SEDE.docIdentidad}:</b> ${escapeHtml(e.rut||'—')}</div>
+          <div><b>RUT:</b> ${escapeHtml(e.rut||'—')}</div>
           <div><b>Teléfono:</b> ${escapeHtml(e.telefono||'—')}</div>
           <div><b>Técnica:</b> ${escapeHtml(e.tecnica||'—')}</div>
           <div><b>Diseño aprobado por la clienta:</b> ${yn(e.diseno_aprobado)}</div>
@@ -2882,7 +2728,7 @@ function renderConsentSearch(box, allDocs, initialQuery, close, apptId, linkedCo
 
   box.innerHTML = `
     <p style="margin-top:0">Buscar en las ${allDocs.length} ficha${allDocs.length===1?'':'s'} firmada${allDocs.length===1?'':'s'}:</p>
-    <input type="text" id="consent-search-input" class="client-search-input" style="margin-bottom:10px" value="${escapeHtml(initialQuery||'')}" placeholder="Nombre, ${SEDE.docIdentidad} o teléfono">
+    <input type="text" id="consent-search-input" class="client-search-input" style="margin-bottom:10px" value="${escapeHtml(initialQuery||'')}" placeholder="Nombre, RUT o teléfono">
     <div id="consent-search-results">${renderList(initialQuery||'')}</div>
     <div class="confirm-actions"><button class="btn btn-primary" id="dlg-ok2">Cerrar</button></div>
   `;
@@ -2948,7 +2794,7 @@ function renderConsentSearch(box, allDocs, initialQuery, close, apptId, linkedCo
           okBtn.disabled = true;
           cancelBtn.disabled = true;
           okBtn.textContent = 'Eliminando…';
-          db.collection(SEDE.consentCollection).doc(id).delete()
+          db.collection('sibana-consentimientos').doc(id).delete()
             .then(()=>{
               const idx = allDocs.findIndex(d=>d._id===id);
               if(idx>=0) allDocs.splice(idx,1);
@@ -3027,7 +2873,7 @@ function viewConsent(clientName, apptId, knownConsentId){
   // Si esta cita ya tiene una ficha vinculada a mano, vamos directo a ella
   // en vez de mostrar la búsqueda — es el camino rápido de aquí en más.
   if(knownConsentId){
-    db.collection(SEDE.consentCollection).doc(knownConsentId).get()
+    db.collection('sibana-consentimientos').doc(knownConsentId).get()
       .then(doc=>{
         const box = wrap.querySelector('.confirm-box');
         if(!box) return;
@@ -3058,7 +2904,7 @@ function viewConsent(clientName, apptId, knownConsentId){
 
 function loadFullSearch(box, clientName, apptId, close, linkedConsentId){
   box.innerHTML = `<p style="margin-top:0">Cargando fichas de consentimiento…</p>`;
-  db.collection(SEDE.consentCollection).orderBy('submittedAtClient','desc').limit(500).get()
+  db.collection('sibana-consentimientos').orderBy('submittedAtClient','desc').limit(500).get()
     .then(snap=>{
       if(!box.isConnected) return; // el diálogo ya se cerró
       const allDocs = snap.docs.map(d=> Object.assign({_id:d.id}, d.data()));
@@ -3337,7 +3183,7 @@ function staffIdentityModalHtml(){
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
       <h2 class="serif">¿Quién eres?</h2>
-      <p class="hint">Elige tu nombre para que la agenda sepa qué especialista está usando este teléfono (sirve para los vales y para marcar pagos). Este dispositivo lo va a recordar, así que solo hace falta elegirlo una vez.</p>
+      <p class="hint">Elige tu nombre para que la agenda sepa qué especialista está usando este teléfono (sirve para "Mis ganancias", los vales y marcar pagos). Este dispositivo lo va a recordar, así que solo hace falta elegirlo una vez.</p>
       ${state.specialists.map(s=>`<button type="button" class="btn ${s.name===identity?'btn-primary':'btn-ghost'}" style="width:100%;margin-bottom:8px;" data-act="set-staff-identity" data-name="${escapeHtml(s.name)}">${s.name===identity?'✓ ':''}${escapeHtml(s.name)}</button>`).join('')}
       <div class="modal-actions">
         <div></div>
@@ -3562,7 +3408,7 @@ function recomputeServiceFields(){
   // servicio (por cualquier motivo, incluso uno que no tenga que ver con el
   // pago) NUNCA debe borrar el abono que ya quedó registrado/cobrado.
   if(isNew && abonoInput){
-    abonoInput.value = abonoSugeridoPorTratamiento() * totalCount;
+    abonoInput.value = 5000 * totalCount;
   }
   if(abonoInput && saldoInput){
     // Si el saldo está dividido entre dos métodos de pago, su valor ya lo
@@ -3595,16 +3441,13 @@ function normalizeDoc(data){
     a.cremaCantidad = apptCremas(a);
     return a;
   });
-  // Las listas por defecto (servicios con precios en pesos chilenos, y las
-  // especialistas de Santiago) son solo de Santiago: otra sede arranca vacía.
-  const conDefaults = SEDE.id==='santiago';
-  const services = (d.services && d.services.length) ? d.services : (conDefaults ? JSON.parse(JSON.stringify(DEFAULT_SERVICES)) : []);
+  const services = (d.services && d.services.length) ? d.services : JSON.parse(JSON.stringify(DEFAULT_SERVICES));
   services.forEach(s=>{ if(s.duration==null) s.duration = 60; });
   services.sort((a,b)=>(a.name||'').localeCompare(b.name||'', 'es', {sensitivity:'base'}));
   return {
     appointments,
     services,
-    specialists: (d.specialists && d.specialists.length) ? d.specialists : (conDefaults ? DEFAULT_SPECIALISTS.map(s=>Object.assign({}, s)) : []),
+    specialists: (d.specialists && d.specialists.length) ? d.specialists : DEFAULT_SPECIALISTS.map(s=>Object.assign({}, s)),
     clients: (d.clients && d.clients.length) ? d.clients : deriveClientsFromAppointments(appointments),
     blocks: d.blocks || [],
     courses: d.courses || [],
@@ -4096,11 +3939,12 @@ function runStockSeedIfNeeded(){
   return true;
 }
 
-// Contraseñas para ver el calendario: una por cada cuenta de CUENTAS (equipo
-// de Santiago, equipo de Buenos Aires, dueños). El correo es solo un
-// identificador técnico que pide Firebase por dentro, nadie lo escribe ni lo
-// ve. La cuenta con la que se entra decide la sede y el modo (ver
-// aplicarCuenta).
+// Contraseña compartida por todo el equipo (Admin y Especialistas) para poder
+// ver el calendario — el correo es solo un identificador técnico que pide
+// Firebase por dentro, nadie lo escribe ni lo ve. El "Modo administrador"
+// sigue existiendo tal cual estaba, como una segunda puerta encima de esta,
+// solo para poder editar.
+const TEAM_EMAIL = 'equipo@sibanasantiago.app';
 
 function startRealtimeSync(){
   if(!FIREBASE_READY){
@@ -4112,7 +3956,6 @@ function startRealtimeSync(){
     if(syncStarted) return;
     if(user && !user.isAnonymous){
       syncStarted = true;
-      aplicarCuenta(user);
       startFirestoreSync();
     } else {
       showTeamLoginGate();
@@ -4196,14 +4039,7 @@ function showTeamLoginGate(){
     btn.disabled = true;
     btn.textContent = 'Entrando…';
     errBox.textContent = '';
-    // Solo se escribe la contraseña: se prueba con cada cuenta, en orden
-    // (primero el equipo de Santiago, así a ellas les funciona igual que
-    // siempre). Si ninguna la acepta, es una contraseña incorrecta.
-    const tryAccount = i=>{
-      if(i >= CUENTAS.length) return Promise.reject(new Error('Ninguna cuenta aceptó la contraseña'));
-      return firebase.auth().signInWithEmailAndPassword(CUENTAS[i].email, pass).catch(()=>tryAccount(i+1));
-    };
-    tryAccount(0).catch(err=>{
+    firebase.auth().signInWithEmailAndPassword(TEAM_EMAIL, pass).catch(err=>{
       console.error('No se pudo iniciar sesión', err);
       errBox.textContent = 'Contraseña incorrecta. Intenta de nuevo.';
       btn.disabled = false;
@@ -4215,49 +4051,6 @@ function showTeamLoginGate(){
   btn.addEventListener('click', submit);
   input.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
   input.focus();
-}
-
-// Marca una sola vez qué servicios de Santiago son micropigmentación (llevan
-// los $10.000 de descuento antes de la comisión), según lo que dijo Juan
-// Diego: microblading, sombreado, delineado de ojos, técnica mixta
-// (MixBrows) y labios (Full Lips). De ahí en adelante se cambia a mano en
-// Servicios y tarifario.
-const MICRO_FLAGS_KEY = 'micropigmentacionServicios20261004';
-function runMicropigmentacionFlagsIfNeeded(){
-  if(state.settings[MICRO_FLAGS_KEY]) return false;
-  state.services.forEach(s=>{
-    const n = s.name || '';
-    if(!/retoque/i.test(n) && /microblading|sombreado|delineado|mixbrows|t[eé]cnica mixta|full lips/i.test(n)) s.micropigmentacion = true;
-  });
-  state.settings[MICRO_FLAGS_KEY] = true;
-  return true;
-}
-
-// Todas las cargas/correcciones automáticas de datos (corren una sola vez
-// cada una, marcadas en settings). Devuelve true si alguna cambió algo.
-function runSantiagoMigrations(){
-  const imported = runHistoricalImportIfNeeded();
-  const sabado12 = runSabado12ImportIfNeeded();
-  const sept5a11 = runSept5a11ImportIfNeeded();
-  const julio2026 = runJulio2026ImportIfNeeded();
-  const gastosFijos = runRecurringExpensesImportIfNeeded();
-  const ingresoBox = runRecurringIncomeImportIfNeeded();
-  const corrected = runCorrectionsIfNeeded();
-  const priceFixed = runPriceCorrectionsIfNeeded();
-  const passwordInit = runPasswordInitIfNeeded();
-  const specialistAgosto = runSpecialistAgostoIfNeeded();
-  const mairelynFix = runMairelynFixIfNeeded();
-  const saldoFix = runSaldoFixIfNeeded();
-  const paymentNormalize = runPaymentMethodNormalizeIfNeeded();
-  const noLunch = runNoLunchIfNeeded();
-  const stockSeed = runStockSeedIfNeeded();
-  const salomeRename = runSalomeRenameIfNeeded();
-  const gananciasCutoff = runMisGananciasCutoffIfNeeded();
-  const personasNotas = runPersonasFromNotesIfNeeded();
-  const cursoMicropigmentacion = runCursoMicropigmentacion20261025IfNeeded();
-  const cursoHuerfanoRepair = runCursoHuerfanoRepairIfNeeded();
-  const microFlags = runMicropigmentacionFlagsIfNeeded();
-  return !!(microFlags || imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas || cursoMicropigmentacion || cursoHuerfanoRepair);
 }
 
 function startFirestoreSync(){
@@ -4274,17 +4067,33 @@ function startFirestoreSync(){
     if(snap.exists){
       checkRemoteVersion(snap.data());
       applyRemoteData(snap.data());
-      // Las cargas y correcciones de datos viejos son SOLO de Santiago (datos
-      // reales de Santiago): nunca deben correr en otra sede.
-      const migrated = SEDE.migraciones ? runSantiagoMigrations() : false;
+      const imported = runHistoricalImportIfNeeded();
+      const sabado12 = runSabado12ImportIfNeeded();
+      const sept5a11 = runSept5a11ImportIfNeeded();
+      const julio2026 = runJulio2026ImportIfNeeded();
+      const gastosFijos = runRecurringExpensesImportIfNeeded();
+      const ingresoBox = runRecurringIncomeImportIfNeeded();
+      const corrected = runCorrectionsIfNeeded();
+      const priceFixed = runPriceCorrectionsIfNeeded();
+      const passwordInit = runPasswordInitIfNeeded();
+      const specialistAgosto = runSpecialistAgostoIfNeeded();
+      const mairelynFix = runMairelynFixIfNeeded();
+      const saldoFix = runSaldoFixIfNeeded();
+      const paymentNormalize = runPaymentMethodNormalizeIfNeeded();
+      const noLunch = runNoLunchIfNeeded();
+      const stockSeed = runStockSeedIfNeeded();
+      const salomeRename = runSalomeRenameIfNeeded();
+      const gananciasCutoff = runMisGananciasCutoffIfNeeded();
+      const personasNotas = runPersonasFromNotesIfNeeded();
+      const cursoMicropigmentacion = runCursoMicropigmentacion20261025IfNeeded();
+      const cursoHuerfanoRepair = runCursoHuerfanoRepairIfNeeded();
       ui.loaded = true;
       // Si hay un modal abierto (alguien escribiendo), no lo interrumpimos con un
       // re-render completo — los datos ya quedaron actualizados por dentro y se
       // van a ver apenas cierre ese modal.
       if(!ui.modal) render();
-      if(migrated) saveData({recordUndo:false, silent:true});
+      if(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas || cursoMicropigmentacion || cursoHuerfanoRepair) saveData({recordUndo:false, silent:true});
       runDailyAutoBackupIfNeeded();
-      actualizarDolarAutomatico();
       checkUnseenBlocksIfNeeded();
       checkStaffIdentityIfNeeded();
       checkNewServicesIfNeeded();
@@ -4296,9 +4105,6 @@ function startFirestoreSync(){
       // en este caso: así un error pasajero de lectura no puede borrar datos
       // reales que sí existen del otro lado.
       ui.loaded = true;
-      // Una sede nueva (Buenos Aires) arranca sin documento: solo un dueño
-      // puede crearlo, y solo tocando el botón a propósito — nunca solo.
-      if(SEDE.id!=='santiago'){ document.getElementById('root').innerHTML = sedeSinCrearHtml(); return; }
       document.getElementById('root').innerHTML = '<div class="loading">⚠️ No se pudo leer la base de datos (o aparenta estar vacía). Por seguridad, la agenda no va a guardar ni sobrescribir nada mientras esto pase — no agendes nada aquí y avísale a Juan Diego antes de seguir. Prueba recargando la página o revisando tu conexión a internet.</div>';
     }
   }, err=>{
@@ -4306,104 +4112,6 @@ function startFirestoreSync(){
     ui.loaded = true;
     render();
     showAlert('No se pudo conectar con la base de datos compartida (Firebase). Revisa tu conexión a internet o la configuración del proyecto.');
-  });
-}
-
-// ---------------- Sede nueva / cambiar de sede ----------------
-function sedeSinCrearHtml(){
-  if(!esDueno()){
-    return `<div class="loading">La agenda de ${escapeHtml(SEDE.nombre)} todavía no está lista. Avísale a Juan Diego.</div>`;
-  }
-  return `
-    <div class="login-gate">
-      <img src="${LOGO_SRC}" alt="Sibana" class="login-gate-logo">
-      <h1 class="serif">Agenda ${escapeHtml(SEDE.nombre)}</h1>
-      <p class="hint">La agenda de ${escapeHtml(SEDE.nombre)} todavía no está creada. Al crearla arranca vacía: sin citas, sin especialistas, y con la misma lista de servicios de Santiago pero con todos los precios en $0, para que ustedes pongan los precios de ${escapeHtml(SEDE.nombre)}. Nada de Santiago se toca ni se mezcla.</p>
-      <div class="login-gate-box">
-        <div id="crear-sede-error" class="login-gate-error"></div>
-        <button class="btn btn-primary" id="crear-sede-btn" style="width:100%;" onclick="crearAgendaSede()">Crear la agenda de ${escapeHtml(SEDE.nombre)}</button>
-        <button class="btn btn-ghost" style="width:100%;margin-top:10px;" onclick="cambiarSede('santiago')">Volver a Santiago</button>
-      </div>
-    </div>`;
-}
-// Crea el documento de una sede nueva. Es la ÚNICA forma en que la agenda
-// crea un documento (lección 1 de CLAUDE.md): solo un dueño, solo con el
-// botón, nunca Santiago, y dentro de una transacción que no hace nada si el
-// documento ya existe (si "no existe" fue un error de lectura, no se pisa
-// nada).
-async function crearAgendaSede(){
-  if(!esDueno() || SEDE.id==='santiago') return;
-  const btn = document.getElementById('crear-sede-btn');
-  const errBox = document.getElementById('crear-sede-error');
-  if(btn){ btn.disabled = true; btn.textContent = 'Creando…'; }
-  try{
-    let services = [];
-    try{
-      const snap = await db.collection('sibana-agenda').doc('santiago').get();
-      // Se marcan como micropigmentación (llevan los 10 dólares) las que
-      // claramente lo son; el resto se puede marcar a mano en Servicios.
-      if(snap.exists) services = (snap.data().services||[]).map(x=>({
-        name: x.name, price: 0, duration: x.duration||60,
-        micropigmentacion: !/retoque/i.test(x.name||'') && /microblading|sombreado|delineado|mixbrows|t[eé]cnica mixta|full lips/i.test(x.name||''),
-      }));
-    }catch(e){ console.error('No se pudo leer la lista de servicios de Santiago (se crea vacía)', e); }
-    const settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
-    settings.cremaIncluida = true; // en Buenos Aires la crema va incluida desde el primer día
-    settings.creadaEn = new Date().toISOString();
-    const inicial = {
-      appointments: [], services, specialists: [], clients: [], blocks: [], courses: [],
-      expenses: [], recurringExpenses: [], recurringIncomes: [], stockItems: [], vales: [],
-      settings, appVersion: APP_VERSION,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    };
-    await db.runTransaction(async tx=>{
-      const snap = await tx.get(DOC_REF);
-      if(snap.exists) return; // ya existía: no se toca
-      tx.set(DOC_REF, inicial);
-    });
-    // La conexión en tiempo real recibe el documento nuevo y muestra la agenda.
-  }catch(e){
-    console.error('No se pudo crear la agenda de la sede', e);
-    if(errBox) errBox.textContent = 'No se pudo crear (' + (e.code||e.message||'error') + '). Revisa la conexión y vuelve a intentarlo.';
-    if(btn){ btn.disabled = false; btn.textContent = 'Crear la agenda de ' + SEDE.nombre; }
-  }
-}
-// Solo los dueños cambian de sede. Se recarga la página entera: así no queda
-// en memoria nada de la sede anterior (ni datos, ni guardados a medias).
-function cambiarSede(id){
-  if(!esDueno() || !SEDES[id]) return;
-  if(ui.saving || pendingSaves.length){
-    showAlert('Espera un momento a que termine de guardarse el último cambio, y vuelve a intentarlo.');
-    return;
-  }
-  safeSetLocal(SEDE_DUENOS_KEY, id);
-  if(id===SEDE.id){ ui.modal = null; render(); return; }
-  document.getElementById('root').innerHTML = loadingScreenHtml('Cambiando a ' + SEDES[id].nombre + '…');
-  reloadFresh();
-}
-function sedeModalHtml(){
-  return `
-  <div class="overlay" data-act="overlay-close">
-    <div class="modal" data-stop="1">
-      <h2 class="serif">¿Qué sede quieres ver?</h2>
-      <p class="hint">Cada sede tiene sus propias citas, especialistas, precios y finanzas. Nunca se mezclan.</p>
-      ${Object.values(SEDES).map(x=>`<button type="button" class="btn ${x.id===SEDE.id?'btn-primary':'btn-ghost'}" style="width:100%;margin-bottom:8px;" data-act="set-sede" data-sede="${x.id}">${x.id===SEDE.id?'✓ ':''}📍 ${escapeHtml(x.nombre)}</button>`).join('')}
-      <div class="modal-actions">
-        <div></div>
-        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
-      </div>
-    </div>
-  </div>`;
-}
-// Para entrar con otra contraseña (ej. un dueño en un teléfono donde se entró
-// con la del equipo).
-function cambiarDeCuenta(){
-  if(ui.saving || pendingSaves.length){
-    showAlert('Espera un momento a que termine de guardarse el último cambio, y vuelve a intentarlo.');
-    return;
-  }
-  showConfirmDialog('¿Salir de esta cuenta para entrar con otra contraseña? Vas a tener que escribir la contraseña de nuevo en este dispositivo.', ()=>{
-    firebase.auth().signOut().catch(err=>console.error(err)).finally(()=>reloadFresh());
   });
 }
 
@@ -4507,7 +4215,7 @@ function mergeDocs(base, mine, theirs){
 // muestra el aviso de recargar — así una versión vieja nunca puede estropear
 // nada. Subir este número cada vez que se publica un cambio en cómo se
 // guardan los datos.
-const APP_VERSION = 4;
+const APP_VERSION = 5; // (respaldo: 5 para que pueda guardar aunque la base diga 4 — ver respaldo/LEEME.md)
 let appOutdated = false;
 let appOffline = false;
 function renderSyncBanner(){
@@ -4713,22 +4421,20 @@ function render(){
   const prevModal = root.querySelector('.modal');
   const prevScrollTop = prevModal ? prevModal.scrollTop : null;
 
-  if(ui.section==='finanzas' && ui.mode!=='admin' && !MIS_GANANCIAS_VISIBLE) ui.section = 'agenda';
   const html = `
     <header class="topbar">
       <div class="brand">
         <img src="${LOGO_SRC}" alt="Sibana" />
-        <span class="tagline">${escapeHtml(SEDE.nombre)} · Panel interno</span>
+        <span class="tagline">Santiago · Panel interno</span>
       </div>
       <div class="topbar-right">
         ${ui.mode!=='admin' ? staffIdentityBadgeHtml() : ''}
-        ${esDueno() ? `<button class="mode-toggle" data-act="open-sede">📍 ${escapeHtml(SEDE.nombre)}</button>`
-          : puedeCambiarModo() ? `<button class="mode-toggle" data-act="toggle-mode">${ui.mode==='admin' ? '🔓 Admin' : '🔒 Especialista'}</button>` : ''}
+        <button class="mode-toggle" data-act="toggle-mode">${ui.mode==='admin' ? '🔓 Admin' : '🔒 Especialista'}</button>
       </div>
     </header>
     ${sectionTabsHtml()}
     ${ui.section==='finanzas' ? `
-      <main class="fin-main">${ui.mode==='admin' ? finanzasPageHtml() : MIS_GANANCIAS_VISIBLE ? misGananciasPageHtml() : ''}</main>
+      <main class="fin-main">${ui.mode==='admin' ? finanzasPageHtml() : misGananciasPageHtml()}</main>
     ` : ui.section==='stock' ? `
       <main class="fin-main">${stockPageHtml()}</main>
     ` : `
@@ -4761,7 +4467,7 @@ function sectionTabsHtml(){
   return `
     <div class="section-tabs">
       <button class="${ui.section!=='finanzas'&&ui.section!=='stock'?'active':''}" data-act="goto-section" data-section="agenda">📅 Agenda</button>
-      ${(isAdmin || MIS_GANANCIAS_VISIBLE) ? `<button class="${ui.section==='finanzas'?'active':''}" data-act="goto-section" data-section="finanzas">${isAdmin ? '📊 Finanzas' : '📊 Mis ganancias'}</button>` : ''}
+      <button class="${ui.section==='finanzas'?'active':''}" data-act="goto-section" data-section="finanzas">${isAdmin ? '📊 Finanzas' : '📊 Mis ganancias'}</button>
       <button class="${ui.section==='stock'?'active':''}" data-act="goto-section" data-section="stock">📦 Stock</button>
     </div>`;
 }
@@ -4841,9 +4547,7 @@ function toolbarHtml(){
             <button data-act="open-blocks-list">🚫 Ver bloqueos</button>
             <hr>
             <button data-act="open-autobackups">🗓️ Respaldos</button>
-            ${SEDE.id==='santiago' ? `<button data-act="open-security">Seguridad</button>` : ''}
-            ${(SEDE.descuentoMicro||{}).tipo==='dolar' ? `<button data-act="open-valores-sede">💱 Valor del dólar</button>` : ''}
-            <button data-act="cambiar-cuenta">🔑 Entrar con otra contraseña</button>
+            <button data-act="open-security">Seguridad</button>
           </div>` : ''}
       </div>` : ''}
       ${specChips}
@@ -5224,8 +4928,6 @@ function modalHtml(){
   if(ui.modal.type==='curso-attendee') return cursoAttendeeModalHtml();
   if(ui.modal.type==='vales') return valesModalHtml();
   if(ui.modal.type==='staff-identity') return staffIdentityModalHtml();
-  if(ui.modal.type==='sede') return sedeModalHtml();
-  if(ui.modal.type==='valores-sede') return valoresSedeModalHtml();
   if(ui.modal.type==='appt' && ui.mode!=='admin') return apptViewOnlyHtml(ui.modal.data);
   return apptModalHtml();
 }
@@ -5304,20 +5006,18 @@ function postcareTreatments(a){
   });
   return out;
 }
-// Fecha y hora de la sede (Chile para Santiago), aunque el teléfono/computador
-// esté en otro país.
-function sedeNow(){
-  const s = new Date().toLocaleString('sv-SE',{timeZone:SEDE.zonaHoraria}); // "2026-10-03 21:05:00"
+// Fecha y hora "de Chile", aunque el teléfono/computador esté en otro país.
+function chileNow(){
+  const s = new Date().toLocaleString('sv-SE',{timeZone:'America/Santiago'}); // "2026-10-03 21:05:00"
   return {date: s.slice(0,10), time: s.slice(11,16)};
 }
 
 function postcareStatusHtml(a, style){
-  if(!SEDE.correoPostratamiento) return ''; // esta sede todavía no tiene envío de correos
   if(!a || !a.id || a.cursoId || a.estado==='Cancelada' || a.estado==='NoShow') return '';
   if(a.date < POSTCARE_DESDE) return '';
   const trats = postcareTreatments(a);
   if(!trats.length) return '';
-  const now = sedeNow();
+  const now = chileNow();
   // Solo antes de que se mande (hoy antes de las 20:30, o una cita futura):
   // después ya no hay nada útil que decir aquí.
   const pendiente = a.date > now.date || (a.date === now.date && now.time < POSTCARE_HORA);
@@ -5703,7 +5403,7 @@ function cursoAttendeeModalHtml(){
       <h2 class="serif">${isEdit?'Editar inscrito':'Agregar inscrito'} — ${escapeHtml(d.cursoNombre||'')}</h2>
       <div class="field"><label>Nombre completo</label><input type="text" id="f-cur-client" value="${escapeHtml(d.client)}" placeholder="Nombre y apellido"></div>
       <div class="row2">
-        <div class="field"><label>${SEDE.docIdentidad}</label><input type="text" id="f-cur-rut" value="${escapeHtml(d.rut||'')}" placeholder="${SEDE.docPlaceholder}"></div>
+        <div class="field"><label>RUT</label><input type="text" id="f-cur-rut" value="${escapeHtml(d.rut||'')}" placeholder="12.345.678-9"></div>
         <div class="field"><label>Correo electrónico</label><input type="text" id="f-cur-email" value="${escapeHtml(d.email||'')}" placeholder="correo@ejemplo.com"></div>
       </div>
       <div class="field"><label>Teléfono (opcional)</label><input type="text" id="f-cur-phone" value="${escapeHtml(d.phone||'')}" placeholder="+56 9…"></div>
@@ -5735,22 +5435,21 @@ function servicesModalHtml(){
   const rows = state.services.map((s,i)=>`
     <div class="svc-row">
       <input type="text" value="${escapeHtml(s.name)}" data-svc-name="${i}" placeholder="Nombre">
-      <input type="number" class="price" value="${s.price}" data-svc-price="${i}" placeholder="Precio" title="Precio (${SEDE.moneda})">
+      <input type="number" class="price" value="${s.price}" data-svc-price="${i}" placeholder="Precio" title="Precio (CLP)">
       <input type="number" class="dur" value="${s.duration||60}" data-svc-duration="${i}" placeholder="Min" title="Duración en minutos">
       <button class="iconbtn" data-act="remove-service" data-idx="${i}">✕</button>
-      ${SEDE.descuentoMicro ? `<label class="hint" style="grid-column:1/-1;flex:1 1 100%;display:flex;align-items:center;gap:8px;margin:-2px 0 4px;cursor:pointer;"><input type="checkbox" data-svc-micro="${i}" ${s.micropigmentacion?'checked':''} style="width:auto;"> Es micropigmentación (se restan ${descuentoMicroTexto()} antes de la comisión)</label>` : ''}
     </div>`).join('');
   return `
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
       <h2 class="serif">Servicios y tarifario</h2>
-      <div class="hint">Precio en ${SEDE.moneda} · minutos de duración (se usan para autocompletar la hora de fin al agendar).</div>
+      <div class="hint">Precio en CLP · minutos de duración (se usan para autocompletar la hora de fin al agendar).</div>
       <label class="field" style="display:flex;flex-direction:row;align-items:center;gap:10px;">
         <input type="checkbox" id="f-crema-incluida" ${state.settings.cremaIncluida?'checked':''} style="width:auto;">
         <span>🧴 Crema post-tratamiento incluida (ya no se cobra aparte en citas nuevas)</span>
       </label>
       <div class="hint" style="margin:-8px 0 12px;">Solo afecta a las citas que se agenden DESDE ahora. Las citas ya agendadas (antes o después de este cambio) nunca se alteran.</div>
-      <div class="svc-row-head"><span>Nombre</span><span>Precio (${SEDE.moneda})</span><span>Minutos</span><span></span></div>
+      <div class="svc-row-head"><span>Nombre</span><span>Precio (CLP)</span><span>Minutos</span><span></span></div>
       <div id="svc-list">${rows}</div>
       <button class="btn btn-ghost" style="margin-top:6px" data-act="add-service">+ Agregar servicio</button>
       <div class="modal-actions">
@@ -6162,111 +5861,15 @@ function apptCremas(a){
 }
 function apptRevenue(a){
   if(a.estado==='Cancelada' || a.estado==='NoShow') return a.abonoDevuelto ? 0 : (Number(a.abono)||0);
-  // Si el abono ya se pagó en una cita anterior que se canceló/reagendó
-  // (abonoPrevio), esa plata ya está contada como ingreso en la cita
-  // anterior: acá solo entra lo nuevo (el precio menos ese abono). Antes se
-  // contaba dos veces en "Ingreso total" y Finanzas (en cambio "Abonos
-  // recibidos" y "Por método de pago" ya lo hacían bien). La comisión NO
-  // usa esto: se calcula sobre el precio completo (ver apptCommissionBase).
-  if(a.abonoPrevio) return Math.max(0, (Number(a.price)||0) - (Number(a.abono)||0));
   return Number(a.price)||0;
 }
 // Base sobre la que se calcula la comisión de la especialista: igual que
 // apptRevenue, pero sin los $5.000 de CADA crema post-tratamiento — esa plata
 // es 100% para el dueño, la especialista no se queda con nada de la crema.
-//
-// Regla de comisión (igual en las dos sedes, definida con Juan Diego): a cada
-// tratamiento de MICROPIGMENTACIÓN se le resta primero un monto (Santiago:
-// $10.000 en las citas con precios nuevos; Buenos Aires: 10 dólares en pesos,
-// ver SEDE.descuentoMicro) que queda para el negocio, y recién eso se reparte
-// con el %. Los demás servicios (lifting, perfilado, etc.), los retoques y los
-// cursos se reparten directo, sin descuento. La crema comprada aparte nunca
-// se reparte.
-// Si la clienta cancela o no viene, el abono que pierde es 100% del negocio:
-// no genera comisión (en Santiago, para citas desde
-// SEDE.abonoPerdidoSoloNegocioDesde; las anteriores quedan como se pagaron).
-// Una cita realizada genera comisión sobre su precio COMPLETO, aunque parte
-// se haya pagado como abono en una cita anterior que se reagendó (abonoPrevio).
 function apptCommissionBase(a){
-  const cancelada = a.estado==='Cancelada' || a.estado==='NoShow';
-  if(cancelada){
-    if(SEDE.abonoPerdidoSoloNegocioDesde && (a.date||'') >= SEDE.abonoPerdidoSoloNegocioDesde) return 0;
-    return apptRevenue(a);
-  }
-  const base = (Number(a.price)||0) - CREMA_PRICE*apptCremas(a);
-  return Math.max(0, base - apptDescuentoMicro(a));
-}
-// ¿Esta cita lleva el descuento por micropigmentación? Nunca los cursos. En
-// Santiago, solo las citas con precios nuevos: queda congelado al crear la
-// cita (a.conDescuentoMicro, según estuviera prendida la "crema incluida",
-// que llegó junto con la subida de precios); las citas de antes de esto usan
-// a.cremaIncluidaPolitica, que marca exactamente lo mismo.
-function apptLlevaDescuentoMicro(a){
-  const cfg = SEDE.descuentoMicro;
-  if(!cfg || a.cursoId) return false;
-  if(!cfg.soloPrecioNuevo) return true;
-  if(a.conDescuentoMicro!=null) return !!a.conDescuentoMicro;
-  return !!a.cremaIncluidaPolitica;
-}
-function descuentoMicroPorTratamiento(dateKey){
-  const cfg = SEDE.descuentoMicro;
-  if(!cfg) return 0;
-  return cfg.tipo==='dolar' ? descuentoUSDParaFecha(dateKey) : (Number(cfg.pesos)||0);
-}
-function apptDescuentoMicro(a){
-  return apptLlevaDescuentoMicro(a) ? descuentoMicroPorTratamiento(a.date) * tratamientosConDescuento(a) : 0;
-}
-// Texto corto del descuento ("$10.000" / "10 dólares"), para las pantallas.
-function descuentoMicroTexto(){
-  const cfg = SEDE.descuentoMicro;
-  if(!cfg) return '';
-  return cfg.tipo==='dolar' ? `${cfg.dolares} dólares` : fmtCLP(cfg.pesos);
-}
-// ---- Buenos Aires: el valor del dólar ----
-// Cuántos pesos es 1 dólar va cambiando, así que se guarda un historial
-// (state.settings.dolarHistory = [{desde:'YYYY-MM-DD', pesos}]) y cada cita
-// usa el valor vigente el día de la cita: cambiarlo hoy NUNCA recalcula citas
-// ni semanas ya pasadas (mismo cuidado que comisionHistory). De ese mismo
-// valor salen los 10 dólares que se restan por micropigmentación y los 5
-// dólares del abono sugerido.
-const DESCUENTO_USD = (SEDES.buenosaires.descuentoMicro || {}).dolares || 10;
-function valorDolarParaFecha(dateKey){
-  const h = state.settings.dolarHistory;
-  if(!Array.isArray(h)) return 0;
-  let pesos = 0;
-  h.slice().sort((a,b)=>(a.desde||'').localeCompare(b.desde||'')).forEach(x=>{
-    if(x.desde && x.desde<=dateKey) pesos = Math.max(0, Number(x.pesos)||0);
-  });
-  return pesos;
-}
-function descuentoUSDParaFecha(dateKey){
-  return Math.round(DESCUENTO_USD * valorDolarParaFecha(dateKey));
-}
-// ¿Este servicio es micropigmentación (lleva el descuento)? Se marca a mano en
-// Servicios y tarifario (casilla de cada servicio). Un retoque nunca cuenta,
-// aunque esté marcado.
-function esMicropigmentacion(nombre){
-  if(/retoque/i.test(nombre||'')) return false;
-  const svc = state.services.find(x=>normalizeName(x.name)===normalizeName(nombre));
-  return !!(svc && svc.micropigmentacion);
-}
-function contarMicropigmentaciones(services){
-  return (services||[]).filter(esMicropigmentacion).length;
-}
-// Cuántas micropigmentaciones tiene la cita: cada una cuenta una vez por cada
-// unidad (si vienen 2 personas y se anota el tratamiento 2 veces, se descuenta
-// 2 veces). Queda congelado en la cita al guardarla (a.tratamientosMicro), así
-// que cambiar después la casilla de un servicio no altera citas ya agendadas.
-// Las citas de curso nunca llevan descuento (ver apptLlevaDescuentoMicro).
-function tratamientosConDescuento(a){
-  if(a.tratamientosMicro!=null && a.tratamientosMicro!=='') return Math.max(0, Number(a.tratamientosMicro)||0);
-  return contarMicropigmentaciones(a.services);
-}
-function abonoSugeridoPorTratamiento(){
-  if(SEDE.abonoSugerido!=null) return SEDE.abonoSugerido;
-  // En dólares (Buenos Aires): se pasa a pesos con el valor de hoy y se
-  // redondea a la centena (es solo una sugerencia, se puede cambiar).
-  return Math.round(SEDE.abonoSugeridoUSD * valorDolarParaFecha(toKey(new Date())) / 100) * 100;
+  const rev = apptRevenue(a);
+  if(a.estado!=='Cancelada' && a.estado!=='NoShow') return Math.max(0, rev - CREMA_PRICE*apptCremas(a));
+  return rev;
 }
 // Lo que falta cobrarle a la clienta en la cita: precio total (ya con
 // cualquier descuento que se haya puesto directo en el campo Precio) menos
@@ -6409,12 +6012,6 @@ function payoutWeekSummary(specialist){
   return { start, end, comision, vales, neto: comision - vales };
 }
 
-// "Mis ganancias" (la pestaña de Finanzas de las especialistas) está OCULTA a
-// pedido de Juan Diego (oct 2026): mientras se termina de ajustar la agenda,
-// los números de Finanzas todavía pueden tener errores, y no quería que las
-// especialistas creyeran que les corresponde un monto que no es. El código
-// queda intacto: para volver a mostrarla basta pasar esto a true.
-const MIS_GANANCIAS_VISIBLE = false;
 function misGananciasPageHtml(){
   if(!ui.reportsDate) ui.reportsDate = new Date();
   const identity = safeGetLocal(STAFF_IDENTITY_KEY);
@@ -6476,128 +6073,12 @@ function payoutWeekBoxHtml(specialist){
     </div>`;
 }
 
-// ---- Buenos Aires: dólar automático ----
-// Si en "Valor del dólar" se eligió un tipo de dólar (state.settings.dolarAuto),
-// una vez al día la agenda consulta su valor en dolarapi.com (gratis, sin
-// clave) y, si cambió, lo agrega al historial desde hoy — igual que si alguien
-// lo hubiera anotado a mano. Si la página no responde, no pasa nada: se sigue
-// usando el último valor guardado (y se puede anotar a mano).
-const DOLAR_TIPOS = {oficial: 'Oficial (el del banco)', blue: 'Blue', bolsa: 'MEP (bolsa)'};
-const DOLAR_API_URL = 'https://dolarapi.com/v1/dolares/';
-let dolarAutoRevisado = null; // día ya revisado en esta pestaña
-async function actualizarDolarAutomatico(forzar){
-  const tipo = state.settings.dolarAuto;
-  if(!ui.loaded || appOutdated || !DOLAR_TIPOS[tipo] || (SEDE.descuentoMicro||{}).tipo!=='dolar') return false;
-  const hoy = toKey(new Date());
-  if(!forzar && dolarAutoRevisado===hoy) return false;
-  dolarAutoRevisado = hoy;
-  try{
-    const ctrl = typeof AbortController!=='undefined' ? new AbortController() : null;
-    const timer = ctrl ? setTimeout(()=>ctrl.abort(), 10000) : null;
-    const resp = await fetch(DOLAR_API_URL + tipo, ctrl ? {signal: ctrl.signal} : {});
-    if(timer) clearTimeout(timer);
-    if(!resp.ok) throw new Error('HTTP ' + resp.status);
-    const data = await resp.json();
-    const pesos = Math.round((Number(data && data.venta)||0) * 100) / 100;
-    if(!(pesos > 0)) throw new Error('Respuesta sin valor');
-    if(state.settings.dolarAuto!==tipo) return false; // lo cambiaron mientras tanto
-    if(valorDolarParaFecha(hoy)===pesos) return false; // no cambió
-    const h = (state.settings.dolarHistory||[]).filter(x=>x.desde!==hoy);
-    h.push({desde: hoy, pesos, auto: tipo});
-    state.settings.dolarHistory = h;
-    if(!ui.modal || ui.modal.type==='valores-sede') render();
-    await saveData({recordUndo:false, silent:true});
-    return true;
-  }catch(e){
-    console.error('No se pudo actualizar el dólar automáticamente (se sigue usando el último valor)', e);
-    return false;
-  }
-}
-// Si la agenda queda abierta de un día para otro, revisa cada hora.
-setInterval(()=>{ actualizarDolarAutomatico(); }, 60*60*1000);
-
-// Explicación (y aviso si falta el valor del dólar) de la regla de Buenos
-// Aires, en Finanzas.
-function reglaDescuentoUSDHtml(){
-  const hoy = descuentoUSDParaFecha(toKey(new Date()));
-  if(!hoy) return `<div class="hint" style="margin-bottom:8px;color:var(--danger);">⚠️ Falta cargar el valor del dólar (Más → "💱 Valor del dólar"). Mientras no esté, la comisión se calcula sin restar los ${DESCUENTO_USD} dólares.</div>`;
-  return `<div class="hint" style="margin-bottom:8px;">Antes de repartir, a cada micropigmentación se le restan ${DESCUENTO_USD} dólares (hoy ${fmtCLP(hoy)}), que quedan para el negocio. Los demás servicios, los retoques y los cursos se reparten directo. Si la clienta cancela o no viene, el abono queda entero para el negocio.</div>`;
-}
-function valoresSedeModalHtml(){
-  const h = (state.settings.dolarHistory||[]).slice().sort((a,b)=>(b.desde||'').localeCompare(a.desde||''));
-  const hoyKey = toKey(new Date());
-  const vigente = valorDolarParaFecha(hoyKey);
-  const fmtFecha = k=>{ const d = parseKey(k); return `${d.getDate()} de ${MONTHS[d.getMonth()]} ${d.getFullYear()}`; };
-  return `
-  <div class="overlay" data-act="overlay-close">
-    <div class="modal" data-stop="1">
-      <h2 class="serif">💱 Valor del dólar</h2>
-      <p class="hint">Anota cuántos pesos argentinos es <b>1 dólar</b> y actualízalo cuando cambie. De acá salen solos los ${DESCUENTO_USD} dólares que se le restan a cada micropigmentación antes de calcular la comisión, y los ${SEDE.abonoSugeridoUSD} dólares del abono sugerido en las citas nuevas.</p>
-      <p class="hint">Cada valor nuevo aplica a las citas <b>desde la fecha que elijas</b> en adelante: las citas anteriores se quedan con el valor que tenían, así nunca cambia una comisión ya pagada.</p>
-      <div class="hint" style="margin-bottom:8px;">${vigente
-        ? `Hoy: 1 dólar = <b>${fmtCLP(vigente)}</b> → ${DESCUENTO_USD} dólares = <b>${fmtCLP(descuentoUSDParaFecha(hoyKey))}</b> · abono sugerido = <b>${fmtCLP(abonoSugeridoPorTratamiento())}</b> por tratamiento`
-        : '<b>Todavía no hay ningún valor cargado.</b>'}</div>
-      <div class="field">
-        <label>Actualizar solo, una vez al día</label>
-        <select id="f-dolar-auto">
-          <option value="" ${!DOLAR_TIPOS[state.settings.dolarAuto]?'selected':''}>No — lo anoto yo a mano</option>
-          ${Object.keys(DOLAR_TIPOS).map(k=>`<option value="${k}" ${state.settings.dolarAuto===k?'selected':''}>Sí, con el dólar ${DOLAR_TIPOS[k]}</option>`).join('')}
-        </select>
-      </div>
-      <p class="hint" style="margin-top:-6px;">Con esto activado, cada día la agenda busca sola el valor en internet y lo anota acá. Igual se puede anotar o corregir a mano abajo.</p>
-      <div class="field-row">
-        <div class="field"><label>Anotar a mano: 1 dólar = $ (pesos)</label><input type="number" id="f-dolar-pesos" min="0" step="any" placeholder="Ej. 1200"></div>
-        <div class="field"><label>Desde (fecha de las citas)</label><input type="date" id="f-dolar-desde" value="${hoyKey}"></div>
-      </div>
-      ${h.length ? `<table class="fin-table" style="margin-bottom:6px;"><thead><tr><th>Desde</th><th>1 dólar =</th><th></th></tr></thead><tbody>
-        ${h.map(x=>`<tr><td>${fmtFecha(x.desde)}</td><td>${fmtCLP(x.pesos)}${x.auto ? `<div class="hint" style="margin:0;">automático (${escapeHtml((DOLAR_TIPOS[x.auto]||x.auto).split(' (')[0])})</div>` : ''}</td><td><button type="button" class="btn btn-ghost" style="font-size:11.5px;padding:4px 10px;" data-act="remove-dolar" data-desde="${x.desde}">Quitar</button></td></tr>`).join('')}
-      </tbody></table>` : ''}
-      <div class="modal-actions">
-        <div></div>
-        <div class="right">
-          <button class="btn btn-ghost" data-act="close-modal">Cerrar</button>
-          <button class="btn btn-primary" data-act="save-valores-sede">Guardar</button>
-        </div>
-      </div>
-    </div>
-  </div>`;
-}
-function saveValoresSedeFromForm(){
-  const auto = document.getElementById('f-dolar-auto').value;
-  const pesosRaw = document.getElementById('f-dolar-pesos').value.trim();
-  const desde = document.getElementById('f-dolar-desde').value;
-  const autoCambio = (state.settings.dolarAuto||'') !== auto;
-  if(pesosRaw===''){
-    if(!autoCambio){ showAlert('Escribe cuántos pesos es 1 dólar, o elige si se actualiza solo.'); return; }
-  } else {
-    const pesos = Number(pesosRaw);
-    if(!(pesos>0)){ showAlert('Escribe cuántos pesos es 1 dólar (un número mayor que 0).'); return; }
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(desde)){ showAlert('Elige desde qué fecha aplica el valor nuevo.'); return; }
-    const h = Array.isArray(state.settings.dolarHistory) ? state.settings.dolarHistory.slice() : [];
-    const i = h.findIndex(x=>x.desde===desde);
-    if(i>=0) h[i] = {desde, pesos}; else h.push({desde, pesos});
-    state.settings.dolarHistory = h;
-  }
-  state.settings.dolarAuto = auto;
-  ui.modal = null;
-  render();
-  saveData().then(ok=>{ if(ok && autoCambio && auto) actualizarDolarAutomatico(true); });
-}
-function removeValorDolar(desde){
-  showConfirmDialog('¿Quitar este valor? Las citas desde esa fecha van a usar el valor anterior (y su comisión puede cambiar).', ()=>{
-    state.settings.dolarHistory = (state.settings.dolarHistory||[]).filter(x=>x.desde!==desde);
-    render();
-    saveData();
-  });
-}
-
 function finanzasPageHtml(){
   if(!ui.reportsDate) ui.reportsDate = new Date();
   if(!ui.financeTab) ui.financeTab = 'resumen';
   const year = ui.reportsDate.getFullYear(), month = ui.reportsDate.getMonth();
   return `
     <div class="fin-page">
-      <div class="hint" style="border:1px solid var(--warn);border-radius:8px;padding:10px 12px;margin-bottom:12px;color:var(--ink);">⚠️ <b>En ajuste:</b> mientras se termina de ajustar la agenda, estos números todavía pueden tener errores. No usarlos para calcular pagos. (Las especialistas no ven esta sección.)</div>
       <div class="fin-monthnav">
         <button class="arrow" data-act="reports-prev-month">‹</button>
         <div class="curdate">${MONTHS[month][0].toUpperCase()}${MONTHS[month].slice(1)} ${year}</div>
@@ -6683,8 +6164,6 @@ function finanzasResumenHtml(year, month){
       <button class="btn btn-ghost" data-act="save-comision-pct" data-year="${year}" data-month="${month}" style="font-size:12px;padding:6px 12px;">Guardar %</button>
     </div>
     <div class="hint" style="margin-bottom:8px;">Aplica desde <b>${MONTHS[month]} ${year}</b> en adelante — los meses anteriores se quedan con el % que tenían.</div>
-    ${(SEDE.descuentoMicro||{}).tipo==='dolar' ? reglaDescuentoUSDHtml()
-      : `<div class="hint" style="margin-bottom:8px;">Antes de repartir, a cada micropigmentación con los precios nuevos se le restan ${descuentoMicroTexto()}, que quedan para el negocio. Los demás servicios y los retoques se reparten directo. Si la clienta cancela o no viene, el abono que pierde queda entero para el negocio (citas desde el ${parseKey(SEDE.abonoPerdidoSoloNegocioDesde).getDate()} de ${MONTHS[parseKey(SEDE.abonoPerdidoSoloNegocioDesde).getMonth()]} de ${parseKey(SEDE.abonoPerdidoSoloNegocioDesde).getFullYear()}).</div>`}
     <table class="fin-table">
       <thead><tr><th>Especialista</th><th>Citas</th><th>Generó</th><th>Comisión</th></tr></thead>
       <tbody>${espRows}</tbody>
@@ -6697,13 +6176,12 @@ function finanzasResumenHtml(year, month){
       <tbody>${payoutRows}</tbody>
     </table>
 
-    ${MIS_GANANCIAS_VISIBLE ? `
     <div class="field-row" style="align-items:center;gap:8px;margin:16px 0 4px;">
       <label style="margin:0;font-size:12px;color:var(--ink-soft);">"Mis ganancias" visible desde</label>
       <input type="month" id="f-mis-ganancias-desde" value="${state.settings.misGananciasDesde||''}" style="width:150px;">
       <button class="btn btn-ghost" data-act="save-mis-ganancias-desde" style="font-size:12px;padding:6px 12px;">Guardar</button>
     </div>
-    <div class="hint">Las especialistas no ven "Mis ganancias" de meses anteriores a este — útil mientras terminas de revisar los datos de un mes de transición. Déjalo vacío para no bloquear ningún mes.</div>` : ''}
+    <div class="hint">Las especialistas no ven "Mis ganancias" de meses anteriores a este — útil mientras terminas de revisar los datos de un mes de transición. Déjalo vacío para no bloquear ningún mes.</div>
 
     <h3 class="fin-sub">Corte semanal</h3>
     <table class="fin-table">
@@ -6949,9 +6427,9 @@ function svgHBarChart(data, opts={}){
     const barW = Math.max(2, (d.value/maxVal)*chartW);
     const valTxt = opts.formatValue ? opts.formatValue(d.value) : d.value;
     return `
-      <text x="${labelW-8}" y="${y+barH/2+4}" text-anchor="end" font-size="11.5" style="fill:var(--ink)" font-family="Inter,sans-serif">${escapeHtml(d.label)}</text>
-      <rect x="${labelW}" y="${y}" width="${barW}" height="${barH}" rx="5" style="fill:var(--wine)"></rect>
-      <text x="${labelW+barW+8}" y="${y+barH/2+4}" font-size="11.5" style="fill:var(--gold-soft)" font-weight="600" font-family="Inter,sans-serif">${valTxt}</text>
+      <text x="${labelW-8}" y="${y+barH/2+4}" text-anchor="end" font-size="11.5" fill="#F1E8D6" font-family="Inter,sans-serif">${escapeHtml(d.label)}</text>
+      <rect x="${labelW}" y="${y}" width="${barW}" height="${barH}" rx="5" fill="#C9A227"></rect>
+      <text x="${labelW+barW+8}" y="${y+barH/2+4}" font-size="11.5" fill="#D9BB6E" font-weight="600" font-family="Inter,sans-serif">${valTxt}</text>
     `;
   }).join('');
   return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="max-width:${w}px;display:block;">${bars}</svg>`;
@@ -6968,9 +6446,9 @@ function svgVBarChart(data, opts={}){
     const y = chartH - barH + 12;
     const valTxt = opts.formatValue ? opts.formatValue(d.value) : d.value;
     return `
-      <rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="5" style="fill:var(--wine)"></rect>
-      <text x="${x+barW/2}" y="${y-6}" text-anchor="middle" font-size="10.5" style="fill:var(--gold-soft)" font-weight="600" font-family="Inter,sans-serif">${valTxt}</text>
-      <text x="${x+barW/2}" y="${chartH+30}" text-anchor="middle" font-size="11" style="fill:var(--ink-soft)" font-family="Inter,sans-serif">${escapeHtml(d.label)}</text>
+      <rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="5" fill="#C9A227"></rect>
+      <text x="${x+barW/2}" y="${y-6}" text-anchor="middle" font-size="10.5" fill="#D9BB6E" font-weight="600" font-family="Inter,sans-serif">${valTxt}</text>
+      <text x="${x+barW/2}" y="${chartH+30}" text-anchor="middle" font-size="11" fill="#B3A688" font-family="Inter,sans-serif">${escapeHtml(d.label)}</text>
     `;
   }).join('');
   return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="max-width:${w}px;display:block;">${bars}</svg>`;
@@ -7013,26 +6491,9 @@ function finanzasGraficosHtml(year, month){
 function waPhoneDigits(phone){
   let d = (phone||'').replace(/\D/g,'');
   if(!d) return '';
-  if(SEDE.telPais==='54') return waPhoneDigitsArgentina(d);
   if(d.startsWith('56')) return d; // ya tiene código de país
   if(d.length===9 && d.startsWith('9')) return '56'+d; // celular chileno sin código de país
   if(d.length===8) return '569'+d; // celular chileno sin el 9 inicial
-  return d; // lo que haya, mejor eso que nada
-}
-// WhatsApp exige los celulares argentinos como 54 + 9 + código de área (sin
-// el 0) + número (sin el 15). Ej.: "011 15 2345-6789" → 5491123456789.
-function waPhoneDigitsArgentina(d){
-  if(d.startsWith('549')) return d; // ya está completo
-  if(d.startsWith('54')) d = d.slice(2); // código de país sin el 9
-  if(d.startsWith('0')) d = d.slice(1); // 0 del código de área
-  // El "15" de los celulares va después del código de área (2 a 4 dígitos):
-  // con él, el número queda con 12 dígitos en vez de 10.
-  if(d.length===12){
-    for(const area of [2,3,4]){
-      if(d.slice(area, area+2)==='15'){ d = d.slice(0, area) + d.slice(area+2); break; }
-    }
-  }
-  if(d.length===10) return '549'+d;
   return d; // lo que haya, mejor eso que nada
 }
 function waLink(phone, msg){
@@ -7138,14 +6599,6 @@ function touchupCandidates(){
 function buildTouchupMsg(a){
   const name = (a.client||'').trim().split(' ')[0] || '';
   const svc = summarizeServices(a.services||[]) || 'tu tratamiento';
-  if(SEDE.voseo) return `Hola${name?' '+name:''} 🌸 somos Sibana.
-Ya pasaron unas semanas desde tu sesión de ${svc} y este es justo el momento ideal para hacerte el retoque y dejar el resultado perfecto ✨
-
-⏳ Acordate de que el retoque mantiene su precio solo hasta los 45 días desde tu sesión — pasado ese plazo ya no se puede hacer como retoque y se cobra como un tratamiento nuevo.
-
-¿Querés agendar tu turno? Contanos qué día te queda mejor y te confirmamos disponibilidad.
-
-¡Te esperamos! ❤️`;
   return `Hola${name?' '+name:''} 🌸 es Sibana.
 Ya pasaron unas semanas desde tu sesión de ${svc} y este es justo el momento ideal para hacerte el retoque y dejar el resultado perfecto ✨
 
@@ -7158,14 +6611,6 @@ Te esperamos ❤️`;
 // Versión sin nombre ni servicio, para copiar una sola vez y pegarla a mano en
 // WhatsApp (lista de difusión, o uno por uno) en vez de abrir un chat por clienta.
 function genericTouchupMsg(){
-  if(SEDE.voseo) return `Hola 🌸 somos Sibana.
-Ya pasaron unas semanas desde tu última sesión y este es el momento ideal para hacer tu retoque y dejar el resultado perfecto ✨
-
-⏳ Acordate de que el retoque mantiene su precio solo hasta los 45 días desde tu sesión — pasado ese plazo ya no se puede hacer como retoque y se cobra como un tratamiento nuevo.
-
-¿Querés agendar tu turno? Contanos qué día te queda mejor y te confirmamos disponibilidad.
-
-¡Te esperamos! ❤️`;
   return `Hola 🌸 somos Sibana.
 Ya pasaron unas semanas desde tu última sesión y este es el momento ideal para hacer tu retoque y dejar el resultado perfecto ✨
 
@@ -7274,24 +6719,15 @@ function reviewCandidates(){
     .sort((x,y)=>x.diffDays - y.diffDays);
 }
 function genericCheckinMsg(){
-  if(SEDE.voseo) return `Hola 🌸 somos Sibana.
-Queríamos saber cómo te fue con tu tratamiento — ¿cómo quedó? ¿Estás conforme con el resultado?
-
-Cualquier duda o detalle que nos quieras contar, escribinos y te ayudamos enseguida 💕`;
   return `Hola 🌸 somos Sibana.
 Queríamos saber cómo te fue con tu tratamiento — ¿cómo quedó? ¿Estás conforme con el resultado?
 
 Cualquier duda o detalle que quieras contarnos, escríbenos y te ayudamos enseguida 💕`;
 }
 function genericReviewMsg(){
-  if(SEDE.voseo) return `Hola 🌸 somos Sibana.
-Esperamos que te haya encantado el resultado final de tu tratamiento ✨
-Si tenés un minuto, nos ayudaría muchísimo que nos dejaras tu opinión en Google: ${SEDE.resenaLink || '(falta el link de Google de esta sede)'}
-
-¡Gracias por confiar en nosotras! 💕`;
   return `Hola 🌸 somos Sibana.
 Esperamos que te haya encantado el resultado final de tu tratamiento ✨
-Si tienes un minuto, nos ayudaría muchísimo que nos dejaras tu opinión en Google: ${SEDE.resenaLink || '(falta el link de Google de esta sede)'}
+Si tienes un minuto, nos ayudaría muchísimo que nos dejaras tu opinión en Google: https://g.page/r/CRg9v-smnqROECE/review
 
 ¡Gracias por confiar en nosotras! 💕`;
 }
@@ -7347,7 +6783,7 @@ function reviewsModalHtml(){
 // diario, y lo que se descarga desde Más → Respaldos.
 function fullBackupPayload(){
   return {
-    respaldoDe: 'Sibana ' + SEDE.nombre,
+    respaldoDe: 'Sibana Santiago',
     fecha: new Date().toISOString(),
     appointments: state.appointments,
     services: state.services,
@@ -7367,7 +6803,7 @@ function downloadBackupFile(payload, dateKey){
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `Sibana-${SEDE.nombre.replace(/\s+/g,'')}-respaldo-${dateKey}.json`;
+  link.download = `Sibana-Santiago-respaldo-${dateKey}.json`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -7716,7 +7152,6 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-courses','new-course','edit-course','save-course','delete-course',
   'curso-add-attendee','curso-edit-attendee','save-curso-attendee','delete-curso-attendee',
   'delete-vale',
-  'open-valores-sede','save-valores-sede','remove-dolar',
 ]);
 
 // ¿La especialista cambió el método de pago o las cremas en la vista de una
@@ -7746,7 +7181,6 @@ function onAction(e){
   if(ui.mode!=='admin' && ADMIN_ONLY_ACTIONS.has(act)) return; // protección extra, además de ocultar los botones
   switch(act){
     case 'toggle-mode': {
-      if(!puedeCambiarModo()) break; // los dueños y el equipo de Buenos Aires no tienen este botón
       if(ui.mode==='admin'){
         ui.mode = 'staff';
         ui.modal = null;
@@ -7775,19 +7209,6 @@ function onAction(e){
       }
       break;
     }
-    case 'open-sede':
-      if(!esDueno()) break;
-      ui.modal = {type:'sede'}; render(); break;
-    case 'set-sede':
-      cambiarSede(e.currentTarget.dataset.sede); break;
-    case 'cambiar-cuenta':
-      cambiarDeCuenta(); break;
-    case 'open-valores-sede':
-      ui.modal = {type:'valores-sede'}; render(); break;
-    case 'save-valores-sede':
-      saveValoresSedeFromForm(); break;
-    case 'remove-dolar':
-      removeValorDolar(e.currentTarget.dataset.desde); break;
     case 'prev':
       ui.currentDate = ui.view==='day' ? addDays(ui.currentDate,-1) : ui.view==='week' ? addDays(ui.currentDate,-7) : addMonths(ui.currentDate,-1);
       render(); break;
@@ -8090,7 +7511,6 @@ function onAction(e){
     }
     case 'goto-section':
       ui.section = e.currentTarget.dataset.section;
-      if(ui.section==='finanzas' && ui.mode!=='admin' && !MIS_GANANCIAS_VISIBLE) ui.section = 'agenda';
       if(ui.section==='finanzas' && !ui.reportsDate) ui.reportsDate = new Date();
       render(); break;
     case 'finance-tab':
@@ -8359,18 +7779,6 @@ function saveApptFromForm(){
     personas: Math.max(1, Math.min(9, Math.floor(Number(document.getElementById('f-personas') ? get('f-personas') : 1))||1)),
   };
   updated.cremaComprada = updated.cremaCantidad>0;
-  // Cuántas micropigmentaciones lleva la cita (para el descuento de la
-  // comisión) queda congelado al guardarla; solo se vuelve a contar si se
-  // cambian sus servicios. Y si la cita lleva o no ese descuento (en
-  // Santiago, solo con los precios nuevos) se congela al crearla.
-  if(SEDE.descuentoMicro){
-    if(d.tratamientosMicro==null || !sameValue(updated.services, d.services)){
-      updated.tratamientosMicro = contarMicropigmentaciones(updated.services);
-    }
-    if(ui.modal.mode==='new'){
-      updated.conDescuentoMicro = SEDE.descuentoMicro.soloPrecioNuevo ? !!state.settings.cremaIncluida : true;
-    }
-  }
   // Congela para siempre, en el momento de crear la cita, si la crema iba
   // incluida sin costo o se cobraba aparte — así, si más adelante se prende o
   // apaga el interruptor de Configuración, las citas ya agendadas nunca
@@ -8565,10 +7973,6 @@ function saveServicesFromForm(){
   document.querySelectorAll('[data-svc-duration]').forEach(inp=>{
     const i = Number(inp.dataset.svcDuration);
     if(state.services[i]) state.services[i].duration = Number(inp.value)||60;
-  });
-  document.querySelectorAll('[data-svc-micro]').forEach(inp=>{
-    const i = Number(inp.dataset.svcMicro);
-    if(state.services[i]) state.services[i].micropigmentacion = inp.checked;
   });
   const cremaIncluidaInput = document.getElementById('f-crema-incluida');
   if(cremaIncluidaInput) state.settings.cremaIncluida = cremaIncluidaInput.checked;

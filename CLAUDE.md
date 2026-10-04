@@ -5,6 +5,113 @@ Una agenda interna para el negocio de micropigmentación/belleza "Sibana", hecha
 como **un solo archivo HTML** autocontenido (todo el CSS y JS adentro, sin
 build ni dependencias que instalar). Se publica tal cual en GitHub Pages.
 
+## Sede de Buenos Aires (en construcción, oct 2026)
+Juan Diego va a abrir un Sibana en **Buenos Aires** y pidió tener la agenda
+lo antes posible. Decidido con él (no cambiar sin preguntar):
+- **Una sola app** (este mismo `index.html`), no una copia — mismo
+  razonamiento que se había decidido para Copiapó. Todo funciona "lo más
+  copia y pega posible" igual que en Santiago (semana de pago lun–sáb,
+  vales, Mis ganancias, retoques, reseñas, etc.), salvo lo que se lista acá.
+- **La contraseña con la que se entra decide sede y rol** (`CUENTAS`,
+  `aplicarCuenta`). Nunca se pregunta "¿qué sede?" (al usuario le parecía
+  tedioso). Tres cuentas de Firebase Auth, con contraseñas DISTINTAS entre
+  sí (el login solo pide la contraseña y la prueba con cada cuenta en orden):
+  - `equipo@sibanasantiago.app` → Santiago, Especialista. Mientras
+    `SOLO_DUENOS_ADMIN_SANTIAGO` sea `false` conserva el botón
+    "🔒 Especialista / 🔓 Admin" de siempre (para no dejar a Juan Diego sin
+    Admin antes de que use la cuenta de dueños). El usuario pidió quitar ese
+    botón: pasar la constante a `true` cuando él y su papá ya entren con la
+    cuenta de dueños en sus teléfonos.
+  - `equipo@sibanabuenosaires.app` → Buenos Aires, siempre Especialista,
+    sin botón de Admin.
+  - `duenos@sibana.app` → Juan Diego y su papá: siempre Admin, con un botón
+    "📍 Sede" arriba para cambiar (`cambiarSede` guarda la elección en
+    `SEDE_DUENOS_KEY` y RECARGA la página, para no arrastrar nada en memoria).
+  - Más → "🔑 Entrar con otra contraseña" (`cambiarDeCuenta`) cierra la sesión.
+  - **Estado (05/10/2026):** las dos cuentas nuevas ya se crearon en
+    Firebase Auth (la de dueños se había creado con "ñ" — `dueños@...` — y
+    se le pidió rehacerla como `duenos@sibana.app`, que es lo que esperan
+    la agenda y las reglas) y las reglas de `firestore.rules` YA ESTÁN
+    PUBLICADAS en Firebase (reemplazaron a las anteriores, que dejaban a
+    cualquier cuenta no anónima leer/escribir todo con `/{document=**}`).
+    Las contraseñas NO se guardan en el repo. La agenda nueva todavía no
+    estaba publicada en GitHub Pages en ese momento.
+- **Todo lo que cambia por país vive en `SEDES`** (zona horaria, código de
+  teléfono +54 con su formato de WhatsApp `waPhoneDigitsArgentina`,
+  RUT/DNI, colección de consentimientos, URL del script de respaldo, link de
+  reseñas, correo post-tratamiento, regla de comisión, abono sugerido). Nada
+  de eso se escribe suelto en el código.
+- **Datos separados**: documento `sibana-agenda/buenosaires`, respaldos
+  `buenosaires_YYYY-MM-DD`, consentimientos en
+  `sibana-consentimientos-buenosaires`. Las migraciones/cargas de datos
+  viejos (`runSantiagoMigrations`) y las listas por defecto
+  (`DEFAULT_SERVICES`/`DEFAULT_SPECIALISTS`) son SOLO de Santiago.
+- **El documento de Buenos Aires lo crea un dueño a mano** con el botón
+  "Crear la agenda de Buenos Aires" (`crearAgendaSede`): única excepción a
+  la lección 1, y es segura (transacción que no hace nada si ya existe;
+  nunca para Santiago; nunca automático). Arranca vacío, con los nombres de
+  servicios de Santiago a precio $0 y la crema incluida.
+- **Comisión en AMBAS sedes: descuento por MICROPIGMENTACIÓN** (confirmado
+  con el usuario; `SEDE.descuentoMicro`, `apptCommissionBase`): a cada
+  tratamiento de micropigmentación se le resta un monto que queda para el
+  negocio, y recién eso se divide 50/50. Todo lo demás (lifting, perfilado,
+  laminado...), los retoques y los cursos se reparten 50/50 directo.
+  - **Santiago: $10.000 fijos**, solo en citas con los PRECIOS NUEVOS (la
+    subida de oct 2026: microblading/sombreado/delineado $69.990, técnica
+    mixta (MixBrows) y labios (Full Lips) $99.990 — vino junto con la crema
+    incluida y es lo que motivó el sistema, "para que no ganen tan poco").
+    Una cita nueva congela `a.conDescuentoMicro` = estado de "crema
+    incluida" al crearla; las citas de antes usan `a.cremaIncluidaPolitica`
+    (marca lo mismo). Las citas con precio viejo se reparten como antes.
+    Los servicios se marcaron con la migración `runMicropigmentacionFlagsIfNeeded`.
+  - **Buenos Aires: 10 dólares** en pesos (ver "Valor del dólar" abajo), siempre.
+  - Qué es micropigmentación se marca A MANO por servicio (casilla en
+    Servicios y tarifario, `s.micropigmentacion`, en las dos sedes). La
+    cantidad queda CONGELADA en cada cita al guardarla (`a.tratamientosMicro`,
+    solo se recuenta si cambian sus servicios). Cada servicio anotado cuenta
+    una vez por unidad (2 personas con el tratamiento ×2 = 2 descuentos).
+  - **Valor del dólar (BA)**: historial por FECHA de cita
+    (`settings.dolarHistory` = `[{desde, pesos, auto?}]`,
+    `valorDolarParaFecha`), Más → "💱 Valor del dólar". De ahí salen los 10
+    dólares del descuento y los 5 del **abono sugerido** (redondeado a la
+    centena). Cambiarlo nunca recalcula citas anteriores. **Automático**
+    (`settings.dolarAuto` = 'oficial' | 'blue' | 'bolsa'(MEP), elegido en ese
+    mismo modal): una vez al día cualquier teléfono de BA consulta
+    `dolarapi.com` (`actualizarDolarAutomatico`) y, si cambió, agrega el valor
+    desde hoy; si la página falla, sigue el último valor. **Pendiente:** el
+    usuario no sabe qué dólar usar (lo consulta con su tía, que va a manejar
+    la sede) — por eso queda en manual hasta que lo elijan ellos mismos. No
+    se pudo probar contra dolarapi.com real (el entorno de pruebas bloquea
+    esa conexión), solo con respuestas simuladas.
+- **Abono reagendado (`a.abonoPrevio`)**: si la clienta cancela/no viene,
+  la cita queda Cancelada/NoShow con su abono (ingreso del negocio, sin
+  comisión). Si después reagenda, la cita nueva marca "Este abono ya se pagó
+  en una cita anterior": su ingreso es precio − abono (`apptRevenue`; antes
+  se contaba dos veces en "Ingreso total"/Finanzas — bug corregido el
+  04/10/2026), pero su COMISIÓN es sobre el precio completo (la especialista
+  hizo el tratamiento entero).
+- **Abono perdido (Cancelada/NoShow) = 100% del negocio, en AMBAS sedes**
+  (confirmado con el usuario el 04/10/2026): no genera comisión. En
+  Santiago aplica a citas desde `SEDES.santiago.abonoPerdidoSoloNegocioDesde`
+  ('2026-10-05', el lunes siguiente — inicio de una semana de pago); las
+  anteriores quedan como se calcularon y pagaron (antes la especialista se
+  llevaba su % del abono). En Buenos Aires, siempre.
+- **Colores de Buenos Aires: los de la bandera argentina** (celeste, blanco
+  y el sol dorado), a pedido del usuario aunque se pierdan los de Sibana,
+  para que no haya confusión de sede. `TEMA_BANDERA_ARGENTINA` +
+  `aplicarTemaSede` generan la hoja de estilos reemplazando cada color de la
+  de Santiago; "Confirmada" queda amarilla (sol) para no confundirse con el
+  celeste. Un color NUEVO que se agregue al CSS debe sumarse a esos
+  reemplazos (y los gráficos SVG usan `style="fill:var(--...)"` por eso).
+- **Mensajes a clientas con "vos" en Buenos Aires** (`SEDE.voseo`):
+  retoques ("¿Querés agendar tu turno?"), "cómo te fue" y reseña. Los textos
+  de la propia agenda (para el equipo) siguen con "tú".
+- Finanzas de cada sede por separado (no se suman entre sí: son monedas
+  distintas). Admin: Juan Diego y su papá en ambas. Gmail aparte para
+  Buenos Aires (su propio script de respaldo, todavía sin URL).
+- **Pendiente con el usuario:** link de reseñas de Google de Buenos Aires,
+  script de respaldo (Gmail de BA), crear las cuentas y publicar las reglas.
+
 ## Posible extensión a Copiapó (en pausa, probablemente no se haga)
 **Actualización (oct 2026):** la sede de Copiapó al parecer prefiere seguir
 con AgendaPro (ya están acostumbrados), así que esto quizás nunca se
@@ -249,10 +356,16 @@ para servir también a **Copiapó**, de la siguiente forma:
 - **Comisión de especialistas**: 50% por defecto (variable por mes, ver
   punto 8 arriba) sobre lo que genera cada cita — pero NUNCA sobre la
   crema post-tratamiento (ver punto 7) ni sobre el ingreso pasivo del box
-  arrendado (abajo). Ver `apptCommissionBase`.
-- **Cita Cancelada o NoShow**: cuenta solo el abono como ingreso/comisión
-  (si se cobró y no se devolvió) — confirmado explícitamente con el
-  usuario, es la regla correcta, no un bug. Si el abono SÍ se devolvió,
+  arrendado (abajo), y a cada micropigmentación se le restan antes $10.000
+  (Santiago, precios nuevos) / 10 dólares (BA). Ver `apptCommissionBase` y
+  "Comisión en AMBAS sedes" arriba.
+- **Cita Cancelada o NoShow**: cuenta solo el abono como ingreso (si se
+  cobró y no se devolvió) — confirmado explícitamente con el usuario, es la
+  regla correcta, no un bug. Ese abono perdido NO genera comisión: es 100%
+  del negocio (cambio confirmado el 04/10/2026, para citas desde el
+  05/10/2026 en Santiago — ver "Sede de Buenos Aires" arriba; antes sí
+  generaba comisión y esos meses no se recalculan). Si la clienta reagenda,
+  ver "Abono reagendado" arriba. Si el abono SÍ se devolvió,
   se marca el checkbox "Se le devolvió el abono" en esa cita (visible
   solo en Cancelada/NoShow) — el monto del abono queda igual en el campo
   (registro histórico de lo cobrado), pero no cuenta como ingreso ni
@@ -294,7 +407,17 @@ para servir también a **Copiapó**, de la siguiente forma:
   nuevo antes de asumir qué hacer.
 
 ## Funciones agregadas (para no reinventar ni duplicar)
-- **"Mis ganancias"**: en modo Especialista, la pestaña de Finanzas muestra
+- **Finanzas "en ajuste" (oct 2026, a pedido del usuario):** los números de
+  Finanzas todavía no son confiables mientras se termina de ajustar la
+  agenda ("si nos guiáramos por Finanzas, pagaríamos mal"). Por eso
+  **"Mis ganancias" está OCULTA para las especialistas**
+  (`MIS_GANANCIAS_VISIBLE = false`: sin pestaña, y si algo las manda a
+  Finanzas vuelven a la agenda) — no quería que creyeran que les
+  corresponde un monto que no es. El código sigue intacto para volver a
+  mostrarla. Admin conserva Finanzas con un aviso "⚠️ En ajuste… no usar
+  para calcular pagos" arriba. La identidad "¿Quién eres?" sigue (vales y
+  "pago marcado por").
+- **"Mis ganancias"** (OCULTA por ahora, ver arriba): en modo Especialista, la pestaña de Finanzas muestra
   esto en vez del panel completo de Admin — cada especialista elige su
   nombre una vez (se recuerda por dispositivo, `STAFF_IDENTITY_KEY`) y ve
   solo sus propias citas/ingresos/comisión del mes, nada de las demás.
@@ -665,7 +788,7 @@ para servir también a **Copiapó**, de la siguiente forma:
   **Aviso dentro de la cita** (`postcareStatusHtml`, en el formulario de
   Admin al editar y en la vista de la especialista): SOLO "⚠️ Sin correo
   anotado" y solo mientras el envío está pendiente (cita futura, u hoy
-  antes de las 20:30 hora de Chile — `chileNow`, porque Juan Diego a veces
+  antes de las 20:30 hora de Chile — `sedeNow`, porque Juan Diego a veces
   usa la agenda desde otro país); para pedirle el correo a la clienta antes
   de que se vaya. Con correo anotado no se muestra nada: una versión que
   decía "se le enviarán por correo hoy a las 20:30" se quitó a pedido del

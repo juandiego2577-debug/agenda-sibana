@@ -201,7 +201,18 @@ para servir también a **Copiapó**, de la siguiente forma:
   personal con permiso compartido), de ahí los duplicados ("creada por Juan
   Diego"). Ahora `BACKUP_WEBHOOK_URL` apunta a "Respaldo Agenda Sibana"
   (implementación "Sin título", …OVn2/exec, código nuevo). El proyecto
-  personal quedó sin uso: conviene ARCHIVAR su implementación. Abrir Apps
+  personal quedó sin uso: conviene ARCHIVAR su implementación.
+  **Fallaba sin avisar (04/10/2026):** con la agenda ya apuntando al
+  proyecto de Sibana, "Reenviar todo" no cambió nada en el Calendar. Causa
+  más probable: ese proyecto se creó suelto en script.google.com (no desde
+  la Hoja), así que `getActiveSpreadsheet()` es `null`, la Hoja tiraba error
+  y, como iba antes, el Calendar nunca se tocaba (y la agenda manda con
+  `no-cors`: nunca ve la respuesta). Ahora `hojaDeCalculo()` usa la Hoja
+  propia del script si la tiene o crea/reusa una (`HOJA_ID` en las
+  propiedades), Hoja y Calendar van por separado, y los errores quedan en
+  "Ejecuciones" y en `probar()` (ejecutar a mano: muestra Hoja, calendario,
+  último aviso recibido y último error — lo primero que hay que pedir si el
+  Calendar no se actualiza). Abrir Apps
   Script desde la Hoja con varias cuentas de Google abiertas da "No se puede
   abrir el archivo" → usar una ventana de incógnito con solo sibana.cl.
 - **Modo Admin / Especialista**: gateado por una contraseña guardada en

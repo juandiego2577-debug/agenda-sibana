@@ -13,6 +13,8 @@
 // Para actualizar el script sin cambiar su dirección (URL):
 //   Implementar → Gestionar implementaciones → ✏️ (editar) → Versión: "Nueva
 //   versión" → Implementar. (NO "Nueva implementación": eso crea otra URL.)
+// Si se pegó código nuevo: antes de implementar, elegir "probar" arriba →
+// Ejecutar (pide los permisos que falten y muestra si todo funciona).
 // Después, en la agenda: Más → Respaldos → "☁️ Reenviar todo a Sheets/Calendar"
 // para que todas las citas ya guardadas tomen el formato nuevo (no duplica
 // nada; además junta y borra los eventos que estuvieran repetidos).
@@ -46,8 +48,44 @@ var COLORES_GOOGLE = [['1','#a4bdfc'],['2','#7ae7bf'],['3','#dbadff'],['4','#ff8
                       ['7','#46d6db'],['8','#e1e1e1'],['9','#5484ed'],['10','#51b749'],['11','#dc2127']];
 var COLOR_GRIS = '8'; // citas canceladas o en que la clienta no llegó
 
-function verHoja() {
-  Logger.log(SpreadsheetApp.getActiveSpreadsheet().getUrl());
+// ---------------- Prueba (ejecutar a mano) ----------------
+// Elegir "probar" arriba → Ejecutar. La primera vez pide permisos (aceptar).
+// Muestra en el registro dónde está la Hoja, si encuentra el calendario y el
+// último error que haya tenido un aviso de la agenda (si hubo alguno).
+function probar() {
+  var hoja = hojaDeCalculo();
+  Logger.log('Hoja de respaldo: ' + hoja.getName() + ' → ' + hoja.getUrl());
+  var cal = calendario();
+  if (!cal) throw new Error('No se encontró el calendario ' + CALENDAR_ID + ' (¿esta cuenta tiene permiso de "Realizar cambios en los eventos"?)');
+  var hoy = new Date();
+  var eventos = cal.getEvents(hoy, new Date(hoy.getTime() + 7 * 24 * 3600 * 1000));
+  Logger.log('Calendario: ' + cal.getName() + ' (' + cal.getId() + ') — eventos en los próximos 7 días: ' + eventos.length);
+  var props = PropertiesService.getScriptProperties();
+  Logger.log('Último aviso recibido de la agenda: ' + (props.getProperty('ultimoAviso') || 'ninguno todavía'));
+  Logger.log('Último error: ' + (props.getProperty('ultimoError') || 'ninguno'));
+}
+function verHoja() { probar(); }
+function ahoraTexto() {
+  return Utilities.formatDate(new Date(), ZONA_POR_DEFECTO, 'dd/MM/yyyy HH:mm');
+}
+
+// La Hoja donde se guarda la copia. Si el script se creó desde la Hoja
+// (Extensiones → Apps Script) es esa misma. Si se creó suelto en
+// script.google.com no tiene Hoja "propia": antes eso hacía fallar TODO el
+// aviso sin que nadie se enterara (ni la Hoja ni el Calendar se
+// actualizaban). Ahora usa una Hoja propia, creada la primera vez en el Drive
+// de la cuenta del script.
+function hojaDeCalculo() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss) return ss;
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('HOJA_ID');
+  if (id) {
+    try { return SpreadsheetApp.openById(id); } catch (e) {}
+  }
+  ss = SpreadsheetApp.create('Respaldo Agenda Sibana — Citas');
+  props.setProperty('HOJA_ID', ss.getId());
+  return ss;
 }
 
 function doPost(e) {
@@ -61,11 +99,23 @@ function doPost(e) {
     var appt = data.appointment;
     var extra = data.extra || {};
     if (!appt || !appt.id) throw new Error('Aviso sin cita');
-    updateSheetRow(appt, data.action, extra);
-    syncToCalendar(appt, data.action, extra);
-    return ContentService.createTextOutput(JSON.stringify({ok: true}))
+    var props = PropertiesService.getScriptProperties();
+    props.setProperty('ultimoAviso', ahoraTexto() + ' · ' + (appt.client || appt.id));
+    // La Hoja y el Calendar van por separado: si una falla, la otra igual se
+    // hace. Los errores quedan en "Ejecuciones" y en probar().
+    var errores = [];
+    try { updateSheetRow(appt, data.action, extra); }
+    catch (err) { errores.push('Hoja: ' + err); }
+    try { syncToCalendar(appt, data.action, extra); }
+    catch (err) { errores.push('Calendar: ' + err); }
+    if (errores.length) {
+      console.error(errores.join(' | '));
+      props.setProperty('ultimoError', ahoraTexto() + ' · ' + (appt.client || appt.id) + ' · ' + errores.join(' | '));
+    }
+    return ContentService.createTextOutput(JSON.stringify({ok: !errores.length, errores: errores}))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
+    console.error(String(err));
     return ContentService.createTextOutput(JSON.stringify({ok: false, error: String(err)}))
       .setMimeType(ContentService.MimeType.JSON);
   } finally {
@@ -175,7 +225,7 @@ function colorGoogle(hex) {
 
 // ---------------- Hoja ----------------
 function updateSheetRow(appt, action, extra) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = hojaDeCalculo();
   var sheet = ss.getSheetByName(HOJA);
   if (!sheet) {
     sheet = ss.insertSheet(HOJA);
@@ -250,6 +300,7 @@ function eventosDeLaCita(cal, appt, zona, props) {
 }
 function syncToCalendar(appt, action, extra) {
   var cal = calendario();
+  if (!cal) throw new Error('No se encontró el calendario ' + CALENDAR_ID);
   var props = PropertiesService.getScriptProperties();
   var key = 'evt_' + appt.id;
   var zona = extra.zonaHoraria || ZONA_POR_DEFECTO;

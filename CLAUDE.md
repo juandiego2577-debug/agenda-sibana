@@ -32,7 +32,8 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     se le pidió rehacerla como `duenos@sibana.app`, que es lo que esperan
     la agenda y las reglas) y las reglas de `firestore.rules` YA ESTÁN
     PUBLICADAS en Firebase (reemplazaron a las anteriores, que dejaban a
-    cualquier cuenta no anónima leer/escribir todo con `/{document=**}`).
+    cualquier cuenta no anónima leer/escribir todo con `/{document=**}`;
+    el 04/10/2026 hubo una versión más nueva, ver "Auditoría de seguridad").
     Las contraseñas NO se guardan en el repo. La agenda nueva se publicó el
     04/10/2026 (PR #72). Para volver a la versión anterior del PROGRAMA basta
     el historial de git (commit 5c2e8d4), pero OJO: hay que subirle
@@ -269,6 +270,44 @@ para servir también a **Copiapó**, de la siguiente forma:
   fichas) pide la misma contraseña de equipo que la agenda. Si algo de la
   ficha de consentimiento deja de funcionar, revisar primero las reglas de
   Firestore de esa colección, no asumir que el bug está en este repo.
+- **Auditoría de seguridad (04/10/2026), a pedido del usuario.** Arreglado
+  (puntos 1 y 2; el usuario pidió SOLO esos por ahora):
+  1. **Firma con programa escondido (XSS):** cualquiera puede crear una
+     ficha sin contraseña, y la firma (`firmaDataUrl`) se ponía tal cual en
+     `<img src="...">` en la agenda (`renderConsentSearch`) y en el Panel
+     Sibana/PDF del repo de consentimiento — una "firma" armada a propósito
+     ejecutaba código con la sesión de quien abriera las fichas (dueños =
+     las dos sedes). Ahora `firmaSegura()` (en los DOS repos) solo deja
+     pasar `data:image/png;base64,...`, y las reglas exigen lo mismo al
+     crear una ficha (más: solo los campos del formulario de Santiago,
+     textos ≤3000 caracteres, sí/no booleanos). **Si se agrega un campo al
+     formulario de consentimiento, hay que agregarlo a
+     `fichaSantiagoValida` en `firestore.rules`**, o las fichas nuevas no se
+     guardan. Todo lo que venga de una ficha se muestra con
+     `escapeHtml`/`esc`, nunca suelto.
+  2. **Respaldos protegidos:** antes la cuenta del equipo podía pisar o
+     borrar todos los respaldos. Ahora un respaldo (`<sede>_YYYY-MM-DD` o
+     `<sede>_antes-restaurar-...`) solo se crea con la fecha de hoy (±2
+     días), nunca se modifica, y solo se borra si tiene más de 29 días (la
+     agenda borra los de más de 30; el día de margen es por zona horaria).
+     El índice sí se actualiza. El documento de la agenda ya no se puede
+     borrar entero (`allow delete` no existe en `sibana-agenda`).
+  Probado con el emulador oficial (50 pruebas de reglas + páginas reales
+  con el SDK 10.14.1: firmar, Panel Sibana, PDF y la agenda; la versión
+  vieja sí ejecutaba la firma maliciosa). **Estado:** las reglas nuevas
+  hay que PEGARLAS a mano en Firebase (hasta entonces siguen las de antes).
+  **Pendiente (el usuario lo dejó para después):** (3) los correos de las
+  cuentas usan dominios (`sibanasantiago.app`, `sibanabuenosaires.app`,
+  `sibana.app`) que quizás nadie compró — si alguien los compra puede usar
+  "olvidé mi contraseña" y quedarse con la cuenta; propuesta: cambiarlos a
+  `sibana.cl+...@gmail.com` o comprar los dominios; (4) los dos repos son
+  públicos y `HISTORICAL_IMPORT` tiene nombres/teléfonos de clientas;
+  (5) el script de respaldo acepta avisos de cualquiera (puede borrar
+  eventos/filas) — verificar el token de Firebase en el script;
+  (6) contraseñas largas y cambiarlas cuando alguien se va; (7)
+  verificación en dos pasos en GitHub y Google. Ojo: el "modo
+  Especialista" es solo visual — la cuenta del equipo puede escribir todo
+  el documento de su sede; por eso importan tanto los respaldos protegidos.
 
 ## Lecciones aprendidas (importante no repetir)
 1. **Nunca auto-guardar cuando Firestore reporta que el documento "no

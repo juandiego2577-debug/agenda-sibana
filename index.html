@@ -2857,6 +2857,14 @@ function showPrompt(message, onSubmit){
 }
 
 // ---------------- Consentimiento firmado (colección "sibana-consentimientos") ----------------
+// Las fichas las puede crear cualquiera (sin contraseña), así que su contenido
+// nunca se mete tal cual en la pantalla: los textos pasan por escapeHtml y la
+// firma solo se muestra si es de verdad una imagen PNG. Antes la firma se
+// ponía directo en <img src="...">, y una "firma" armada a propósito podía
+// ejecutar un programa con la sesión de quien abriera la búsqueda de fichas.
+function firmaSegura(u){
+  return (typeof u==='string' && /^data:image\/png;base64,[A-Za-z0-9+\/=]+$/.test(u)) ? u : '';
+}
 function consentMatchScore(query, entry){
   const q = normalizeName(query);
   if(!q) return 1; // sin texto de búsqueda: se muestran todas por igual
@@ -2904,7 +2912,7 @@ function renderConsentSearch(box, allDocs, initialQuery, close, apptId, linkedCo
           <div><b>Alergias:</b> ${yn(e.alergias)}${e.alergias_detalle?' — '+escapeHtml(e.alergias_detalle):''}</div>
           <div><b>Condiciones de piel:</b> ${yn(e.cond_piel)}${e.cond_piel_detalle?' — '+escapeHtml(e.cond_piel_detalle):''}</div>
         </div>
-        ${e.firmaDataUrl?`<div style="background:#fdfaf3;border-radius:4px;margin-top:8px;padding:4px;"><img src="${e.firmaDataUrl}" style="max-width:200px;display:block;"></div>`:''}
+        ${firmaSegura(e.firmaDataUrl)?`<div style="background:#fdfaf3;border-radius:4px;margin-top:8px;padding:4px;"><img src="${firmaSegura(e.firmaDataUrl)}" style="max-width:200px;display:block;"></div>`:''}
         ${linkBtn}${deleteBtn}
       </div>`;
   }

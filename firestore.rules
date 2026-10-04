@@ -1,19 +1,27 @@
 rules_version = '2';
-// Reglas de Firestore PROPUESTAS para cuando exista la sede de Buenos Aires.
+// Reglas de Firestore de la agenda y de la ficha de consentimiento.
 // Este archivo solo guarda el texto: para que tengan efecto hay que pegarlas
 // a mano en Firebase Console → Firestore Database → Reglas → Publicar.
-// ANTES de pegarlas, comparar con las reglas que hay hoy publicadas (por si
-// tienen algo que acá no esté) y crear primero las cuentas nuevas en
-// Authentication (equipo@sibanabuenosaires.app y duenos@sibana.app).
 //
 // Qué hacen:
 // - Cada sede solo la puede leer/escribir su propio equipo, más los dueños.
 //   El equipo de Buenos Aires no puede ver nada de Santiago, ni al revés.
-// - Los respaldos diarios ("<sede>_YYYY-MM-DD") siguen la misma regla, según
-//   el nombre del documento.
+//   El documento de la agenda nunca se puede borrar entero.
+// - Respaldos diarios ("<sede>_YYYY-MM-DD") y copias de antes de restaurar
+//   ("<sede>_antes-restaurar-<fecha>"): misma regla de sede, pero una vez
+//   creados NO se pueden modificar, y solo se pueden borrar los que tienen más
+//   de 29 días (la agenda borra los de más de 30; el día de margen es por las
+//   zonas horarias). Así, aunque alguien consiga la contraseña del equipo, no
+//   puede borrar ni pisar los respaldos recientes. Solo se pueden crear con la
+//   fecha de hoy (± 2 días), para que nadie "reserve" respaldos de días
+//   futuros con datos falsos. El índice ("<sede>_indice") sí se actualiza.
 // - Fichas de consentimiento: cualquiera puede FIRMAR (crear) con la sesión
 //   anónima invisible, pero solo el equipo de esa sede (y los dueños) puede
-//   leerlas, editarlas o borrarlas.
+//   leerlas, editarlas o borrarlas. La firma tiene que ser una imagen PNG de
+//   verdad (antes se aceptaba cualquier texto, y un texto armado a propósito
+//   podía meter un programa en la agenda al mostrar la ficha) y la ficha de
+//   Santiago solo puede traer los campos que usa el formulario, con textos
+//   de largo razonable.
 service cloud.firestore {
   match /databases/{database}/documents {
     function conCuenta() {
@@ -32,20 +40,97 @@ service cloud.firestore {
     }
 
     match /sibana-agenda/{sede} {
-      allow read, write: if puedeSede(sede);
+      allow read, create, update: if puedeSede(sede);
+    }
+
+    // ---------------- Respaldos ----------------
+    // Fecha ("YYYY-MM-DD") que lleva el nombre del respaldo, o '' si no es un
+    // respaldo con fecha (ej. el índice).
+    function fechaDeRespaldo(id) {
+      return id.matches('^[a-z]+_[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        ? id.split('_')[1]
+        : (id.matches('^[a-z]+_antes-restaurar-[0-9]{4}-[0-9]{2}-[0-9]{2}T.*$')
+          ? id.split('_')[1][16:26]
+          : '');
+    }
+    function diaDe(fecha) {
+      return timestamp.date(int(fecha[0:4]), int(fecha[5:7]), int(fecha[8:10]));
+    }
+    function fechaCercanaAHoy(fecha) {
+      return fecha != ''
+        && diaDe(fecha) > request.time - duration.value(3, 'd')
+        && diaDe(fecha) < request.time + duration.value(2, 'd');
+    }
+    function fechaVieja(fecha) {
+      return fecha != ''
+        && diaDe(fecha) < request.time - duration.value(29, 'd');
     }
 
     match /sibana-agenda-respaldos/{respaldo} {
-      allow read, write: if puedeSede(respaldo.split('_')[0]);
+      allow read: if puedeSede(respaldo.split('_')[0]);
+      allow create, update: if puedeSede(respaldo.split('_')[0])
+        && respaldo == respaldo.split('_')[0] + '_indice';
+      allow create: if puedeSede(respaldo.split('_')[0])
+        && fechaCercanaAHoy(fechaDeRespaldo(respaldo));
+      allow delete: if puedeSede(respaldo.split('_')[0])
+        && fechaVieja(fechaDeRespaldo(respaldo));
+    }
+
+    // ---------------- Fichas de consentimiento ----------------
+    // La firma: solo una imagen PNG (lo que produce el formulario al dibujar).
+    function firmaValida(d) {
+      return d.get('firmaDataUrl', null) == null
+        || (d.firmaDataUrl is string
+            && d.firmaDataUrl.size() < 900000
+            && d.firmaDataUrl.matches('^data:image/png;base64,[A-Za-z0-9+/=]+$'));
+    }
+    function textoOk(d, k) {
+      return d.get(k, '') == null
+        || (d.get(k, '') is string && d.get(k, '').size() <= 3000);
+    }
+    function siNoOk(d, k) {
+      return d.get(k, null) == null || d.get(k, null) is bool;
+    }
+    // Exactamente lo que manda el formulario de Santiago (repo
+    // sibana-consentimiento). Si se agrega un campo al formulario, hay que
+    // agregarlo también acá, o las fichas nuevas no se podrán guardar.
+    function fichaSantiagoValida(d) {
+      return d.keys().hasOnly([
+          'step', 'fecha', 'ciudad', 'nombre', 'rut', 'edad', 'telefono', 'email',
+          'alergias', 'alergias_detalle', 'diabetes', 'hipertension', 'vih',
+          'hepatitis', 'enf_inmunes', 'cond_piel', 'cond_piel_detalle',
+          'herpes', 'herpes_detalle', 'proc_quimicos', 'proc_esteticos',
+          'n_tratamientos', 'microblading', 'tatuaje', 'tiempo_anterior',
+          'tecnica', 'diseno_aprobado', 'acepta_cuidados', 'acepta_datos',
+          'acepta_terminos', 'declara_firma', 'firmaDataUrl',
+          'nombre_buscar', 'submittedAtClient', 'submittedAt'])
+        && firmaValida(d)
+        && textoOk(d, 'fecha') && textoOk(d, 'ciudad') && textoOk(d, 'nombre')
+        && textoOk(d, 'rut') && textoOk(d, 'edad') && textoOk(d, 'telefono')
+        && textoOk(d, 'email') && textoOk(d, 'alergias_detalle')
+        && textoOk(d, 'cond_piel_detalle') && textoOk(d, 'herpes_detalle')
+        && textoOk(d, 'proc_quimicos') && textoOk(d, 'proc_esteticos')
+        && textoOk(d, 'n_tratamientos') && textoOk(d, 'tiempo_anterior')
+        && textoOk(d, 'tecnica') && textoOk(d, 'nombre_buscar')
+        && textoOk(d, 'submittedAtClient')
+        && siNoOk(d, 'alergias') && siNoOk(d, 'diabetes') && siNoOk(d, 'hipertension')
+        && siNoOk(d, 'vih') && siNoOk(d, 'hepatitis') && siNoOk(d, 'enf_inmunes')
+        && siNoOk(d, 'cond_piel') && siNoOk(d, 'herpes') && siNoOk(d, 'microblading')
+        && siNoOk(d, 'tatuaje') && siNoOk(d, 'diseno_aprobado')
+        && siNoOk(d, 'acepta_cuidados') && siNoOk(d, 'acepta_datos')
+        && siNoOk(d, 'acepta_terminos') && siNoOk(d, 'declara_firma');
     }
 
     match /sibana-consentimientos/{ficha} {
-      allow create: if request.auth != null;
+      allow create: if request.auth != null && fichaSantiagoValida(request.resource.data);
       allow read, update, delete: if puedeSede('santiago');
     }
 
+    // El formulario de Buenos Aires todavía no existe (va a tener DNI y quizás
+    // otros campos): por ahora solo se exige que la firma sea una imagen.
     match /sibana-consentimientos-buenosaires/{ficha} {
-      allow create: if request.auth != null;
+      allow create: if request.auth != null && firmaValida(request.resource.data)
+        && request.resource.data.size() <= 60;
       allow read, update, delete: if puedeSede('buenosaires');
     }
   }

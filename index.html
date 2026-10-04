@@ -3337,7 +3337,7 @@ function staffIdentityModalHtml(){
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
       <h2 class="serif">¿Quién eres?</h2>
-      <p class="hint">Elige tu nombre para que la agenda sepa qué especialista está usando este teléfono (sirve para "Mis ganancias", los vales y marcar pagos). Este dispositivo lo va a recordar, así que solo hace falta elegirlo una vez.</p>
+      <p class="hint">Elige tu nombre para que la agenda sepa qué especialista está usando este teléfono (sirve para los vales y para marcar pagos). Este dispositivo lo va a recordar, así que solo hace falta elegirlo una vez.</p>
       ${state.specialists.map(s=>`<button type="button" class="btn ${s.name===identity?'btn-primary':'btn-ghost'}" style="width:100%;margin-bottom:8px;" data-act="set-staff-identity" data-name="${escapeHtml(s.name)}">${s.name===identity?'✓ ':''}${escapeHtml(s.name)}</button>`).join('')}
       <div class="modal-actions">
         <div></div>
@@ -4713,6 +4713,7 @@ function render(){
   const prevModal = root.querySelector('.modal');
   const prevScrollTop = prevModal ? prevModal.scrollTop : null;
 
+  if(ui.section==='finanzas' && ui.mode!=='admin' && !MIS_GANANCIAS_VISIBLE) ui.section = 'agenda';
   const html = `
     <header class="topbar">
       <div class="brand">
@@ -4727,7 +4728,7 @@ function render(){
     </header>
     ${sectionTabsHtml()}
     ${ui.section==='finanzas' ? `
-      <main class="fin-main">${ui.mode==='admin' ? finanzasPageHtml() : misGananciasPageHtml()}</main>
+      <main class="fin-main">${ui.mode==='admin' ? finanzasPageHtml() : MIS_GANANCIAS_VISIBLE ? misGananciasPageHtml() : ''}</main>
     ` : ui.section==='stock' ? `
       <main class="fin-main">${stockPageHtml()}</main>
     ` : `
@@ -4760,7 +4761,7 @@ function sectionTabsHtml(){
   return `
     <div class="section-tabs">
       <button class="${ui.section!=='finanzas'&&ui.section!=='stock'?'active':''}" data-act="goto-section" data-section="agenda">📅 Agenda</button>
-      <button class="${ui.section==='finanzas'?'active':''}" data-act="goto-section" data-section="finanzas">${isAdmin ? '📊 Finanzas' : '📊 Mis ganancias'}</button>
+      ${(isAdmin || MIS_GANANCIAS_VISIBLE) ? `<button class="${ui.section==='finanzas'?'active':''}" data-act="goto-section" data-section="finanzas">${isAdmin ? '📊 Finanzas' : '📊 Mis ganancias'}</button>` : ''}
       <button class="${ui.section==='stock'?'active':''}" data-act="goto-section" data-section="stock">📦 Stock</button>
     </div>`;
 }
@@ -6408,6 +6409,12 @@ function payoutWeekSummary(specialist){
   return { start, end, comision, vales, neto: comision - vales };
 }
 
+// "Mis ganancias" (la pestaña de Finanzas de las especialistas) está OCULTA a
+// pedido de Juan Diego (oct 2026): mientras se termina de ajustar la agenda,
+// los números de Finanzas todavía pueden tener errores, y no quería que las
+// especialistas creyeran que les corresponde un monto que no es. El código
+// queda intacto: para volver a mostrarla basta pasar esto a true.
+const MIS_GANANCIAS_VISIBLE = false;
 function misGananciasPageHtml(){
   if(!ui.reportsDate) ui.reportsDate = new Date();
   const identity = safeGetLocal(STAFF_IDENTITY_KEY);
@@ -6590,6 +6597,7 @@ function finanzasPageHtml(){
   const year = ui.reportsDate.getFullYear(), month = ui.reportsDate.getMonth();
   return `
     <div class="fin-page">
+      <div class="hint" style="border:1px solid var(--warn);border-radius:8px;padding:10px 12px;margin-bottom:12px;color:var(--ink);">⚠️ <b>En ajuste:</b> mientras se termina de ajustar la agenda, estos números todavía pueden tener errores. No usarlos para calcular pagos. (Las especialistas no ven esta sección.)</div>
       <div class="fin-monthnav">
         <button class="arrow" data-act="reports-prev-month">‹</button>
         <div class="curdate">${MONTHS[month][0].toUpperCase()}${MONTHS[month].slice(1)} ${year}</div>
@@ -6689,12 +6697,13 @@ function finanzasResumenHtml(year, month){
       <tbody>${payoutRows}</tbody>
     </table>
 
+    ${MIS_GANANCIAS_VISIBLE ? `
     <div class="field-row" style="align-items:center;gap:8px;margin:16px 0 4px;">
       <label style="margin:0;font-size:12px;color:var(--ink-soft);">"Mis ganancias" visible desde</label>
       <input type="month" id="f-mis-ganancias-desde" value="${state.settings.misGananciasDesde||''}" style="width:150px;">
       <button class="btn btn-ghost" data-act="save-mis-ganancias-desde" style="font-size:12px;padding:6px 12px;">Guardar</button>
     </div>
-    <div class="hint">Las especialistas no ven "Mis ganancias" de meses anteriores a este — útil mientras terminas de revisar los datos de un mes de transición. Déjalo vacío para no bloquear ningún mes.</div>
+    <div class="hint">Las especialistas no ven "Mis ganancias" de meses anteriores a este — útil mientras terminas de revisar los datos de un mes de transición. Déjalo vacío para no bloquear ningún mes.</div>` : ''}
 
     <h3 class="fin-sub">Corte semanal</h3>
     <table class="fin-table">
@@ -8081,6 +8090,7 @@ function onAction(e){
     }
     case 'goto-section':
       ui.section = e.currentTarget.dataset.section;
+      if(ui.section==='finanzas' && ui.mode!=='admin' && !MIS_GANANCIAS_VISIBLE) ui.section = 'agenda';
       if(ui.section==='finanzas' && !ui.reportsDate) ui.reportsDate = new Date();
       render(); break;
     case 'finance-tab':

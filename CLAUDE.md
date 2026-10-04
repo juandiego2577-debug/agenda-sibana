@@ -404,7 +404,17 @@ para servir también a **Copiapó**, de la siguiente forma:
   nuevo antes de asumir qué hacer.
 
 ## Funciones agregadas (para no reinventar ni duplicar)
-- **"Mis ganancias"**: en modo Especialista, la pestaña de Finanzas muestra
+- **Finanzas "en ajuste" (oct 2026, a pedido del usuario):** los números de
+  Finanzas todavía no son confiables mientras se termina de ajustar la
+  agenda ("si nos guiáramos por Finanzas, pagaríamos mal"). Por eso
+  **"Mis ganancias" está OCULTA para las especialistas**
+  (`MIS_GANANCIAS_VISIBLE = false`: sin pestaña, y si algo las manda a
+  Finanzas vuelven a la agenda) — no quería que creyeran que les
+  corresponde un monto que no es. El código sigue intacto para volver a
+  mostrarla. Admin conserva Finanzas con un aviso "⚠️ En ajuste… no usar
+  para calcular pagos" arriba. La identidad "¿Quién eres?" sigue (vales y
+  "pago marcado por").
+- **"Mis ganancias"** (OCULTA por ahora, ver arriba): en modo Especialista, la pestaña de Finanzas muestra
   esto en vez del panel completo de Admin — cada especialista elige su
   nombre una vez (se recuerda por dispositivo, `STAFF_IDENTITY_KEY`) y ve
   solo sus propias citas/ingresos/comisión del mes, nada de las demás.

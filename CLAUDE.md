@@ -322,8 +322,13 @@ para servir también a **Copiapó**, de la siguiente forma:
      y pide la contraseña (`esCuentaConocida`, y `permission-denied` en el
      `onSnapshot` → cerrar sesión y recargar); si la sesión se cierra con la
      agenda abierta, recarga y pide la contraseña. El script de correos usa
-     `EQUIPO_EMAIL` nuevo (hay que cambiar esa línea en Google). Las cuentas
-     viejas se borran a mano en Firebase Auth.
+     `EQUIPO_EMAIL` nuevo (hay que pegar el script nuevo en Google; se le
+     dieron las instrucciones al usuario el 04/10/2026, sin confirmar todavía).
+     **Hecho:** el usuario borró las 4 cuentas que ya no se usan
+     (`equipo@sibanasantiago.app`, `equipo@sibanabuenosaires.app`,
+     `duenos@sibana.app`, `sibana.cl+duenos@gmail.com`) el 04/10/2026, después
+     de publicar las reglas sin esos correos; comprobado contra Firebase real
+     (ya no existen; las 3 nuevas entran y cada una lee solo lo suyo).
   **Pendiente (el usuario lo dejó para después):** (4) los dos repos son
   públicos y `HISTORICAL_IMPORT` tiene nombres/teléfonos de clientas;
   (5) el script de respaldo acepta avisos de cualquiera (puede borrar

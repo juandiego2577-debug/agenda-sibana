@@ -80,6 +80,17 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     script de respaldo contra los emuladores (12: compartida, dueños,
     Salomé aceptados; BA, desactivada, sin perfil, lector, anónimo, sin
     token rechazados), Panel con usuario (7) + todas las anteriores.
+    **Escondido hasta el lanzamiento (04/10/2026, pedido del usuario: "que
+    ellas no vean absolutamente nada… se lanza todo de una vez"):** la
+    entrada de la agenda y la del Panel Sibana se ven EXACTAMENTE como antes
+    (solo contraseña, "contraseña del equipo"); el campo "Usuario" solo
+    aparece con `?usuario` al final de la dirección (para que Juan Diego
+    pruebe). Al lanzar: `USUARIOS_PERSONALES_VISIBLES = true` en los DOS
+    repos. Lo demás (Más → Equipo) ya era solo de dueños.
+    **Scripts (04/10/2026):** el usuario guardó la clave de `sistema` en
+    `CLAVE_EQUIPO` del script de correos; falta confirmar que pegó el código
+    nuevo y que `verQueSeEnviariaHoy` corre sin error, y pegar/publicar el
+    script de respaldo nuevo (`probar()`).
     **Falta (con el usuario):** dar usuarios a las especialistas reales; y
     al final apagar las cuentas compartidas (primero sacarlas de las reglas,
     de `CUENTAS_PERMITIDAS` del script y de `CUENTAS`, después borrarlas).

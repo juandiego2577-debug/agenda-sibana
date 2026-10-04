@@ -676,7 +676,11 @@ document.getElementById('root').innerHTML = loadingScreenHtml();
 // Pega aquí la URL que te dio Google al "Implementar" el script de respaldo /
 // sincronización con Calendar (paso a paso más abajo). Mientras diga
 // PEGA_AQUI, la agenda funciona igual pero no manda nada a ese respaldo.
-const BACKUP_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwyqBvf-NPV06Mc1eiIUM86ySn-NKxtuoJ-YBimjDwP7XwflMcaVp7P2E3mNT7c1gw6XA/exec';
+// Proyecto "Respaldo Agenda Sibana" de la cuenta sibana.cl@gmail.com (oct
+// 2026). Antes apuntaba a un proyecto viejo de la cuenta personal de Juan
+// Diego (…P2E3mNT7c1gw6XA/exec), que escribía en el mismo calendario y
+// dejaba cada cita repetida.
+const BACKUP_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxiGxGvhHGrnxSp57ARghDsT6rbg-ROIsH1d0LRYBzo0oQL2ERIaoI7v6HdACxDOVn2/exec';
 
 function syncToBackupWebhook(action, appt){
   if(!backupWebhookActivo()) return; // cada sede manda a su propio script (SEDE.backupWebhookUrl)

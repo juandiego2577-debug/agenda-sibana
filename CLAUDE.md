@@ -171,6 +171,29 @@ para servir también a **Copiapó**, de la siguiente forma:
      la cuenta donde vive el script).
   La URL de este webhook está en la constante `BACKUP_WEBHOOK_URL` del
   HTML. Reemplazar por `PEGA_AQUI...` la deja inactiva sin romper nada.
+  **El código está en `apps-script/respaldo-sheets-calendar.gs`** (oct 2026;
+  antes no estaba en el repo). Versión nueva, a pedido del usuario, para que
+  el Calendar "se parezca lo más posible a la agenda" (por si se pierde todo
+  o el papá mira el Calendar en vez de la agenda): título con el estado en
+  el mismo color que la leyenda (🟣 Pendiente, 🟡 Confirmada, 🟢 Realizada,
+  ⚫ Cancelada, 🔴 No llegó) + clienta + tratamientos + especialista; color
+  del evento = el de Google más parecido al de la especialista (gris si
+  Cancelada/NoShow, que QUEDAN en el calendario como registro); descripción
+  con todo (teléfono, correo, precio, abono/saldo y métodos, por cobrar,
+  quién marcó el pago, notas). La agenda le manda `extra` = {sede,
+  zonaHoraria, moneda, especialistaColor} (un script viejo lo ignora). Hoja:
+  7 columnas nuevas al final (las 14 de siempre no se mueven).
+  **Duplicados (bug real):** cada cita se veía DOS veces en el Calendar del
+  papá — la versión anterior usaba `getDefaultCalendar()` y el script pasó
+  por la cuenta personal de Juan Diego antes de la de Sibana, así que hubo
+  eventos en los dos calendarios (y la cuenta de Sibana tiene agregado el
+  personal). La versión nueva usa `CALENDAR_ID = 'sibana.cl@gmail.com'`,
+  `LockService` (dos avisos juntos ya no crean dos eventos), marca cada
+  evento con `setTag('sibanaId', id)`, junta y borra repetidos al guardar,
+  y trae `limpiarCalendarioAnterior()` (ejecutar a mano UNA vez antes de
+  "Reenviar todo": borra solo los eventos que el script creó en el
+  calendario principal de su cuenta, si no es el de Sibana). Probado con un
+  simulador de los servicios de Google (Node), no contra Google real.
 - **Modo Admin / Especialista**: gateado por una contraseña guardada en
   `state.settings.adminPassword` (dentro del propio documento de
   Firestore, no hay backend de autenticación real). Por defecto arranca

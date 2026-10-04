@@ -685,7 +685,13 @@ function syncToBackupWebhook(action, appt){
       method: 'POST',
       mode: 'no-cors', // los Apps Script publicados como "cualquiera" se llaman así desde el navegador
       headers: {'Content-Type': 'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action, appointment: appt }),
+      // "extra": datos para que el Calendar se parezca a la agenda (color de
+      // la especialista, zona horaria y moneda de la sede). Un script viejo
+      // simplemente los ignora.
+      body: JSON.stringify({ action, appointment: appt, extra: {
+        sede: SEDE.nombre, zonaHoraria: SEDE.zonaHoraria, moneda: SEDE.moneda,
+        especialistaColor: appt && appt.specialist ? specialistColor(appt.specialist) : '',
+      } }),
     });
   }catch(e){
     console.error('No se pudo avisar al respaldo/Calendar (la cita igual quedó guardada en Firebase)', e);

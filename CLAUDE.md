@@ -28,11 +28,14 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     "📍 Sede" arriba para cambiar (`cambiarSede` guarda la elección en
     `SEDE_DUENOS_KEY` y RECARGA la página, para no arrastrar nada en memoria).
   - Más → "🔑 Entrar con otra contraseña" (`cambiarDeCuenta`) cierra la sesión.
-  - **Estado (03/10/2026):** las dos cuentas nuevas TODAVÍA NO EXISTEN en
-    Firebase, y las reglas nuevas (`firestore.rules`, probadas con el
-    emulador) TODAVÍA NO están publicadas — hay que hacerlo con el usuario,
-    comparando antes con las reglas que hay hoy publicadas. Mientras tanto,
-    Santiago funciona exactamente igual que antes.
+  - **Estado (05/10/2026):** las dos cuentas nuevas ya se crearon en
+    Firebase Auth (la de dueños se había creado con "ñ" — `dueños@...` — y
+    se le pidió rehacerla como `duenos@sibana.app`, que es lo que esperan
+    la agenda y las reglas) y las reglas de `firestore.rules` YA ESTÁN
+    PUBLICADAS en Firebase (reemplazaron a las anteriores, que dejaban a
+    cualquier cuenta no anónima leer/escribir todo con `/{document=**}`).
+    Las contraseñas NO se guardan en el repo. La agenda nueva todavía no
+    estaba publicada en GitHub Pages en ese momento.
 - **Todo lo que cambia por país vive en `SEDES`** (zona horaria, código de
   teléfono +54 con su formato de WhatsApp `waPhoneDigitsArgentina`,
   RUT/DNI, colección de consentimientos, URL del script de respaldo, link de

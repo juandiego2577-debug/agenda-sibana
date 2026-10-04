@@ -23,7 +23,8 @@
  *     "Cejas" y "Labios", con sus imágenes (se mandan en orden alfabético
  *     del nombre de archivo: "Cejas 1 …", "Cejas 2 …", etc.).
  *  2. Configuración del proyecto → Propiedades de la secuencia de comandos →
- *     agregar CLAVE_EQUIPO = la contraseña del equipo de la agenda.
+ *     agregar CLAVE_EQUIPO = la contraseña del usuario "sistema" de la agenda
+ *     (un usuario de SOLO LECTURA creado para este script; ver EQUIPO_EMAIL).
  *  3. Ejecutar probarEnvio (manda un correo de muestra a esta misma cuenta).
  *  4. Ejecutar instalarEnvioDiario (deja programado el envío de cada noche).
  */
@@ -32,7 +33,12 @@
 const FIREBASE_API_KEY = 'AIzaSyCpmGl31qLkbXU-OAJyK-thqGYOFnAoa-Y'; // la misma de la agenda (es pública)
 const FIREBASE_PROJECT = 'sibana-santiago';
 const AGENDA_DOC = 'sibana-agenda/santiago';
-const EQUIPO_EMAIL = 'sibana.cl+equipo@gmail.com'; // antes equipo@sibanasantiago.app (cambiado el 04/10/2026)
+// Usuario "sistema" de la agenda: solo puede LEER la agenda de Santiago (rol
+// "lector" en las reglas de Firebase), así que aunque alguien sacara su
+// contraseña de las propiedades de este script, no podría cambiar ni borrar
+// nada. Antes entraba con la cuenta compartida del equipo, que sí podía
+// escribir (y que se va a apagar cuando cada especialista tenga su usuario).
+const EQUIPO_EMAIL = 'juandiego2577+usr.sistema@gmail.com';
 const ZONA = 'America/Santiago';
 const HORA_ENVIO = 20, MINUTO_ENVIO = 30;
 const CARPETA_RAIZ = 'Post-tratamiento';
@@ -170,12 +176,12 @@ function escaparHtml_(s) {
 // ---------------- Leer la agenda (Firestore) ----------------
 function leerCitas_() {
   const clave = PropertiesService.getScriptProperties().getProperty('CLAVE_EQUIPO');
-  if (!clave) throw new Error('Falta la propiedad CLAVE_EQUIPO (contraseña del equipo) en la configuración del proyecto');
+  if (!clave) throw new Error('Falta la propiedad CLAVE_EQUIPO (contraseña del usuario "sistema" de la agenda) en la configuración del proyecto');
   const login = UrlFetchApp.fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=' + FIREBASE_API_KEY, {
     method: 'post', contentType: 'application/json', muteHttpExceptions: true,
     payload: JSON.stringify({email: EQUIPO_EMAIL, password: clave, returnSecureToken: true}),
   });
-  if (login.getResponseCode() !== 200) throw new Error('No se pudo entrar a la agenda (¿contraseña del equipo correcta?): ' + login.getContentText());
+  if (login.getResponseCode() !== 200) throw new Error('No se pudo entrar a la agenda (¿la contraseña del usuario "sistema" en CLAVE_EQUIPO es correcta?): ' + login.getContentText());
   const token = JSON.parse(login.getContentText()).idToken;
   const resp = UrlFetchApp.fetch('https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT + '/databases/(default)/documents/' + AGENDA_DOC, {
     headers: {Authorization: 'Bearer ' + token}, muteHttpExceptions: true,

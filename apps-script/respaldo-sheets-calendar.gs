@@ -57,6 +57,12 @@ var COLOR_GRIS = '8'; // citas canceladas o en que la clienta no llegó
 // de estas, el aviso se ignora. Para la copia de Buenos Aires de este
 // script, cambiar la primera por 'sibana.cl+buenosaires@gmail.com'.
 var CUENTAS_PERMITIDAS = ['sibana.cl+equipo@gmail.com', 'juandiego2577+duenos@gmail.com'];
+// Además se aceptan los usuarios personales activos (cada especialista con
+// su usuario, ver "Equipo" en la agenda) de ESTA sede, y los dueños: el
+// script lee su perfil en Firebase (sibana-usuarios) con el mismo token.
+// Para la copia de Buenos Aires: 'buenosaires'.
+var SEDE_SCRIPT = 'santiago';
+var FIREBASE_PROJECT = 'sibana-santiago';
 var FIREBASE_API_KEY = 'AIzaSyCpmGl31qLkbXU-OAJyK-thqGYOFnAoa-Y'; // la misma de la agenda (es pública)
 
 // ---------------- Prueba (ejecutar a mano) ----------------
@@ -100,25 +106,41 @@ function hojaDeCalculo() {
   return ss;
 }
 
-// De qué cuenta de la agenda viene el aviso (o null si el token no es
-// válido o ya venció). Se recuerda 5 minutos para no preguntarle a Firebase
-// en cada aviso.
+// ¿El aviso viene de alguien de la agenda que puede usar este script?
+// Devuelve {ok, quien}. Una respuesta positiva se recuerda 5 minutos para no
+// preguntarle a Firebase en cada aviso.
 function cuentaDelAviso(token) {
-  if (!token || typeof token !== 'string') return null;
+  if (!token || typeof token !== 'string') return {ok: false, quien: 'sin sesión válida de la agenda'};
   var cache = CacheService.getScriptCache();
   var clave = 'tok_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token));
   var recordada = cache.get(clave);
-  if (recordada) return recordada;
+  if (recordada) return {ok: true, quien: recordada};
   var r = UrlFetchApp.fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + FIREBASE_API_KEY, {
     method: 'post', contentType: 'application/json', muteHttpExceptions: true,
     payload: JSON.stringify({idToken: token}),
   });
-  if (r.getResponseCode() !== 200) return null;
+  if (r.getResponseCode() !== 200) return {ok: false, quien: 'sin sesión válida de la agenda'};
   var u = (JSON.parse(r.getContentText()).users || [])[0];
-  if (!u || !u.email || u.disabled) return null;
+  if (!u || !u.email || u.disabled) return {ok: false, quien: 'sin sesión válida de la agenda'};
   var email = String(u.email).toLowerCase();
-  cache.put(clave, email, 300);
-  return email;
+  var ok = CUENTAS_PERMITIDAS.indexOf(email) >= 0 || usuarioPersonalPermitido(u.localId, token);
+  if (ok) cache.put(clave, email, 300);
+  return {ok: ok, quien: email};
+}
+// Perfil de un usuario personal (sibana-usuarios/<uid>), leído con su propio
+// token: las reglas de Firebase le dejan leer solo el suyo.
+function usuarioPersonalPermitido(uid, token) {
+  if (!uid) return false;
+  var r = UrlFetchApp.fetch('https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT +
+    '/databases/(default)/documents/sibana-usuarios/' + encodeURIComponent(uid), {
+    headers: {Authorization: 'Bearer ' + token}, muteHttpExceptions: true,
+  });
+  if (r.getResponseCode() !== 200) return false;
+  var f = JSON.parse(r.getContentText()).fields || {};
+  var texto = function(k) { return f[k] && f[k].stringValue || ''; };
+  var activo = !!(f.activo && f.activo.booleanValue === true);
+  var rol = texto('rol');
+  return activo && (rol === 'duenos' || (rol === 'especialista' && texto('sede') === SEDE_SCRIPT));
 }
 
 function doPost(e) {
@@ -130,8 +152,8 @@ function doPost(e) {
     return respuesta({ok: false, error: 'Aviso ilegible'});
   }
   var cuenta = cuentaDelAviso(data.token);
-  if (!cuenta || CUENTAS_PERMITIDAS.indexOf(cuenta) < 0) {
-    props.setProperty('ultimoRechazado', ahoraTexto() + ' · ' + (cuenta || 'sin sesión válida de la agenda'));
+  if (!cuenta.ok) {
+    props.setProperty('ultimoRechazado', ahoraTexto() + ' · ' + cuenta.quien);
     return respuesta({ok: false, error: 'No autorizado'});
   }
   // Un aviso a la vez: si llegan dos casi juntos para la misma cita (ej. se

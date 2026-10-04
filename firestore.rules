@@ -5,6 +5,8 @@ rules_version = '2';
 //
 // Qué hacen:
 // - Cada sede solo la puede leer/escribir su propio equipo, más los dueños.
+//   El equipo entra con la cuenta compartida de su sede o con su usuario
+//   personal (sibana-usuarios, ver más abajo).
 //   El equipo de Buenos Aires no puede ver nada de Santiago, ni al revés.
 //   El documento de la agenda nunca se puede borrar entero.
 // - Respaldos diarios ("<sede>_YYYY-MM-DD") y copias de antes de restaurar
@@ -46,11 +48,62 @@ service cloud.firestore {
         correo() == 'juandiego2577+duenos@gmail.com'
         || (sede == 'santiago' && correo() == 'sibana.cl+equipo@gmail.com')
         || (sede == 'buenosaires' && correo() == 'sibana.cl+buenosaires@gmail.com')
+        || usuarioActivoDe(sede)
       );
     }
 
+    // ---------------- Usuarios personales (cada especialista con el suyo) ----------------
+    // Cada persona del equipo tiene su propia cuenta de Firebase Auth y un
+    // documento sibana-usuarios/<uid de su cuenta> con su sede, rol y si está
+    // activa. Solo los dueños crean o cambian esos documentos (desde la agenda,
+    // Más → Equipo). Cualquiera puede crearse una cuenta de Firebase (hace
+    // falta para la sesión anónima de la ficha), pero sin documento aquí no
+    // tiene acceso a nada. Para sacar a alguien: activo = false (no se borra,
+    // queda el registro de quién fue).
+    function tieneUsuario() {
+      return conCuenta()
+        && exists(/databases/$(database)/documents/sibana-usuarios/$(request.auth.uid));
+    }
+    function datosUsuario() {
+      return get(/databases/$(database)/documents/sibana-usuarios/$(request.auth.uid)).data;
+    }
+    function usuarioActivoDe(sede) {
+      return tieneUsuario() && datosUsuario().activo == true
+        && (datosUsuario().rol == 'duenos'
+            || (datosUsuario().rol == 'especialista' && datosUsuario().sede == sede));
+    }
+    // Rol "lector": solo puede LEER la agenda de su sede (no guardar, ni ver
+    // respaldos ni fichas). Es para el script de correos post-tratamiento, que
+    // guarda su contraseña en Google: así, aunque alguien la sacara de ahí, no
+    // podría cambiar ni borrar nada.
+    function lectorDe(sede) {
+      return tieneUsuario() && datosUsuario().activo == true
+        && datosUsuario().rol == 'lector' && datosUsuario().sede == sede;
+    }
+    function esDueno() {
+      return conCuenta() && (
+        correo() == 'juandiego2577+duenos@gmail.com'
+        || (tieneUsuario() && datosUsuario().activo == true && datosUsuario().rol == 'duenos')
+      );
+    }
+    function usuarioValido(d) {
+      return d.keys().hasOnly(['usuario', 'nombre', 'email', 'sede', 'rol', 'activo',
+                               'creadoEn', 'actualizadoEn'])
+        && d.usuario is string && d.usuario.matches('^[a-z0-9]{3,20}$')
+        && d.nombre is string && d.nombre.size() > 0 && d.nombre.size() <= 60
+        && d.email is string && d.email.size() <= 100
+        && d.sede in ['santiago', 'buenosaires']
+        && d.rol in ['especialista', 'duenos', 'lector']
+        && d.activo is bool;
+    }
+    match /sibana-usuarios/{uid} {
+      allow read: if esDueno() || (conCuenta() && request.auth.uid == uid);
+      allow create, update: if esDueno() && usuarioValido(request.resource.data);
+    }
+
     match /sibana-agenda/{sede} {
-      allow read, create, update: if puedeSede(sede);
+      allow read: if puedeSede(sede) || lectorDe(sede);
+      allow create, update: if puedeSede(sede);
     }
 
     // ---------------- Respaldos ----------------

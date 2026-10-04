@@ -27,6 +27,63 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     "📍 Sede" arriba para cambiar (`cambiarSede` guarda la elección en
     `SEDE_DUENOS_KEY` y RECARGA la página, para no arrastrar nada en memoria).
   - Más → "🔑 Entrar con otra contraseña" (`cambiarDeCuenta`) cierra la sesión.
+  - **Usuarios personales (etapa 1 construida el 04/10/2026, a pedido del
+    usuario, "tipo AgendaPro"):** además de las cuentas compartidas, cada
+    especialista puede tener su propio usuario + contraseña. Decidido con él:
+    se entra con usuario corto ("salome") + contraseña (campo "Usuario"
+    opcional en la entrada: vacío = cuentas compartidas, como siempre); los
+    dueños SIGUEN compartiendo su cuenta; la cuenta por dentro es
+    `emailDeUsuario(u)` = `juandiego2577+usr.<u>@gmail.com` (los "olvidé mi
+    contraseña" llegan SOLO al Gmail personal de Juan Diego, así nadie del
+    equipo le cambia la clave a otra). Perfil en `sibana-usuarios/<uid>`
+    ({usuario, nombre, email, sede, rol 'especialista'|'duenos', activo});
+    solo dueños lo crean/cambian (reglas `usuarioValido`), nunca se borra
+    (se desactiva). `puedeSede` de las reglas acepta usuarios activos de esa
+    sede (`usuarioActivoDe`, con `get()` — las cuentas compartidas no gastan
+    esa lectura porque van antes en el `||`). Agenda: `cargarPerfilPersonal`
+    (copia en `USUARIO_PERFIL_KEY` por si no hay señal), `aplicarCuenta(user,
+    perfil)` → `CUENTA.personal/usuario/nombre`; `staffIdentity()` reemplaza
+    a leer `STAFF_IDENTITY_KEY` (con usuario personal es SU nombre, fijo: no
+    hay "¿no eres tú?", y un vale siempre queda a su nombre con
+    `registradoPor`; `pagoMarcadoPor.usuario`). Tocar su nombre arriba abre
+    "Mi cuenta" (cambiar contraseña con reautenticación, Cerrar sesión — por
+    si hay un aparato compartido). Más → "👥 Equipo" (solo dueños, al final
+    del menú): lista de las dos sedes, agregar (elige de las Especialistas
+    de la sede actual para que el nombre cuadre con citas/vales; crea la
+    cuenta con una app secundaria de Firebase para no cerrar la sesión del
+    dueño, y completa un intento a medias), desactivar/reactivar, "🔑
+    Contraseña nueva" (manda el enlace al Gmail de Juan Diego). Un usuario
+    desactivado con la agenda abierta queda afuera apenas cambia algo en la
+    agenda (`permission-denied` → cerrar sesión). Probado en emulador: 29
+    pruebas de reglas + 29 de la agenda real (crear, entrar con
+    tildes/mayúsculas, identidad fija, vale con nombre forzado, Mi cuenta,
+    cerrar sesión, desactivar/reactivar, enlace de contraseña) + las
+    anteriores. **Etapa 2 (construida el 04/10/2026):** (a) script de
+    respaldo: además de `CUENTAS_PERMITIDAS`, acepta usuarios personales
+    activos de `SEDE_SCRIPT` (especialista) y dueños, leyendo
+    `sibana-usuarios/<uid>` por REST con el mismo token
+    (`usuarioPersonalPermitido`; la copia de BA debe poner
+    `SEDE_SCRIPT='buenosaires'`); (b) rol **'lector'** en las reglas
+    (`lectorDe`): solo LEE la agenda de su sede (ni guarda, ni respaldos, ni
+    fichas) — para el script de correos, que ahora entra como el usuario
+    `sistema` (`juandiego2577+usr.sistema@gmail.com`, contraseña en la
+    propiedad `CLAVE_EQUIPO` del script); un lector no puede entrar a la
+    agenda; (c) Panel Sibana (repo sibana-consentimiento): campo "Usuario"
+    (vacío = contraseña del equipo); si el usuario no tiene acceso a las
+    fichas de Santiago lo dice claro. **Bug encontrado y corregido ahí:** la
+    ficha y la agenda están en la MISMA dirección (github.io del usuario),
+    así que COMPARTEN la sesión de Firebase en un navegador: la versión
+    anterior de la ficha cerraba toda sesión que no fuera la del equipo, y
+    eso sacaba de la agenda a los dueños al abrir la ficha (comprobado con
+    la versión publicada). Ahora la ficha nunca cierra la sesión de nadie.
+    Probado: 36 pruebas de reglas de usuarios (incl. lector), simulador del
+    script de respaldo contra los emuladores (12: compartida, dueños,
+    Salomé aceptados; BA, desactivada, sin perfil, lector, anónimo, sin
+    token rechazados), Panel con usuario (7) + todas las anteriores.
+    **Falta (con el usuario):** dar usuarios a las especialistas reales; y
+    al final apagar las cuentas compartidas (primero sacarlas de las reglas,
+    de `CUENTAS_PERMITIDAS` del script y de `CUENTAS`, después borrarlas).
+    Para Buenos Aires: arrancar directo con usuarios.
   - **Correos de las cuentas (cambiado el 04/10/2026, ver "Auditoría de
     seguridad" punto 3):** antes eran correos inventados de dominios que no
     son del usuario (`equipo@sibanasantiago.app`, ...). Contraseñas: nunca

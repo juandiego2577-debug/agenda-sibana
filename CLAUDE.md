@@ -342,11 +342,12 @@ para servir también a **Copiapó**, de la siguiente forma:
      `= + - @` (un teléfono "+56 9…" daba error de fórmula). Probado con un
      simulador de Google (Node) y tokens del Firebase REAL (anónimo, BA,
      inventado y sin token se rechazan) + la agenda real en el emulador
-     (el token va en cada aviso). **Pendiente del usuario:** pegar el script
-     nuevo y publicar una "Nueva versión" de la implementación (misma URL);
-     y ARCHIVAR la implementación del proyecto viejo de su cuenta personal
-     ("Proyecto sin título", …P2E3mNT7c1gw6XA/exec), que sigue aceptando
-     avisos de cualquiera y escribe en el mismo calendario.
+     (el token va en cada aviso). **Hecho por el usuario (04/10/2026):** pegó
+     el script nuevo, publicó la "Nueva versión" y ARCHIVÓ la implementación
+     del proyecto viejo de su cuenta personal ("Proyecto sin título",
+     …P2E3mNT7c1gw6XA/exec). No se pudo comprobar contra el script real desde
+     el entorno de pruebas (script.google.com bloqueado): la prueba es
+     guardar una cita y ver `probar()` ("Último aviso recibido").
   **Pendiente (el usuario lo dejó para después):** (4) los dos repos son
   públicos y `HISTORICAL_IMPORT` tiene nombres/teléfonos de clientas;
   (6) contraseñas largas y cambiarlas cuando alguien se va; (7)

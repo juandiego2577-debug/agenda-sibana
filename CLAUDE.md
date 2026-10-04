@@ -229,7 +229,20 @@ para servir también a **Copiapó**, de la siguiente forma:
    datos") o Buenos Aires aparece "sin crear", un Admin ve un botón para
    abrir los respaldos y restaurar desde ahí (`abrirRescate`). OJO: el
    historial de GitHub guarda el PROGRAMA, no los datos — los datos solo
-   están en Firestore (+ estos respaldos + la Hoja de Google). (El botón manual "Descargar respaldo
+   están en Firestore (+ estos respaldos + la Hoja de Google).
+   **Límite de 1 MiB por documento (cualquier plan de Firebase, pagar NO lo
+   cambia):** toda la agenda de una sede es UN documento (~750 bytes por
+   cita); con ~100 citas/mes en Santiago se llegaría al límite hacia
+   mediados de 2027. Al llegar NO se pierde nada (el guardado falla y
+   avisa), pero la agenda deja de poder guardar. Indicador "💾 Espacio
+   usado: N%" en Más → Respaldos (cada sede el suyo) y aviso automático a
+   Admin al abrir la agenda desde el 80% (`espacioUsado`,
+   `avisoEspacioSiHaceFalta`). Usa la fórmula oficial de Firebase
+   (`firestoreDocSize`) sobre lo que realmente se guarda (agenda y respaldo
+   del día, el más grande), comprobada al byte contra el emulador (acepta
+   1.048.576, rechaza 1.048.577). **Pendiente:** antes de llegar (~70–80%),
+   archivar los meses viejos en documentos aparte (consultables, incluidos
+   en los respaldos). (El botón manual "Descargar respaldo
    completo" y "Exportar CSV del mes" se quitaron a pedido del usuario:
    quedaron redundantes con esto y con la Hoja de Google.)
 2. **Cambiar la cantidad de un servicio (o el checkbox de la crema) en una

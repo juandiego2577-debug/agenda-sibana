@@ -353,8 +353,10 @@ para servir también a **Copiapó**, de la siguiente forma:
      la zona del proyecto (Venezuela), así que difieren 1 h en verano.
   **Pendiente (el usuario lo dejó para después):** (4) los dos repos son
   públicos y `HISTORICAL_IMPORT` tiene nombres/teléfonos de clientas;
-  (6) contraseñas largas y cambiarlas cuando alguien se va; (7)
-  verificación en dos pasos en GitHub y Google. Ojo: el "modo
+  (6) contraseñas largas y cambiarlas cuando alguien se va. **(7) Hecho
+  (04/10/2026):** verificación en dos pasos activada en el Gmail personal
+  de Juan Diego y en sibana.cl (ya estaban) y en GitHub (la activó con app
+  Authenticator); no quiso guardar los códigos alternativos de Google. Ojo: el "modo
   Especialista" es solo visual — la cuenta del equipo puede escribir todo
   el documento de su sede; por eso importan tanto los respaldos protegidos.
 

@@ -212,7 +212,22 @@ para servir también a **Copiapó**, de la siguiente forma:
   propiedades), Hoja y Calendar van por separado, y los errores quedan en
   "Ejecuciones" y en `probar()` (ejecutar a mano: muestra Hoja, calendario,
   último aviso recibido y último error — lo primero que hay que pedir si el
-  Calendar no se actualiza). Abrir Apps
+  Calendar no se actualiza). **Confirmado:** `probar()` creó la Hoja
+  "Respaldo Agenda Sibana — Citas" (Drive de sibana.cl; la Hoja vieja queda
+  como histórico). **Dos problemas más vistos en el Calendar real el mismo
+  día:** (1) "Reenviar todo" mandaba una cita cada 350 ms sin esperar, y el
+  script (de a un aviso, por el `LockService`) no alcanzaba: casi todas se
+  perdían sin aviso → ahora `runFullBackupSync` manda TANDAS de 15
+  (`{lote:[...]}`, `BACKUP_TANDA`) y espera la respuesta de cada una, con
+  avance en pantalla y "Listo" recién al terminar; un guardado normal sigue
+  mandando una cita sola. (2) La versión vieja armaba la hora con la zona
+  del proyecto (Venezuela), así que sus eventos quedaron 1 hora corridos
+  respecto de la hora de Chile y no se juntaban con los nuevos → ahora un
+  evento viejo (sin marca) cuenta como la misma cita si tiene el mismo
+  "Clienta — " y está a menos de 3 h (`MARGEN_VIEJOS_MS`). El calendario de
+  Sibana estaba con zona horaria de Venezuela: para que muestre las horas
+  como la agenda hay que ponerlo en "Hora de Chile - Santiago"
+  (Configuración → General → Zona horaria del calendario). Abrir Apps
   Script desde la Hoja con varias cuentas de Google abiertas da "No se puede
   abrir el archivo" → usar una ventana de incógnito con solo sibana.cl.
 - **Modo Admin / Especialista**: gateado por una contraseña guardada en

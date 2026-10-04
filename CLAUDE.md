@@ -23,34 +23,14 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     `false` vuelve el botón "🔒 Especialista / 🔓 Admin" de antes.
   - `sibana.cl+buenosaires@gmail.com` → Buenos Aires, siempre Especialista,
     sin botón de Admin.
-  - `sibana.cl+duenos@gmail.com` → Juan Diego y su papá: siempre Admin, con un botón
+  - `juandiego2577+duenos@gmail.com` (Gmail PERSONAL de Juan Diego) → Juan Diego y su papá: siempre Admin, con un botón
     "📍 Sede" arriba para cambiar (`cambiarSede` guarda la elección en
     `SEDE_DUENOS_KEY` y RECARGA la página, para no arrastrar nada en memoria).
   - Más → "🔑 Entrar con otra contraseña" (`cambiarDeCuenta`) cierra la sesión.
-  - **⚠️ PENDIENTE DE SEGURIDAD — HACER PRIMERO (decidido con el usuario el
-    04/10/2026):** los tres correos de arriba son inventados, en dominios que
-    NO son del usuario, y aparecen en el código público. Cualquiera puede
-    pedir "restablecer contraseña" (Firebase no permite desactivarlo); quien
-    compre uno de esos dominios recibiría el enlace y entraría (la de dueños
-    puede borrar todo, respaldos incluidos). Se cambian por Gmail del
-    usuario con "+": dueños → Gmail PERSONAL de Juan Diego
-    (`juandiego2577+duenos@gmail.com`, para que nadie del equipo reciba sus
-    restablecimientos), equipo Santiago → `sibana.cl+equipo@gmail.com`,
-    equipo BA → `sibana.cl+buenosaires@gmail.com` (hasta que exista el Gmail
-    de BA) — confirmar con él antes de tocar nada. ORDEN (no saltarlo):
-    1) él crea las 3 cuentas nuevas en Firebase Auth (la consola no deja
-    editar el correo; pueden llevar las mismas contraseñas); 2) agenda
-    (`CUENTAS`), `firestore.rules` (`puedeSede`) y
-    `apps-script/correo-postratamiento.gs` (entra como el equipo de
-    Santiago por REST) aceptan correos viejos Y nuevos por unos días — un
-    correo que no esté en `CUENTAS` cae como equipo de Santiago, así que un
-    teléfono de dueños con sesión vieja quedaría sin Admin; él publica las
-    reglas; 3) re-login en cada teléfono; 4) quitar los correos viejos de
-    las reglas y RECIÉN DESPUÉS borrar las cuentas viejas (si se borra una
-    cuenta cuyo correo sigue en las reglas, cualquiera puede registrarse con
-    ese correo y entrar sin comprar nada); 5) Firebase → Authentication →
-    Configuración → Acciones del usuario → desmarcar "Habilitar creación
-    (registro)". Contraseñas: nunca en el repo.
+  - **Correos de las cuentas (cambiado el 04/10/2026, ver "Auditoría de
+    seguridad" punto 3):** antes eran correos inventados de dominios que no
+    son del usuario (`equipo@sibanasantiago.app`, ...). Contraseñas: nunca
+    en el repo.
   - **Estado (05/10/2026):** las dos cuentas nuevas ya se crearon en
     Firebase Auth (la de dueños se había creado con "ñ" — `dueños@...` — y
     se le pidió rehacerla como `duenos@sibana.app`, que es lo que esperan
@@ -326,20 +306,25 @@ para servir también a **Copiapó**, de la siguiente forma:
      pedir "olvidé mi contraseña" con la API pública, y quien comprara el
      dominio recibía el enlace y se quedaba con la cuenta. Ahora son
      `sibana.cl+equipo@gmail.com`, `sibana.cl+buenosaires@gmail.com` y
-     `sibana.cl+duenos@gmail.com` (Gmail ignora lo que va entre "+" y "@":
-     todo llega a sibana.cl), con las MISMAS contraseñas de antes (las cuentas
-     nuevas se crearon con `accounts:signUp`). Las reglas solo aceptan los
+     `juandiego2577+duenos@gmail.com` (Gmail ignora lo que va entre "+" y
+     "@"). La de dueños va al Gmail PERSONAL de Juan Diego a propósito (lo
+     eligió él): no está seguro de que nadie del equipo pueda abrir
+     sibana.cl, y quien recibe el "olvidé mi contraseña" de dueños puede
+     entrar como Admin a las dos sedes. Mismas contraseñas de antes (las
+     cuentas nuevas se crearon con `accounts:signUp`; también se creó una
+     `sibana.cl+duenos@gmail.com` que quedó sin uso — fuera de las reglas,
+     se puede borrar). **Orden para borrar una cuenta: primero sacar su
+     correo de las reglas, después borrarla** — el registro de cuentas
+     (sign-up) está abierto (hace falta para la sesión anónima de la ficha
+     de consentimiento), así que si se borra una cuenta cuyo correo sigue en
+     las reglas, cualquiera puede volver a crearla con ese correo y entrar. Las reglas solo aceptan los
      correos nuevos; un teléfono con sesión de una cuenta vieja la cierra solo
      y pide la contraseña (`esCuentaConocida`, y `permission-denied` en el
      `onSnapshot` → cerrar sesión y recargar); si la sesión se cierra con la
      agenda abierta, recarga y pide la contraseña. El script de correos usa
      `EQUIPO_EMAIL` nuevo (hay que cambiar esa línea en Google). Las cuentas
      viejas se borran a mano en Firebase Auth.
-  **Pendiente (el usuario lo dejó para después):** (3, ya no) los correos de las
-  cuentas usan dominios (`sibanasantiago.app`, `sibanabuenosaires.app`,
-  `sibana.app`) que quizás nadie compró — si alguien los compra puede usar
-  "olvidé mi contraseña" y quedarse con la cuenta; propuesta: cambiarlos a
-  `sibana.cl+...@gmail.com` o comprar los dominios; (4) los dos repos son
+  **Pendiente (el usuario lo dejó para después):** (4) los dos repos son
   públicos y `HISTORICAL_IMPORT` tiene nombres/teléfonos de clientas;
   (5) el script de respaldo acepta avisos de cualquiera (puede borrar
   eventos/filas) — verificar el token de Firebase en el script;

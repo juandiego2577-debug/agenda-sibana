@@ -847,15 +847,18 @@ const SEDES = {
 // orden. Por eso las tres contraseñas deben ser DISTINTAS entre sí.
 // - equipo: entra a UNA sede, siempre como Especialista.
 // - duenos (Juan Diego y su papá): entran como Admin y pueden cambiar de sede.
-// Los correos son del Gmail de Sibana (lo que va entre "+" y "@" Gmail lo
-// ignora: todo llega a sibana.cl@gmail.com). Antes eran correos inventados
-// (equipo@sibanasantiago.app...) de dominios que no eran de Sibana: si
-// alguien compraba el dominio, podía pedir "olvidé mi contraseña", recibir el
-// enlace y quedarse con la cuenta. Cambiado el 04/10/2026 (mismas contraseñas).
+// Los correos son Gmail de verdad (lo que va entre "+" y "@" Gmail lo
+// ignora): los del equipo llegan a sibana.cl@gmail.com y el de dueños al
+// Gmail PERSONAL de Juan Diego, para que nadie que pueda abrir el correo de
+// Sibana reciba un "olvidé mi contraseña" de la cuenta de dueños. Antes eran
+// correos inventados (equipo@sibanasantiago.app...) de dominios que no eran
+// de Sibana: si alguien compraba el dominio, podía pedir "olvidé mi
+// contraseña", recibir el enlace y quedarse con la cuenta. Cambiado el
+// 04/10/2026 (mismas contraseñas).
 const CUENTAS = [
   {email: 'sibana.cl+equipo@gmail.com', rol: 'equipo', sede: 'santiago'},
   {email: 'sibana.cl+buenosaires@gmail.com', rol: 'equipo', sede: 'buenosaires'},
-  {email: 'sibana.cl+duenos@gmail.com', rol: 'duenos'},
+  {email: 'juandiego2577+duenos@gmail.com', rol: 'duenos'},
 ];
 function esCuentaConocida(user){
   const email = ((user && user.email) || '').toLowerCase();

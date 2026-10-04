@@ -27,6 +27,30 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     "📍 Sede" arriba para cambiar (`cambiarSede` guarda la elección en
     `SEDE_DUENOS_KEY` y RECARGA la página, para no arrastrar nada en memoria).
   - Más → "🔑 Entrar con otra contraseña" (`cambiarDeCuenta`) cierra la sesión.
+  - **⚠️ PENDIENTE DE SEGURIDAD — HACER PRIMERO (decidido con el usuario el
+    04/10/2026):** los tres correos de arriba son inventados, en dominios que
+    NO son del usuario, y aparecen en el código público. Cualquiera puede
+    pedir "restablecer contraseña" (Firebase no permite desactivarlo); quien
+    compre uno de esos dominios recibiría el enlace y entraría (la de dueños
+    puede borrar todo, respaldos incluidos). Se cambian por Gmail del
+    usuario con "+": dueños → Gmail PERSONAL de Juan Diego
+    (`juandiego2577+duenos@gmail.com`, para que nadie del equipo reciba sus
+    restablecimientos), equipo Santiago → `sibana.cl+equipo@gmail.com`,
+    equipo BA → `sibana.cl+buenosaires@gmail.com` (hasta que exista el Gmail
+    de BA) — confirmar con él antes de tocar nada. ORDEN (no saltarlo):
+    1) él crea las 3 cuentas nuevas en Firebase Auth (la consola no deja
+    editar el correo; pueden llevar las mismas contraseñas); 2) agenda
+    (`CUENTAS`), `firestore.rules` (`puedeSede`) y
+    `apps-script/correo-postratamiento.gs` (entra como el equipo de
+    Santiago por REST) aceptan correos viejos Y nuevos por unos días — un
+    correo que no esté en `CUENTAS` cae como equipo de Santiago, así que un
+    teléfono de dueños con sesión vieja quedaría sin Admin; él publica las
+    reglas; 3) re-login en cada teléfono; 4) quitar los correos viejos de
+    las reglas y RECIÉN DESPUÉS borrar las cuentas viejas (si se borra una
+    cuenta cuyo correo sigue en las reglas, cualquiera puede registrarse con
+    ese correo y entrar sin comprar nada); 5) Firebase → Authentication →
+    Configuración → Acciones del usuario → desmarcar "Habilitar creación
+    (registro)". Contraseñas: nunca en el repo.
   - **Estado (05/10/2026):** las dos cuentas nuevas ya se crearon en
     Firebase Auth (la de dueños se había creado con "ñ" — `dueños@...` — y
     se le pidió rehacerla como `duenos@sibana.app`, que es lo que esperan

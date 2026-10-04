@@ -847,11 +847,20 @@ const SEDES = {
 // orden. Por eso las tres contraseñas deben ser DISTINTAS entre sí.
 // - equipo: entra a UNA sede, siempre como Especialista.
 // - duenos (Juan Diego y su papá): entran como Admin y pueden cambiar de sede.
+// Los correos son del Gmail de Sibana (lo que va entre "+" y "@" Gmail lo
+// ignora: todo llega a sibana.cl@gmail.com). Antes eran correos inventados
+// (equipo@sibanasantiago.app...) de dominios que no eran de Sibana: si
+// alguien compraba el dominio, podía pedir "olvidé mi contraseña", recibir el
+// enlace y quedarse con la cuenta. Cambiado el 04/10/2026 (mismas contraseñas).
 const CUENTAS = [
-  {email: 'equipo@sibanasantiago.app', rol: 'equipo', sede: 'santiago'},
-  {email: 'equipo@sibanabuenosaires.app', rol: 'equipo', sede: 'buenosaires'},
-  {email: 'duenos@sibana.app', rol: 'duenos'},
+  {email: 'sibana.cl+equipo@gmail.com', rol: 'equipo', sede: 'santiago'},
+  {email: 'sibana.cl+buenosaires@gmail.com', rol: 'equipo', sede: 'buenosaires'},
+  {email: 'sibana.cl+duenos@gmail.com', rol: 'duenos'},
 ];
+function esCuentaConocida(user){
+  const email = ((user && user.email) || '').toLowerCase();
+  return CUENTAS.some(c=>c.email===email);
+}
 // En true (desde el 04/10/2026, cuando Juan Diego y su papá ya entraban con
 // la cuenta de dueños): la cuenta del equipo de Santiago queda siempre en
 // modo Especialista, sin el botón "🔒 Especialista / 🔓 Admin". En false
@@ -4157,7 +4166,19 @@ function startRealtimeSync(){
   }
   let syncStarted = false;
   firebase.auth().onAuthStateChanged(user=>{
-    if(syncStarted) return;
+    if(syncStarted){
+      // La sesión se cerró sola con la agenda abierta (ej. se borró la cuenta
+      // con la que se había entrado): se recarga para pedir la contraseña.
+      if(!user || user.isAnonymous) reloadFresh();
+      return;
+    }
+    // Un teléfono que había entrado con una cuenta que ya no se usa (las de
+    // los correos viejos): se cierra esa sesión y se pide la contraseña, que
+    // entra con la cuenta nueva.
+    if(user && !user.isAnonymous && !esCuentaConocida(user)){
+      firebase.auth().signOut().catch(err=>console.error(err));
+      return;
+    }
     if(user && !user.isAnonymous){
       syncStarted = true;
       aplicarCuenta(user);
@@ -4354,6 +4375,12 @@ function startFirestoreSync(){
     }
   }, err=>{
     console.error('Error de sincronización', err);
+    // Sin permiso = la cuenta con la que se entró ya no sirve (ej. una de las
+    // cuentas viejas): se cierra la sesión y vuelve a pedir la contraseña.
+    if(err && err.code==='permission-denied'){
+      firebase.auth().signOut().catch(e=>console.error(e)).finally(()=>reloadFresh());
+      return;
+    }
     ui.loaded = true;
     render();
     showAlert('No se pudo conectar con la base de datos compartida (Firebase). Revisa tu conexión a internet o la configuración del proyecto.');

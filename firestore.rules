@@ -31,11 +31,16 @@ service cloud.firestore {
     function correo() {
       return request.auth.token.email;
     }
+    // Las cuentas usan el Gmail de Sibana (desde el 04/10/2026). Las de antes
+    // (equipo@sibanasantiago.app, equipo@sibanabuenosaires.app,
+    // duenos@sibana.app) eran de dominios que no son de Sibana: quien los
+    // comprara podía pedir "olvidé mi contraseña" y quedarse con la cuenta.
+    // Por eso ya no tienen acceso, aunque sigan existiendo.
     function puedeSede(sede) {
       return conCuenta() && (
-        correo() == 'duenos@sibana.app'
-        || (sede == 'santiago' && correo() == 'equipo@sibanasantiago.app')
-        || (sede == 'buenosaires' && correo() == 'equipo@sibanabuenosaires.app')
+        correo() == 'sibana.cl+duenos@gmail.com'
+        || (sede == 'santiago' && correo() == 'sibana.cl+equipo@gmail.com')
+        || (sede == 'buenosaires' && correo() == 'sibana.cl+buenosaires@gmail.com')
       );
     }
 

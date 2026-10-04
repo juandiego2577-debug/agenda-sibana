@@ -874,6 +874,45 @@ function esCuentaConocida(user){
   const email = ((user && user.email) || '').toLowerCase();
   return CUENTAS.some(c=>c.email===email);
 }
+// ---------------- Usuarios personales (oct 2026) ----------------
+// Además de las cuentas compartidas de arriba, cada persona del equipo puede
+// tener su propio usuario y contraseña (como en AgendaPro): así los vales y
+// los "pago marcado por" quedan a nombre de quien de verdad entró, y para
+// sacar a alguien basta desactivar su usuario. Se entra escribiendo el
+// usuario corto ("salome"); por dentro es la cuenta de Firebase
+// emailDeUsuario(usuario). Esos correos van al Gmail PERSONAL de Juan Diego:
+// un "olvidé mi contraseña" de una especialista le llega solo a él (nadie del
+// equipo puede cambiarle la contraseña a otra). Sede, rol, nombre y si está
+// activa viven en sibana-usuarios/<uid> — solo los dueños los cambian (Más →
+// Equipo) y las reglas de Firestore son las que de verdad lo exigen; esto de
+// acá es solo para mostrar la agenda correcta.
+const USUARIOS_COLECCION = 'sibana-usuarios';
+const USUARIO_PERFIL_KEY = 'sibanaUsuarioPerfil'; // copia del perfil, por si se abre sin señal
+function normalizarUsuario(u){
+  return String(u||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+}
+function usuarioEsValido(u){ return /^[a-z0-9]{3,20}$/.test(u); }
+function emailDeUsuario(u){ return 'juandiego2577+usr.' + normalizarUsuario(u) + '@gmail.com'; }
+// Perfil del usuario personal con el que se entró (null si no tiene o está
+// desactivado). Sin señal, usa la última copia guardada en este teléfono.
+function cargarPerfilPersonal(user){
+  return db.collection(USUARIOS_COLECCION).doc(user.uid).get().then(snap=>{
+    const p = snap.exists ? snap.data() : null;
+    if(p && p.activo===true && SEDES[p.sede]){
+      safeSetLocal(USUARIO_PERFIL_KEY, JSON.stringify({uid:user.uid, usuario:p.usuario, nombre:p.nombre, sede:p.sede, rol:p.rol}));
+      return p;
+    }
+    safeRemoveLocal(USUARIO_PERFIL_KEY);
+    return null;
+  }, err=>{
+    if(err && err.code==='permission-denied') return null;
+    try{
+      const c = JSON.parse(safeGetLocal(USUARIO_PERFIL_KEY)||'null');
+      if(c && c.uid===user.uid) return c;
+    }catch(e){}
+    throw err;
+  });
+}
 // En true (desde el 04/10/2026, cuando Juan Diego y su papá ya entraban con
 // la cuenta de dueños): la cuenta del equipo de Santiago queda siempre en
 // modo Especialista, sin el botón "🔒 Especialista / 🔓 Admin". En false
@@ -885,15 +924,18 @@ let SEDE = SEDES.santiago;
 // Decide sede y rol según la cuenta con la que se entró. Una cuenta que no
 // esté en la lista (no debería pasar) se trata como el equipo de Santiago,
 // que es exactamente como funcionaba la agenda antes de las sedes.
-function aplicarCuenta(user){
+function aplicarCuenta(user, perfil){
   const email = ((user && user.email) || '').toLowerCase();
-  const c = CUENTAS.find(x=>x.email===email) || CUENTAS[0];
+  const c = perfil
+    ? {rol: perfil.rol==='duenos' ? 'duenos' : 'equipo', sede: perfil.sede}
+    : (CUENTAS.find(x=>x.email===email) || CUENTAS[0]);
   let sede = c.sede;
   if(c.rol==='duenos'){
     const guardada = safeGetLocal(SEDE_DUENOS_KEY);
-    sede = SEDES[guardada] ? guardada : 'santiago';
+    sede = SEDES[guardada] ? guardada : (SEDES[c.sede] ? c.sede : 'santiago');
   }
   CUENTA = {email, rol: c.rol, sede};
+  if(perfil){ CUENTA.personal = true; CUENTA.usuario = perfil.usuario || ''; CUENTA.nombre = perfil.nombre || ''; }
   SEDE = SEDES[sede];
   DOC_REF = db.collection('sibana-agenda').doc(SEDE.id);
   if(c.rol==='duenos') ui.mode = 'admin';
@@ -3386,16 +3428,27 @@ function checkNewServicesIfNeeded(){
 // queda un recordatorio siempre visible arriba (`staffIdentityBadgeHtml`)
 // para poder elegirla o cambiarla en cualquier momento, sin tener que entrar
 // a Finanzas.
+// Qué especialista está usando la agenda: con un usuario personal es SU
+// nombre (no se puede elegir otro); con la cuenta compartida, el que este
+// teléfono eligió en "¿Quién eres?".
+function staffIdentity(){
+  if(CUENTA && CUENTA.personal) return CUENTA.nombre || '';
+  return safeGetLocal(STAFF_IDENTITY_KEY);
+}
+function noEresTuHtml(){
+  return (CUENTA && CUENTA.personal) ? '' : `— <button type="button" class="linklike" data-act="reset-staff-identity">¿no eres tú?</button>`;
+}
 function checkStaffIdentityIfNeeded(){
   if(ui.mode==='admin') return;
   if(ui.modal) return; // no interrumpir si hay un modal abierto
   if(document.getElementById('custom-dialog')) return; // ya hay un diálogo mostrándose
-  if(safeGetLocal(STAFF_IDENTITY_KEY)) return; // este dispositivo ya se identificó
+  if(staffIdentity()) return; // este dispositivo ya se identificó (o entró con su usuario)
   if(!state.specialists.length) return;
   ui.modal = {type:'staff-identity'};
   render();
 }
 function staffIdentityBadgeHtml(){
+  if(CUENTA && CUENTA.personal) return `<button type="button" class="staff-badge" data-act="open-mi-cuenta">👤 ${escapeHtml(CUENTA.nombre||CUENTA.usuario)}</button>`;
   const identity = safeGetLocal(STAFF_IDENTITY_KEY);
   return identity
     ? `<button type="button" class="staff-badge" data-act="open-staff-identity">👤 ${escapeHtml(identity)}</button>`
@@ -4177,7 +4230,7 @@ function startRealtimeSync(){
     document.getElementById('root').innerHTML = '<div class="loading">No se pudo cargar Firebase (revisa tu conexión a internet o vuelve a intentarlo). Si el problema sigue, avísame.</div>';
     return;
   }
-  let syncStarted = false;
+  let syncStarted = false, revisandoPerfil = false;
   firebase.auth().onAuthStateChanged(user=>{
     if(syncStarted){
       // La sesión se cerró sola con la agenda abierta (ej. se borró la cuenta
@@ -4188,8 +4241,26 @@ function startRealtimeSync(){
     // Un teléfono que había entrado con una cuenta que ya no se usa (las de
     // los correos viejos): se cierra esa sesión y se pide la contraseña, que
     // entra con la cuenta nueva.
+    // Un usuario personal (no está en CUENTAS): se lee su perfil para saber
+    // sede y nombre. Si no tiene perfil o está desactivado, se cierra la sesión.
     if(user && !user.isAnonymous && !esCuentaConocida(user)){
-      firebase.auth().signOut().catch(err=>console.error(err));
+      if(revisandoPerfil) return;
+      revisandoPerfil = true;
+      cargarPerfilPersonal(user).then(perfil=>{
+        revisandoPerfil = false;
+        if(!perfil){
+          avisoLoginGate = 'Ese usuario no está activo. Pídele a Juan Diego que lo revise.';
+          firebase.auth().signOut().catch(err=>console.error(err));
+          return;
+        }
+        syncStarted = true;
+        aplicarCuenta(user, perfil);
+        startFirestoreSync();
+      }).catch(err=>{
+        revisandoPerfil = false;
+        console.error('No se pudo leer el usuario', err);
+        document.getElementById('root').innerHTML = '<div class="loading">No se pudo comprobar tu usuario (¿sin señal?). Revisa tu conexión a internet y <a href="#" onclick="reloadFresh();return false;">vuelve a intentar</a>.</div>';
+      });
       return;
     }
     if(user && !user.isAnonymous){
@@ -4256,8 +4327,9 @@ function showTeamLoginGate(){
     <div class="login-gate">
       <img src="${LOGO_SRC}" alt="Sibana" class="login-gate-logo">
       <h1 class="serif">Agenda Sibana</h1>
-      <p class="hint">Ingresa la contraseña del equipo para entrar.</p>
+      <p class="hint">Escribe tu usuario y tu contraseña para entrar.</p>
       <div class="login-gate-box">
+        <input type="text" id="team-login-user" class="client-search-input" placeholder="Usuario (déjalo vacío si no tienes uno)" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" style="margin-bottom:10px;">
         <div class="pw-field">
           <input type="password" id="team-login-input" class="client-search-input" placeholder="Contraseña" autocomplete="current-password">
           <button type="button" class="pw-toggle" id="team-login-toggle" aria-label="Mostrar contraseña">👁</button>
@@ -4267,8 +4339,10 @@ function showTeamLoginGate(){
       </div>
     </div>`;
   const input = document.getElementById('team-login-input');
+  const userInput = document.getElementById('team-login-user');
   const btn = document.getElementById('team-login-btn');
   const errBox = document.getElementById('team-login-error');
+  if(avisoLoginGate){ errBox.textContent = avisoLoginGate; avisoLoginGate = ''; }
   document.getElementById('team-login-toggle').addEventListener('click', ()=>{
     input.type = input.type==='password' ? 'text' : 'password';
   });
@@ -4285,9 +4359,14 @@ function showTeamLoginGate(){
       if(i >= CUENTAS.length) return Promise.reject(new Error('Ninguna cuenta aceptó la contraseña'));
       return firebase.auth().signInWithEmailAndPassword(CUENTAS[i].email, pass).catch(()=>tryAccount(i+1));
     };
-    tryAccount(0).catch(err=>{
+    // Con usuario: su cuenta personal. Sin usuario: las cuentas compartidas.
+    const usuario = normalizarUsuario(userInput.value);
+    const intento = usuario
+      ? firebase.auth().signInWithEmailAndPassword(emailDeUsuario(usuario), pass)
+      : tryAccount(0);
+    intento.catch(err=>{
       console.error('No se pudo iniciar sesión', err);
-      errBox.textContent = 'Contraseña incorrecta. Intenta de nuevo.';
+      errBox.textContent = usuario ? 'Usuario o contraseña incorrectos. Intenta de nuevo.' : 'Contraseña incorrecta. Intenta de nuevo.';
       btn.disabled = false;
       btn.textContent = 'Entrar';
       input.value = '';
@@ -4296,8 +4375,10 @@ function showTeamLoginGate(){
   };
   btn.addEventListener('click', submit);
   input.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
-  input.focus();
+  userInput.addEventListener('keydown', e=>{ if(e.key==='Enter') input.focus(); });
+  userInput.focus();
 }
+let avisoLoginGate = ''; // mensaje para mostrar en la pantalla de entrada (ej. usuario desactivado)
 
 // Marca una sola vez qué servicios de Santiago son micropigmentación (llevan
 // los $10.000 de descuento antes de la comisión), según lo que dijo Juan
@@ -4936,6 +5017,7 @@ function toolbarHtml(){
             ${SEDE.id==='santiago' ? `<button data-act="open-security">Seguridad</button>` : ''}
             ${(SEDE.descuentoMicro||{}).tipo==='dolar' ? `<button data-act="open-valores-sede">💱 Valor del dólar</button>` : ''}
             <button data-act="cambiar-cuenta">🔑 Entrar con otra contraseña</button>
+            ${esDueno() ? `<button data-act="open-equipo">👥 Equipo (usuarios)</button>` : ''}
           </div>` : ''}
       </div>` : ''}
       ${specChips}
@@ -5316,6 +5398,8 @@ function modalHtml(){
   if(ui.modal.type==='curso-attendee') return cursoAttendeeModalHtml();
   if(ui.modal.type==='vales') return valesModalHtml();
   if(ui.modal.type==='staff-identity') return staffIdentityModalHtml();
+  if(ui.modal.type==='mi-cuenta') return miCuentaModalHtml();
+  if(ui.modal.type==='equipo') return equipoModalHtml();
   if(ui.modal.type==='sede') return sedeModalHtml();
   if(ui.modal.type==='valores-sede') return valoresSedeModalHtml();
   if(ui.modal.type==='appt' && ui.mode!=='admin') return apptViewOnlyHtml(ui.modal.data);
@@ -6118,7 +6202,7 @@ function gotoApptFromSearch(id){
 // Especialista solo ve y anota los suyos propios (identificada igual que en
 // "Mis ganancias", con STAFF_IDENTITY_KEY).
 function blankVale(){
-  const identity = ui.mode!=='admin' ? safeGetLocal(STAFF_IDENTITY_KEY) : '';
+  const identity = ui.mode!=='admin' ? staffIdentity() : '';
   return { id: uid(), specialist: identity || '', date: toKey(new Date()), monto: 0, notas: '' };
 }
 function valesForSpecialist(name){
@@ -6127,7 +6211,7 @@ function valesForSpecialist(name){
 }
 function valesModalHtml(){
   const isAdmin = ui.mode==='admin';
-  const identity = !isAdmin ? safeGetLocal(STAFF_IDENTITY_KEY) : null;
+  const identity = !isAdmin ? staffIdentity() : null;
   if(!isAdmin && !identity){
     return `
     <div class="overlay" data-act="overlay-close">
@@ -6175,7 +6259,7 @@ function valesModalHtml(){
         </tbody>
       </table></div>`}
       <div class="modal-actions">
-        <div>${!isAdmin ? `<button type="button" class="linklike" data-act="reset-staff-identity">¿no eres tú?</button>` : ''}</div>
+        <div>${!isAdmin && !(CUENTA && CUENTA.personal) ? `<button type="button" class="linklike" data-act="reset-staff-identity">¿no eres tú?</button>` : ''}</div>
         <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
       </div>
     </div>
@@ -6183,17 +6267,20 @@ function valesModalHtml(){
 }
 function saveValeFromForm(){
   const specSelect = document.getElementById('f-vale-specialist');
-  const specialist = specSelect ? specSelect.value : '';
+  let specialist = specSelect ? specSelect.value : '';
   const montoInput = document.getElementById('f-vale-monto');
   const monto = Math.max(0, Number(montoInput && montoInput.value) || 0);
   const dateInput = document.getElementById('f-vale-date');
   const date = (dateInput && dateInput.value) || toKey(new Date());
   const notasInput = document.getElementById('f-vale-notas');
   const notas = ((notasInput && notasInput.value) || '').trim();
+  if(ui.mode!=='admin' && CUENTA && CUENTA.personal) specialist = CUENTA.nombre;
   if(!specialist){ showAlert('Elige quién sacó el vale antes de guardar.'); return; }
   if(monto<=0){ showAlert('Ingresa un monto mayor a 0.'); return; }
   if(!state.vales) state.vales = [];
-  state.vales.push({ id: uid(), specialist, date, monto, notas });
+  const vale = { id: uid(), specialist, date, monto, notas };
+  if(CUENTA && CUENTA.personal) vale.registradoPor = CUENTA.usuario;
+  state.vales.push(vale);
   ui.modal = {type:'vales'};
   render();
   saveData();
@@ -6509,7 +6596,7 @@ function payoutWeekSummary(specialist){
 const MIS_GANANCIAS_VISIBLE = false;
 function misGananciasPageHtml(){
   if(!ui.reportsDate) ui.reportsDate = new Date();
-  const identity = safeGetLocal(STAFF_IDENTITY_KEY);
+  const identity = staffIdentity();
   if(!identity){
     return `
       <div class="fin-page">
@@ -6530,7 +6617,7 @@ function misGananciasPageHtml(){
           <div class="curdate">${MONTHS[month][0].toUpperCase()}${MONTHS[month].slice(1)} ${year}</div>
           <button class="arrow" data-act="reports-next-month">›</button>
         </div>
-        <p class="hint" style="margin-top:0;">Hola, <b>${escapeHtml(identity)}</b> — <button type="button" class="linklike" data-act="reset-staff-identity">¿no eres tú?</button></p>
+        <p class="hint" style="margin-top:0;">Hola, <b>${escapeHtml(identity)}</b> ${noEresTuHtml()}</p>
         <div class="empty-msg">Todavía se están terminando de revisar los datos de este mes.<br>"Mis ganancias" va a estar disponible desde <b>${MONTHS[cm-1]} ${cy}</b> en adelante.</div>
       </div>`;
   }
@@ -6543,7 +6630,7 @@ function misGananciasPageHtml(){
         <div class="curdate">${MONTHS[month][0].toUpperCase()}${MONTHS[month].slice(1)} ${year}</div>
         <button class="arrow" data-act="reports-next-month">›</button>
       </div>
-      <p class="hint" style="margin-top:0;">Hola, <b>${escapeHtml(identity)}</b> — <button type="button" class="linklike" data-act="reset-staff-identity">¿no eres tú?</button></p>
+      <p class="hint" style="margin-top:0;">Hola, <b>${escapeHtml(identity)}</b> ${noEresTuHtml()}</p>
       <div class="fin-cards">
         <div class="fin-card"><div class="lbl">Citas del mes</div><div class="val">${mine.citas}</div>${(mine.multi || mine.personas!==mine.citas)?`<div class="hint" style="margin:2px 0 0;">${mine.personas} personas atendidas</div>`:''}</div>
         <div class="fin-card"><div class="lbl">Generaste</div><div class="val">${fmtCLP(mine.ingresos)}</div></div>
@@ -7271,6 +7358,209 @@ Te esperamos ❤️`;
 // vistazo (ej. planificar con quién se cuenta cada semana) sin tener que ir
 // cambiando de vista mes por mes. Los ya pasados no se muestran — para eso
 // ya está el historial de la vista Mes.
+// ---------------- Mi cuenta (usuario personal) ----------------
+// Se abre tocando el nombre de arriba ("👤 Salomé"). Desde acá cada una
+// cambia su contraseña o cierra la sesión (por si alguna vez se usa un
+// teléfono o computador compartido).
+function miCuentaModalHtml(){
+  const c = CUENTA || {};
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">👤 Mi cuenta</h2>
+      <p class="hint">Entraste como <b>${escapeHtml(c.nombre||'')}</b> (usuario: <b>${escapeHtml(c.usuario||'')}</b>). Los vales y los pagos que marques quedan a tu nombre.</p>
+      <div class="field"><label>Cambiar mi contraseña</label>
+        <input type="password" id="f-mc-actual" class="client-search-input" placeholder="Contraseña actual" autocomplete="current-password" style="margin-bottom:8px;">
+        <input type="password" id="f-mc-nueva" class="client-search-input" placeholder="Contraseña nueva (mínimo 8)" autocomplete="new-password" style="margin-bottom:8px;">
+        <input type="password" id="f-mc-repetir" class="client-search-input" placeholder="Repite la contraseña nueva" autocomplete="new-password">
+      </div>
+      <button type="button" class="btn btn-ghost" data-act="mi-cuenta-guardar-clave">🔑 Guardar contraseña nueva</button>
+      <div class="modal-actions">
+        <div><button type="button" class="btn btn-ghost" data-act="mi-cuenta-cerrar-sesion">Cerrar sesión</button></div>
+        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+function cerrarSesionPersonal(){
+  if(ui.saving || pendingSaves.length){
+    showAlert('Espera un momento a que termine de guardarse el último cambio, y vuelve a intentarlo.');
+    return;
+  }
+  showConfirmDialog('¿Cerrar sesión en este dispositivo? Para volver a entrar vas a necesitar tu usuario y tu contraseña.', ()=>{
+    safeRemoveLocal(USUARIO_PERFIL_KEY);
+    firebase.auth().signOut().catch(err=>console.error(err)).finally(()=>reloadFresh());
+  });
+}
+function cambiarMiContrasena(){
+  const val = id=>{ const el = document.getElementById(id); return el ? el.value : ''; };
+  const actual = val('f-mc-actual'), nueva = val('f-mc-nueva'), repetir = val('f-mc-repetir');
+  if(!actual){ showAlert('Escribe tu contraseña actual.'); return; }
+  if(nueva.length < 8){ showAlert('La contraseña nueva tiene que tener al menos 8 caracteres.'); return; }
+  if(nueva !== repetir){ showAlert('Las dos contraseñas nuevas no son iguales. Escríbelas de nuevo.'); return; }
+  if(nueva === actual){ showAlert('La contraseña nueva es igual a la actual.'); return; }
+  const u = firebase.auth().currentUser;
+  if(!u){ showAlert('No hay una sesión abierta. Recarga la página.'); return; }
+  const cred = firebase.auth.EmailAuthProvider.credential(u.email, actual);
+  u.reauthenticateWithCredential(cred)
+    .then(()=>u.updatePassword(nueva))
+    .then(()=>{ ui.modal = null; render(); showAlert('Listo, tu contraseña cambió. La próxima vez que entres en otro dispositivo, usa la nueva.'); })
+    .catch(err=>{
+      console.error('No se pudo cambiar la contraseña', err);
+      const code = err && err.code || '';
+      if(/wrong-password|invalid-credential|invalid-login/.test(code)) showAlert('La contraseña actual no es correcta.');
+      else if(/weak-password/.test(code)) showAlert('Esa contraseña es muy débil. Usa una más larga.');
+      else if(/too-many-requests/.test(code)) showAlert('Demasiados intentos. Espera unos minutos y vuelve a intentar.');
+      else showAlert('No se pudo cambiar la contraseña (¿sin señal?). Vuelve a intentarlo.');
+    });
+}
+
+// ---------------- Equipo: usuarios personales (solo dueños) ----------------
+// Más → 👥 Equipo. Lista a las personas con usuario propio (de las dos
+// sedes), y permite agregar, desactivar/reactivar y mandar el enlace para
+// poner una contraseña nueva (llega al Gmail personal de Juan Diego). Una
+// persona nueva queda en la sede que se está viendo, con un nombre de la
+// lista de Especialistas de esa sede (así cuadra con sus citas y vales).
+function abrirEquipo(){
+  if(!esDueno()) return;
+  ui.modal = {type:'equipo', lista:null, error:''};
+  ui.menuOpen = false;
+  render();
+  cargarEquipo();
+}
+function cargarEquipo(){
+  return db.collection(USUARIOS_COLECCION).get().then(snap=>{
+    if(!ui.modal || ui.modal.type!=='equipo') return;
+    ui.modal.lista = snap.docs.map(d=>Object.assign({uid:d.id}, d.data()))
+      .sort((a,b)=> (a.sede||'').localeCompare(b.sede||'') || (a.nombre||'').localeCompare(b.nombre||''));
+    render();
+  }).catch(err=>{
+    console.error('No se pudo leer el equipo', err);
+    if(!ui.modal || ui.modal.type!=='equipo') return;
+    ui.modal.error = 'No se pudo cargar la lista (¿sin señal, o faltan las reglas nuevas de Firebase?).';
+    render();
+  });
+}
+function sugerirUsuarioEquipo(){
+  const sel = document.getElementById('f-eq-nombre'), inp = document.getElementById('f-eq-usuario');
+  if(sel && inp && !inp.dataset.tocado) inp.value = normalizarUsuario(sel.value).slice(0, 20);
+}
+function equipoModalHtml(){
+  const m = ui.modal;
+  const lista = m.lista || [];
+  const nombresConUsuario = new Set(lista.filter(u=>u.sede===SEDE.id).map(u=>normalizeName(u.nombre)));
+  const disponibles = state.specialists.filter(sp=>!nombresConUsuario.has(normalizeName(sp.name)));
+  const fila = u=>`
+    <div class="curso-row" style="cursor:default;${u.activo?'':'opacity:.6;'}">
+      <div>
+        <div class="cr-name">${escapeHtml(u.nombre||'')} <span class="hint" style="margin:0;">· usuario: <b>${escapeHtml(u.usuario||'')}</b></span></div>
+        <div class="cr-rut">${escapeHtml((SEDES[u.sede]||{}).nombre||u.sede||'')} · ${u.activo?'✅ Activa':'⛔ Desactivada'}</div>
+        <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+          <button type="button" class="btn btn-ghost" style="font-size:12px;" data-act="equipo-activo" data-uid="${escapeHtml(u.uid)}" data-activo="${u.activo?'0':'1'}">${u.activo?'Desactivar':'Reactivar'}</button>
+          ${u.activo?`<button type="button" class="btn btn-ghost" style="font-size:12px;" data-act="equipo-reset-clave" data-uid="${escapeHtml(u.uid)}">🔑 Contraseña nueva</button>`:''}
+        </div>
+      </div>
+    </div>`;
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">👥 Equipo</h2>
+      <div class="hint">Cada persona entra con <b>su propio usuario y contraseña</b>: sus vales y los pagos que marque quedan a su nombre, y si deja de trabajar con ustedes la desactivas acá sin tocar a las demás. Mientras tanto, las contraseñas compartidas siguen funcionando.</div>
+      ${m.error ? `<div class="empty-msg">${escapeHtml(m.error)}</div>` : (m.lista===null ? `<div class="empty-msg">Cargando…</div>` :
+        (lista.length ? lista.map(fila).join('') : `<div class="empty-msg">Todavía nadie tiene usuario propio.</div>`))}
+      <h3 class="serif" style="margin:18px 0 6px;">+ Agregar a alguien de ${escapeHtml(SEDE.nombre)}</h3>
+      ${disponibles.length ? `
+      <div class="field"><label>Especialista</label>
+        <select id="f-eq-nombre" onchange="sugerirUsuarioEquipo()">
+          <option value="">— Elige quién —</option>
+          ${disponibles.map(sp=>`<option value="${escapeHtml(sp.name)}">${escapeHtml(sp.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Usuario (corto, solo letras y números, sin espacios)</label>
+        <input type="text" id="f-eq-usuario" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" oninput="this.dataset.tocado='1'">
+      </div>
+      <div class="field"><label>Contraseña inicial (mínimo 8; ella la puede cambiar después)</label>
+        <input type="text" id="f-eq-clave" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+      </div>
+      <button type="button" class="btn btn-primary" data-act="equipo-crear">Crear usuario</button>
+      ` : `<div class="hint">Todas las especialistas de ${escapeHtml(SEDE.nombre)} ya tienen usuario. Para agregar a alguien nuevo, primero súmala en Más → Especialistas${Object.keys(SEDES).length>1?'; para otra sede, cámbiate a esa sede con 📍 Sede':''}.</div>`}
+      <div class="modal-actions">
+        <div></div>
+        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+// Crea la cuenta con una segunda "app" de Firebase, para no cerrar la sesión
+// del dueño que la está creando, y después guarda su perfil.
+function appSecundariaUsuarios(){
+  return firebase.apps.find(a=>a.name==='crear-usuario') || firebase.initializeApp(FIREBASE_CONFIG, 'crear-usuario');
+}
+async function crearUsuarioPersonal(usuario, nombre, clave){
+  const email = emailDeUsuario(usuario);
+  const auth2 = appSecundariaUsuarios().auth();
+  try{ await auth2.setPersistence(firebase.auth.Auth.Persistence.NONE); }catch(e){}
+  let uidNuevo;
+  try{
+    uidNuevo = (await auth2.createUserWithEmailAndPassword(email, clave)).user.uid;
+  }catch(err){
+    if(!(err && err.code==='auth/email-already-in-use')) throw err;
+    // La cuenta ya existe: si es de un intento anterior que quedó a medias
+    // (se creó la cuenta pero no el perfil) y la contraseña coincide, se
+    // completa; si no, ese usuario ya está tomado.
+    try{ uidNuevo = (await auth2.signInWithEmailAndPassword(email, clave)).user.uid; }
+    catch(e){ throw Object.assign(new Error('usuario tomado'), {sibana:'tomado'}); }
+    const ya = await db.collection(USUARIOS_COLECCION).doc(uidNuevo).get();
+    if(ya.exists){ await auth2.signOut().catch(()=>{}); throw Object.assign(new Error('usuario tomado'), {sibana:'tomado'}); }
+  }
+  await auth2.signOut().catch(()=>{});
+  await db.collection(USUARIOS_COLECCION).doc(uidNuevo).set({
+    usuario, nombre, email, sede: SEDE.id, rol: 'especialista', activo: true,
+    creadoEn: firebase.firestore.FieldValue.serverTimestamp(),
+  });
+  return uidNuevo;
+}
+function crearUsuarioDesdeForm(){
+  const val = id=>{ const el = document.getElementById(id); return el ? el.value : ''; };
+  const nombre = val('f-eq-nombre');
+  const usuario = normalizarUsuario(val('f-eq-usuario'));
+  const clave = val('f-eq-clave');
+  if(!nombre){ showAlert('Elige la especialista.'); return; }
+  if(!usuarioEsValido(usuario)){ showAlert('El usuario tiene que tener entre 3 y 20 letras o números, sin espacios (ej. "salome").'); return; }
+  if((ui.modal.lista||[]).some(u=>u.usuario===usuario)){ showAlert('Ese usuario ya existe. Elige otro.'); return; }
+  if(clave.length < 8){ showAlert('La contraseña inicial tiene que tener al menos 8 caracteres.'); return; }
+  const btn = document.querySelector('[data-act="equipo-crear"]');
+  if(btn){ btn.disabled = true; btn.textContent = 'Creando…'; }
+  crearUsuarioPersonal(usuario, nombre, clave).then(()=>{
+    showAlert(`Listo. Dale a ${nombre} su usuario «${usuario}» y la contraseña que escribiste. Ella la puede cambiar después tocando su nombre arriba → "Mi cuenta".`);
+    cargarEquipo();
+  }).catch(err=>{
+    console.error('No se pudo crear el usuario', err);
+    if(btn){ btn.disabled = false; btn.textContent = 'Crear usuario'; }
+    if(err && err.sibana==='tomado') showAlert('Ese usuario ya está tomado. Elige otro.');
+    else if(err && /weak-password/.test(err.code||'')) showAlert('Esa contraseña es muy débil. Usa una más larga.');
+    else showAlert('No se pudo crear el usuario (¿sin señal?). Vuelve a intentarlo.');
+  });
+}
+function cambiarActivoUsuario(uidUsuario, activo){
+  const u = ((ui.modal && ui.modal.lista) || []).find(x=>x.uid===uidUsuario);
+  if(!u) return;
+  const hacer = ()=>db.collection(USUARIOS_COLECCION).doc(uidUsuario).update({
+    activo, actualizadoEn: firebase.firestore.FieldValue.serverTimestamp(),
+  }).then(cargarEquipo).catch(err=>{ console.error(err); showAlert('No se pudo guardar el cambio (¿sin señal?).'); });
+  if(activo) hacer();
+  else showConfirmDialog(`¿Desactivar a ${u.nombre}? Deja de poder entrar a la agenda en todos sus dispositivos (sus citas, vales y pagos anteriores no se tocan). La puedes reactivar cuando quieras.`, hacer);
+}
+function restablecerClaveUsuario(uidUsuario){
+  const u = ((ui.modal && ui.modal.lista) || []).find(x=>x.uid===uidUsuario);
+  if(!u) return;
+  showConfirmDialog(`Se va a mandar a tu Gmail personal un enlace para ponerle una contraseña nueva a ${u.nombre} (usuario ${u.usuario}). Lo abres, escribes la contraseña nueva y se la das a ella. ¿Mandarlo?`, ()=>{
+    firebase.auth().sendPasswordResetEmail(u.email)
+      .then(()=>showAlert('Listo, revisa tu Gmail personal (puede tardar un par de minutos; mira también en "Spam").'))
+      .catch(err=>{ console.error(err); showAlert('No se pudo mandar el enlace (¿sin señal?). Vuelve a intentarlo.'); });
+  });
+}
+
 function blocksListModalHtml(){
   const todayKey = toKey(new Date());
   const list = (state.blocks||[]).filter(b=>blockLastDate(b)>=todayKey)
@@ -8158,7 +8448,8 @@ function onAction(e){
       // tiene ninguno, se deja vacío en vez de suponer que fue la especialista
       // de la cita (antes se suponía, y confundía: una prueba hecha por otra
       // persona aparecía como si la hubiera hecho ella).
-      appt.pagoMarcadoPor = { nombre: safeGetLocal(STAFF_IDENTITY_KEY) || '', en: new Date().toISOString() };
+      appt.pagoMarcadoPor = { nombre: staffIdentity() || '', en: new Date().toISOString() };
+      if(CUENTA && CUENTA.personal) appt.pagoMarcadoPor.usuario = CUENTA.usuario;
       ui.modal = null;
       render();
       // Se avisa recién cuando la base de datos confirma que lo recibió (si
@@ -8356,6 +8647,7 @@ function onAction(e){
     case 'reports-next-month':
       ui.reportsDate = addMonths(ui.reportsDate||new Date(), 1); render(); break;
     case 'set-staff-identity': {
+      if(CUENTA && CUENTA.personal) break;
       safeSetLocal(STAFF_IDENTITY_KEY, e.currentTarget.dataset.name);
       const wasIdentity = ui.modal && ui.modal.type==='staff-identity';
       if(wasIdentity) ui.modal = null;
@@ -8364,11 +8656,26 @@ function onAction(e){
       break;
     }
     case 'reset-staff-identity':
+      if(CUENTA && CUENTA.personal) break;
       safeRemoveLocal(STAFF_IDENTITY_KEY);
       render(); break;
     case 'open-staff-identity':
-      ui.modal = {type:'staff-identity'};
+      ui.modal = {type: (CUENTA && CUENTA.personal) ? 'mi-cuenta' : 'staff-identity'};
       render(); break;
+    case 'open-mi-cuenta':
+      ui.modal = {type:'mi-cuenta'}; ui.menuOpen = false; render(); break;
+    case 'mi-cuenta-cerrar-sesion':
+      cerrarSesionPersonal(); break;
+    case 'mi-cuenta-guardar-clave':
+      cambiarMiContrasena(); break;
+    case 'open-equipo':
+      abrirEquipo(); break;
+    case 'equipo-crear':
+      crearUsuarioDesdeForm(); break;
+    case 'equipo-activo':
+      cambiarActivoUsuario(e.currentTarget.dataset.uid, e.currentTarget.dataset.activo==='1'); break;
+    case 'equipo-reset-clave':
+      restablecerClaveUsuario(e.currentTarget.dataset.uid); break;
     case 'save-comision-pct': {
       const input = document.getElementById('f-comision-pct');
       const pct = Math.max(0, Math.min(100, Number(input && input.value) || 0));

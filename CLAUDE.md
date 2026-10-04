@@ -35,8 +35,10 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     PUBLICADAS en Firebase (reemplazaron a las anteriores, que dejaban a
     cualquier cuenta no anónima leer/escribir todo con `/{document=**}`).
     Las contraseñas NO se guardan en el repo. La agenda nueva se publicó el
-    04/10/2026 (PR #72). `respaldo/` (copia de la versión anterior, con
-    `APP_VERSION = 5`) se borra cuando el usuario confirme que todo funciona.
+    04/10/2026 (PR #72). Para volver a la versión anterior del PROGRAMA basta
+    el historial de git (commit 5c2e8d4), pero OJO: hay que subirle
+    `APP_VERSION` a 5 o más, porque la base ya quedó marcada con 4 y una
+    versión con 3 se negaría a guardar.
 - **Todo lo que cambia por país vive en `SEDES`** (zona horaria, código de
   teléfono +54 con su formato de WhatsApp `waPhoneDigitsArgentina`,
   RUT/DNI, colección de consentimientos, URL del script de respaldo, link de
@@ -212,9 +214,22 @@ para servir también a **Copiapó**, de la siguiente forma:
    que se borraron a propósito (`countMissingSyncedAppts` vs. el último
    snapshot; "Eliminar cliente" pasa `saveData({allowRemoved:n})`).
    Además hay un **respaldo automático diario** en la colección
-   `sibana-agenda-respaldos` (doc `santiago_YYYY-MM-DD`, nunca se
-   sobrescribe, se guardan 60 días, índice en `santiago_indice`) — se ve y
-   descarga desde Más → "Respaldos". (El botón manual "Descargar respaldo
+   `sibana-agenda-respaldos` (doc `<sede>_YYYY-MM-DD`, nunca se
+   sobrescribe, se guardan 60 días, índice en `<sede>_indice`) — se ve y
+   descarga desde Más → "Respaldos". Su contenido se arma desde `DOC_KEYS`
+   (`fullBackupPayload`): antes se escribía a mano y los CURSOS no se
+   respaldaban (corregido 04/10/2026). **Restaurar** (oct 2026, pedido del
+   usuario): botón "↩️ Restaurar" en cada respaldo (solo Admin, dos
+   confirmaciones, `restaurarRespaldo`/`ejecutarRestauracion`); en la misma
+   transacción guarda antes una copia de lo actual
+   (`<sede>_antes-restaurar-<fecha ISO>`, listada aparte en Respaldos vía
+   `<sede>_indice.antesDeRestaurar`) para poder deshacerlo; lo que un
+   respaldo viejo no tenga se deja como está; después recarga la página. Si
+   la agenda no puede leer sus datos (pantalla "No se pudo leer la base de
+   datos") o Buenos Aires aparece "sin crear", un Admin ve un botón para
+   abrir los respaldos y restaurar desde ahí (`abrirRescate`). OJO: el
+   historial de GitHub guarda el PROGRAMA, no los datos — los datos solo
+   están en Firestore (+ estos respaldos + la Hoja de Google). (El botón manual "Descargar respaldo
    completo" y "Exportar CSV del mes" se quitaron a pedido del usuario:
    quedaron redundantes con esto y con la Hoja de Google.)
 2. **Cambiar la cantidad de un servicio (o el checkbox de la crema) en una

@@ -4307,7 +4307,9 @@ function startFirestoreSync(){
       // Una sede nueva (Buenos Aires) arranca sin documento: solo un dueño
       // puede crearlo, y solo tocando el botón a propósito — nunca solo.
       if(SEDE.id!=='santiago'){ document.getElementById('root').innerHTML = sedeSinCrearHtml(); return; }
-      document.getElementById('root').innerHTML = '<div class="loading">⚠️ No se pudo leer la base de datos (o aparenta estar vacía). Por seguridad, la agenda no va a guardar ni sobrescribir nada mientras esto pase — no agendes nada aquí y avísale a Juan Diego antes de seguir. Prueba recargando la página o revisando tu conexión a internet.</div>';
+      document.getElementById('root').innerHTML = '<div class="loading">⚠️ No se pudo leer la base de datos (o aparenta estar vacía). Por seguridad, la agenda no va a guardar ni sobrescribir nada mientras esto pase — no agendes nada aquí y avísale a Juan Diego antes de seguir. Prueba recargando la página o revisando tu conexión a internet.'
+        + (ui.mode==='admin' ? '<br><br>Si de verdad se perdieron los datos, puedes recuperarlos desde un respaldo:<br><button class="btn btn-ghost" style="margin-top:10px;" onclick="abrirRescate()">🗓️ Ver respaldos para restaurar</button>' : '')
+        + '</div>';
     }
   }, err=>{
     console.error('Error de sincronización', err);
@@ -4331,6 +4333,7 @@ function sedeSinCrearHtml(){
         <div id="crear-sede-error" class="login-gate-error"></div>
         <button class="btn btn-primary" id="crear-sede-btn" style="width:100%;" onclick="crearAgendaSede()">Crear la agenda de ${escapeHtml(SEDE.nombre)}</button>
         <button class="btn btn-ghost" style="width:100%;margin-top:10px;" onclick="cambiarSede('santiago')">Volver a Santiago</button>
+        <button class="btn btn-ghost" style="width:100%;margin-top:10px;font-size:12.5px;" onclick="abrirRescate()">¿Ya existía y se borró? Recuperarla desde un respaldo</button>
       </div>
     </div>`;
 }
@@ -7353,22 +7356,12 @@ function reviewsModalHtml(){
 // Copia completa de TODOS los datos (citas, servicios, especialistas, clientes,
 // bloqueos, gastos y configuración) — es lo que guarda el respaldo automático
 // diario, y lo que se descarga desde Más → Respaldos.
+// Se arma a partir de DOC_KEYS (todo lo que guarda la agenda), así nunca
+// falta nada: antes la lista se escribía a mano y los cursos quedaban fuera.
 function fullBackupPayload(){
-  return {
-    respaldoDe: 'Sibana ' + SEDE.nombre,
-    fecha: new Date().toISOString(),
-    appointments: state.appointments,
-    services: state.services,
-    specialists: state.specialists,
-    clients: state.clients,
-    blocks: state.blocks,
-    expenses: state.expenses,
-    recurringExpenses: state.recurringExpenses,
-    recurringIncomes: state.recurringIncomes,
-    stockItems: state.stockItems,
-    vales: state.vales,
-    settings: state.settings,
-  };
+  const out = { respaldoDe: 'Sibana ' + SEDE.nombre, fecha: new Date().toISOString() };
+  DOC_KEYS.forEach(k=>{ out[k] = state[k]; });
+  return out;
 }
 function downloadBackupFile(payload, dateKey){
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
@@ -7437,6 +7430,7 @@ async function loadAutoBackupList(){
     const snap = await db.collection(AUTO_BACKUP_COLLECTION).doc(`${autoBackupSite()}_indice`).get();
     const fechas = (snap.exists && snap.data().fechas) || [];
     ui.modal.list = fechas.slice().sort().reverse();
+    ui.modal.antes = ((snap.exists && snap.data().antesDeRestaurar) || []).slice().sort().reverse();
   }catch(e){
     console.error(e);
     ui.modal.error = 'No se pudo leer la lista de respaldos automáticos (' + (e.code||e.message||'error') + ').';
@@ -7454,6 +7448,107 @@ async function downloadAutoBackup(dateKey){
     showAlert('No se pudo descargar ese respaldo. Revisa tu conexión e inténtalo de nuevo.');
   }
 }
+// Copias que se guardaron solas justo antes de cada restauración (para poder
+// deshacerla): se listan aparte, con su fecha y hora.
+function antesDeRestaurarHtml(list){
+  if(!(list||[]).length) return '';
+  return `<h3 class="fin-sub" style="margin-top:16px;">Copias guardadas antes de restaurar</h3>` + list.map(k=>{
+    const m = /antes-restaurar-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})/.exec(k);
+    const etiqueta = m ? `antes de restaurar, ${Number(m[3])}/${Number(m[2])}/${m[1]} ${m[4]}:${m[5]} (hora UTC)` : k;
+    return `<div class="ns-item"><div><div class="ns-name">${escapeHtml(etiqueta)}</div></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+        <button class="btn btn-ghost" style="font-size:12.5px;" data-act="download-autobackup" data-date="${k}">💾 Descargar</button>
+        <button class="btn btn-ghost" style="font-size:12.5px;" data-act="restore-autobackup" data-date="${k}" data-label="${escapeHtml(etiqueta)}">↩️ Restaurar</button>
+      </div></div>`;
+  }).join('');
+}
+// ---------------- Restaurar un respaldo ----------------
+// Vuelve la agenda de la sede a como estaba en un respaldo. Es delicado, así
+// que: solo Admin, dos confirmaciones, y ANTES se guarda sola una copia de
+// cómo está ahora (en la misma transacción), que aparece en Respaldos para
+// poder deshacer la restauración. Lo que el respaldo no tenga (ej. los cursos
+// en respaldos viejos) se deja como está ahora. Después se recarga la página.
+function restaurarRespaldo(key, etiqueta){
+  if(ui.mode!=='admin' || !key) return;
+  if(ui.saving || pendingSaves.length){ showAlert('Espera un momento a que termine de guardarse el último cambio, y vuelve a intentarlo.'); return; }
+  showConfirmDialog(`¿Volver la agenda de ${SEDE.nombre} a como estaba en el respaldo del ${etiqueta || key}? Todo lo que se haya hecho DESPUÉS de ese respaldo (citas nuevas, pagos marcados, cambios) va a desaparecer de la agenda. Antes se va a guardar una copia de cómo está ahora, por si te arrepientes.`, ()=>{
+    setTimeout(()=>showConfirmDialog('Última confirmación: ¿restaurar ahora? Avísale al equipo que recargue la agenda después.', ()=>{ ejecutarRestauracion(key); }), 50);
+  });
+}
+async function ejecutarRestauracion(key){
+  if(!db || !DOC_REF) return;
+  const site = autoBackupSite();
+  const col = db.collection(AUTO_BACKUP_COLLECTION);
+  const root = document.getElementById('root');
+  try{
+    const bsnap = await col.doc(`${site}_${key}`).get();
+    const respaldo = bsnap.exists ? bsnap.data().data : null;
+    if(!respaldo || !Array.isArray(respaldo.appointments)){ showAlert('No se encontró ese respaldo (o está incompleto). No se cambió nada.'); return; }
+    const copiaId = 'antes-restaurar-' + new Date().toISOString().replace(/[:.]/g, '-');
+    let habiaDatos = false;
+    await db.runTransaction(async tx=>{
+      const snap = await tx.get(DOC_REF);
+      const actual = snap.exists ? snap.data() : null;
+      if(actual && Number(actual.appVersion||0) > APP_VERSION) throw Object.assign(new Error('Versión vieja'), {sibana:'outdated'});
+      const nuevo = {};
+      DOC_KEYS.forEach(k=>{
+        if(respaldo[k]!==undefined) nuevo[k] = respaldo[k];
+        else if(actual && actual[k]!==undefined) nuevo[k] = actual[k];
+      });
+      nuevo.appVersion = APP_VERSION;
+      nuevo.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+      habiaDatos = !!actual;
+      if(actual){
+        tx.set(col.doc(`${site}_${copiaId}`), {
+          site, fecha: toKey(new Date()), tipo: 'antes-de-restaurar', restauradoDesde: key,
+          citas: (actual.appointments||[]).length,
+          creado: firebase.firestore.FieldValue.serverTimestamp(),
+          data: actual,
+        });
+      }
+      tx.set(DOC_REF, nuevo);
+    });
+    if(habiaDatos){
+      await col.doc(`${site}_indice`).set({ antesDeRestaurar: firebase.firestore.FieldValue.arrayUnion(copiaId) }, {merge:true}).catch(err=>console.error(err));
+    }
+    if(root) root.innerHTML = loadingScreenHtml('Listo, se restauró el respaldo. Recargando…');
+    setTimeout(reloadFresh, 1200);
+  }catch(e){
+    console.error('No se pudo restaurar el respaldo', e);
+    if(e && e.sibana==='outdated'){ appOutdated = true; renderSyncBanner(); showAlert('Hay una versión nueva de la agenda. Recarga la página y vuelve a intentarlo. No se cambió nada.'); return; }
+    showAlert('❌ No se pudo restaurar (revisa tu conexión a internet). No se cambió nada.');
+  }
+}
+// Pantalla de rescate: si la agenda no puede leer sus datos (o no existen),
+// un Admin igual puede ver los respaldos y restaurar uno desde ahí.
+async function abrirRescate(){
+  const root = document.getElementById('root');
+  if(!root) return;
+  root.innerHTML = loadingScreenHtml('Buscando respaldos…');
+  let fechas = [], antes = [];
+  try{
+    const snap = await db.collection(AUTO_BACKUP_COLLECTION).doc(`${autoBackupSite()}_indice`).get();
+    fechas = ((snap.exists && snap.data().fechas) || []).slice().sort().reverse();
+    antes = ((snap.exists && snap.data().antesDeRestaurar) || []).slice().sort().reverse();
+  }catch(e){
+    root.innerHTML = '<div class="loading">No se pudo leer la lista de respaldos (' + escapeHtml(e.code||e.message||'error') + '). Revisa la conexión y recarga la página.</div>';
+    return;
+  }
+  const fila = (k, etiqueta)=>`<div class="ns-item"><div><div class="ns-name">${escapeHtml(etiqueta)}</div></div>
+    <button class="btn btn-ghost" style="font-size:12.5px;" onclick="restaurarRespaldo('${k}', '${escapeHtml(etiqueta)}')">↩️ Restaurar</button></div>`;
+  root.innerHTML = `
+    <div class="login-gate">
+      <img src="${LOGO_SRC}" alt="Sibana" class="login-gate-logo">
+      <h1 class="serif">Respaldos de ${escapeHtml(SEDE.nombre)}</h1>
+      <p class="hint">Elige el respaldo a restaurar. Antes se guarda sola una copia de lo que haya ahora.</p>
+      <div class="login-gate-box" style="max-width:520px;width:100%;">
+        ${fechas.length ? fechas.map(k=>{ const d = parseKey(k); return fila(k, `${DAY_NAMES[d.getDay()]} ${d.getDate()} de ${MONTHS[d.getMonth()]} ${d.getFullYear()}`); }).join('') : '<div class="empty-msg">No hay respaldos de esta sede.</div>'}
+        ${antes.map(k=>fila(k, 'Copia de antes de restaurar (' + k.replace('antes-restaurar-','').slice(0,16).replace('T',' ') + ' UTC)')).join('')}
+        <button class="btn btn-ghost" style="width:100%;margin-top:12px;" onclick="reloadFresh()">Volver</button>
+      </div>
+    </div>`;
+}
+
 function autoBackupsModalHtml(){
   const m = ui.modal;
   const body = m.loading ? '<div class="hint">Cargando…</div>'
@@ -7461,14 +7556,19 @@ function autoBackupsModalHtml(){
     : !(m.list||[]).length ? '<div class="empty-msg">Todavía no hay respaldos automáticos. El primero se crea solo apenas alguien abra la agenda.</div>'
     : m.list.map(k=>{
         const d = parseKey(k);
-        return `<div class="ns-item"><div><div class="ns-name">${DAY_NAMES[d.getDay()]} ${d.getDate()} de ${MONTHS[d.getMonth()]} ${d.getFullYear()}</div></div>
-          <button class="btn btn-ghost" style="font-size:12.5px;" data-act="download-autobackup" data-date="${k}">💾 Descargar</button></div>`;
-      }).join('');
+        const etiqueta = `${DAY_NAMES[d.getDay()]} ${d.getDate()} de ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+        return `<div class="ns-item"><div><div class="ns-name">${etiqueta}</div></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+            <button class="btn btn-ghost" style="font-size:12.5px;" data-act="download-autobackup" data-date="${k}">💾 Descargar</button>
+            <button class="btn btn-ghost" style="font-size:12.5px;" data-act="restore-autobackup" data-date="${k}" data-label="${escapeHtml(etiqueta)}">↩️ Restaurar</button>
+          </div></div>`;
+      }).join('') + antesDeRestaurarHtml(m.antes);
   return `
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
       <h2 class="serif">Respaldos</h2>
       <p class="hint">Cada día, la primera vez que alguien abre la agenda, se guarda sola una copia completa de todos los datos. Se guardan los últimos ${AUTO_BACKUP_KEEP_DAYS} días. Si algún día se pierde algo, con estas copias se puede recuperar.</p>
+      <p class="hint"><b>↩️ Restaurar</b> vuelve la agenda de ${escapeHtml(SEDE.nombre)} a como estaba ese día (lo hecho después se pierde de la agenda). Antes de restaurar se guarda sola una copia de cómo está ahora, por si te arrepientes.</p>
       ${body}
       <p class="hint" style="margin:18px 0 8px;">Cada cita también se copia sola a la Hoja de Google y a Google Calendar. Si alguna no aparece allá (por ejemplo, porque justo falló internet), esto las vuelve a mandar todas — nunca duplica nada.</p>
       <button type="button" class="btn btn-ghost" style="font-size:12.5px;" data-act="sync-all-backup">☁️ Reenviar todo a Sheets/Calendar</button>
@@ -7712,7 +7812,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-specialists','add-specialist','remove-specialist','save-specialists',
   'open-schedule','toggle-day-closed','save-schedule',
   'open-clients','toggle-client','delete-client',
-  'open-noshows','open-autobackups','download-autobackup','sync-all-backup','open-security','save-security','forget-device','open-blocks-list','open-touchups',
+  'open-noshows','open-autobackups','download-autobackup','restore-autobackup','sync-all-backup','open-security','save-security','forget-device','open-blocks-list','open-touchups',
   'copy-touchup-msg','mark-touchup-avisado',
   'open-reviews','copy-checkin-msg','copy-review-msg','toggle-review-avisado',
   'finance-tab','save-comision-pct','save-mis-ganancias-desde',
@@ -8041,6 +8141,8 @@ function onAction(e){
       break;
     case 'download-autobackup':
       downloadAutoBackup(e.currentTarget.dataset.date); break;
+    case 'restore-autobackup':
+      restaurarRespaldo(e.currentTarget.dataset.date, e.currentTarget.dataset.label); break;
     case 'sync-all-backup':
       runFullBackupSync(); break;
     case 'undo-last-change':

@@ -34,8 +34,9 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     la agenda y las reglas) y las reglas de `firestore.rules` YA ESTÁN
     PUBLICADAS en Firebase (reemplazaron a las anteriores, que dejaban a
     cualquier cuenta no anónima leer/escribir todo con `/{document=**}`).
-    Las contraseñas NO se guardan en el repo. La agenda nueva todavía no
-    estaba publicada en GitHub Pages en ese momento.
+    Las contraseñas NO se guardan en el repo. La agenda nueva se publicó el
+    04/10/2026 (PR #72). `respaldo/` (copia de la versión anterior, con
+    `APP_VERSION = 5`) se borra cuando el usuario confirme que todo funciona.
 - **Todo lo que cambia por país vive en `SEDES`** (zona horaria, código de
   teléfono +54 con su formato de WhatsApp `waPhoneDigitsArgentina`,
   RUT/DNI, colección de consentimientos, URL del script de respaldo, link de
@@ -103,6 +104,13 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
   de Santiago; "Confirmada" queda amarilla (sol) para no confundirse con el
   celeste. Un color NUEVO que se agregue al CSS debe sumarse a esos
   reemplazos (y los gráficos SVG usan `style="fill:var(--...)"` por eso).
+  **Bug real al publicar (04/10/2026):** en el computador de Juan Diego
+  Buenos Aires se veía con los colores de Santiago — la primera versión
+  tomaba "la primera `<style>` del `<head>`", y si el navegador o una
+  extensión mete la suya antes, se cambiaban los colores de esa y no los de
+  la agenda. Ahora `aplicarTemaSede` busca la hoja de la agenda por su
+  contenido (`--wine:`) y agrega la versión de la sede como una hoja NUEVA
+  al final (`#tema-sede`).
 - **Mensajes a clientas con "vos" en Buenos Aires** (`SEDE.voseo`):
   retoques ("¿Querés agendar tu turno?"), "cómo te fue" y reseña. Los textos
   de la propia agenda (para el equipo) siguen con "tú".

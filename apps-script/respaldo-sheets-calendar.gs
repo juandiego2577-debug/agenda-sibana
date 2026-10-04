@@ -1,0 +1,312 @@
+// ============================================================================
+// Respaldo de la agenda Sibana → Hoja de Google + Google Calendar
+// ============================================================================
+// Este repo solo GUARDA el código: el que funciona de verdad está pegado en
+// script.google.com (proyecto del respaldo, "Implementar" como aplicación web
+// con acceso "Cualquier usuario"). Cada vez que se guarda o borra una cita, la
+// agenda le manda un aviso (doPost) y este script:
+//   1. Escribe/actualiza la fila de esa cita en la pestaña "Citas" de la Hoja.
+//   2. Crea/actualiza su evento en Google Calendar, lo más parecido posible a
+//      la agenda: estado con el mismo color (🟣🟡🟢⚫🔴) en el título, color del
+//      evento según la especialista, y toda la información adentro.
+//
+// Para actualizar el script sin cambiar su dirección (URL):
+//   Implementar → Gestionar implementaciones → ✏️ (editar) → Versión: "Nueva
+//   versión" → Implementar. (NO "Nueva implementación": eso crea otra URL.)
+// Después, en la agenda: Más → Respaldos → "☁️ Reenviar todo a Sheets/Calendar"
+// para que todas las citas ya guardadas tomen el formato nuevo (no duplica
+// nada; además junta y borra los eventos que estuvieran repetidos).
+// ============================================================================
+
+// Calendario donde van los eventos: el de Sibana, que es el que usan Juan
+// Diego y su papá. (La versión anterior usaba "el calendario principal de la
+// cuenta donde vive el script"; como el script pasó por la cuenta personal de
+// Juan Diego, terminó habiendo eventos en los DOS calendarios y cada cita se
+// veía repetida — ver limpiarCalendarioAnterior más abajo.) Si el script vive
+// en otra cuenta, esa cuenta necesita permiso de "Realizar cambios en los
+// eventos" en este calendario. Vacío = calendario principal de la cuenta.
+var CALENDAR_ID = 'sibana.cl@gmail.com';
+// Si la agenda no manda su zona horaria (versiones viejas), se usa esta.
+var ZONA_POR_DEFECTO = 'America/Santiago';
+var HOJA = 'Citas';
+// Las primeras 14 columnas son las de siempre (no se tocan, para no
+// desordenar la Hoja que ya existe); las nuevas van al final.
+var COLUMNAS = ['ID','Fecha','Inicio','Fin','Cliente','Teléfono','Servicios','Especialista','Estado','Precio','Abono','Saldo','Notas','Actualizado',
+                'Correo','Personas','Método abono','Método saldo','Por cobrar','Pago marcado por','Curso'];
+// Mismos colores que la leyenda de la agenda.
+var ESTADOS = {
+  Pendiente:  {emoji: '🟣', texto: 'Pendiente'},
+  Confirmada: {emoji: '🟡', texto: 'Confirmada'},
+  Realizada:  {emoji: '🟢', texto: 'Realizada'},
+  Cancelada:  {emoji: '⚫', texto: 'Cancelada'},
+  NoShow:     {emoji: '🔴', texto: 'No llegó'}
+};
+// Los 11 colores que permite Google Calendar para un evento (id → color).
+var COLORES_GOOGLE = [['1','#a4bdfc'],['2','#7ae7bf'],['3','#dbadff'],['4','#ff887c'],['5','#fbd75b'],['6','#ffb878'],
+                      ['7','#46d6db'],['8','#e1e1e1'],['9','#5484ed'],['10','#51b749'],['11','#dc2127']];
+var COLOR_GRIS = '8'; // citas canceladas o en que la clienta no llegó
+
+function verHoja() {
+  Logger.log(SpreadsheetApp.getActiveSpreadsheet().getUrl());
+}
+
+function doPost(e) {
+  // Un aviso a la vez: si llegan dos casi juntos para la misma cita (ej. se
+  // guarda y enseguida se marca el pago), sin esto los dos podían crear su
+  // propio evento → la cita aparecía duplicada.
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var appt = data.appointment;
+    var extra = data.extra || {};
+    if (!appt || !appt.id) throw new Error('Aviso sin cita');
+    updateSheetRow(appt, data.action, extra);
+    syncToCalendar(appt, data.action, extra);
+    return ContentService.createTextOutput(JSON.stringify({ok: true}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ok: false, error: String(err)}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ---------------- Formato ----------------
+function plata(n, moneda) {
+  var v = Math.round(Number(n) || 0);
+  var s = Math.abs(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (v < 0 ? '-' : '') + '$' + s + (moneda && moneda !== 'CLP' ? ' ' + moneda : '');
+}
+// "Microblading (MB) ×2 + Lifting" (los servicios repetidos se agrupan)
+function serviciosTexto(services) {
+  var orden = [], cant = {};
+  (services || []).forEach(function(s) {
+    if (!cant[s]) { cant[s] = 0; orden.push(s); }
+    cant[s]++;
+  });
+  return orden.map(function(s) { return s + (cant[s] > 1 ? ' ×' + cant[s] : ''); }).join(' + ');
+}
+function estadoDe(appt) {
+  return ESTADOS[appt.estado] || {emoji: '⚪', texto: appt.estado || 'Sin estado'};
+}
+function cancelada(appt) {
+  return appt.estado === 'Cancelada' || appt.estado === 'NoShow';
+}
+// Cómo se pagó una parte (abono o saldo): "Efectivo" o "$20.000 Efectivo + $30.000 Transferencia"
+function pagoTexto(total, metodo1, metodo2, monto2, moneda) {
+  var m2 = Number(monto2) || 0;
+  if (m2 > 0 && metodo2) {
+    return plata(total - m2, moneda) + ' ' + (metodo1 || '¿?') + ' + ' + plata(m2, moneda) + ' ' + metodo2;
+  }
+  return metodo1 || '';
+}
+function porCobrar(appt) {
+  if (cancelada(appt)) return 0;
+  if (appt.metodoSaldo) return 0; // ya se marcó cómo pagó el saldo
+  return Math.max(0, (Number(appt.price) || 0) - (Number(appt.abono) || 0));
+}
+function pagoMarcadoTexto(appt, zona) {
+  var m = appt.pagoMarcadoPor;
+  if (!m || !m.en) return '';
+  var cuando = Utilities.formatDate(new Date(m.en), zona, 'dd/MM HH:mm');
+  return (m.nombre || 'una especialista') + ' el ' + cuando;
+}
+function tituloEvento(appt) {
+  var est = estadoDe(appt);
+  var quien = appt.cursoId ? ('📚 ' + (appt.cursoNombre || 'Curso') + ' — ' + appt.client)
+                           : (appt.client + ' — ' + serviciosTexto(appt.services));
+  return est.emoji + ' ' + quien + (appt.specialist ? ' · ' + appt.specialist : '');
+}
+function descripcionEvento(appt, extra, zona) {
+  var moneda = extra.moneda;
+  var est = estadoDe(appt);
+  var L = [];
+  L.push('Estado: ' + est.emoji + ' ' + est.texto);
+  L.push('Especialista: ' + (appt.specialist || 'Sin asignar'));
+  if (appt.cursoId) L.push('Curso: ' + (appt.cursoNombre || ''));
+  else L.push('Tratamientos: ' + serviciosTexto(appt.services));
+  if (Number(appt.personas) > 1) L.push('Personas: ' + appt.personas);
+  if (appt.phone) L.push('Teléfono: ' + appt.phone);
+  if (appt.email) L.push('Correo: ' + appt.email);
+  if (appt.rut) L.push('Documento: ' + appt.rut);
+  L.push('');
+  L.push('Precio: ' + plata(appt.price, moneda));
+  var abono = Number(appt.abono) || 0;
+  if (abono > 0) {
+    var a = 'Abono: ' + plata(abono, moneda);
+    var am = appt.abonoPrevio ? 'pagado en una cita anterior' : pagoTexto(abono, appt.metodoAbono, appt.metodoAbono2, appt.montoAbono2, moneda);
+    if (am) a += ' (' + am + ')';
+    if (appt.abonoDevuelto) a += ' — DEVUELTO a la clienta';
+    L.push(a);
+  } else if (!cancelada(appt)) {
+    L.push('Abono: sin abono');
+  }
+  if (!cancelada(appt)) {
+    var saldo = Number(appt.saldo) || 0;
+    var sm = pagoTexto(saldo, appt.metodoSaldo, appt.metodoSaldo2, appt.montoSaldo2, moneda);
+    L.push('Saldo: ' + plata(saldo, moneda) + (sm ? ' (' + sm + ')' : ''));
+    var pc = porCobrar(appt);
+    L.push(pc > 0 ? 'Falta por cobrar: ' + plata(pc, moneda) : 'Pagado ✅');
+  }
+  var pm = pagoMarcadoTexto(appt, zona);
+  if (pm) L.push('Pago marcado por: ' + pm);
+  if (appt.notas) { L.push(''); L.push('Notas: ' + appt.notas); }
+  L.push('');
+  L.push('(Copia automática de la agenda Sibana' + (extra.sede ? ' · ' + extra.sede : '') +
+         ' · actualizada ' + Utilities.formatDate(new Date(), zona, 'dd/MM/yyyy HH:mm') + ')');
+  return L.join('\n');
+}
+// Color de Google más parecido al color de la especialista en la agenda.
+function colorGoogle(hex) {
+  var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
+  if (!m) return null;
+  var r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
+  var mejor = null, dist = Infinity;
+  COLORES_GOOGLE.forEach(function(c) {
+    if (c[0] === COLOR_GRIS) return; // el gris queda para las canceladas
+    var cr = parseInt(c[1].substr(1, 2), 16), cg = parseInt(c[1].substr(3, 2), 16), cb = parseInt(c[1].substr(5, 2), 16);
+    var d = (r - cr) * (r - cr) * 2 + (g - cg) * (g - cg) * 4 + (b - cb) * (b - cb) * 3;
+    if (d < dist) { dist = d; mejor = c[0]; }
+  });
+  return mejor;
+}
+
+// ---------------- Hoja ----------------
+function updateSheetRow(appt, action, extra) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(HOJA);
+  if (!sheet) {
+    sheet = ss.insertSheet(HOJA);
+    sheet.appendRow(COLUMNAS);
+  } else if (sheet.getLastColumn() < COLUMNAS.length) {
+    // Hoja de la versión anterior: se agregan los títulos de las columnas nuevas.
+    sheet.getRange(1, 1, 1, COLUMNAS.length).setValues([COLUMNAS]);
+  }
+  var data = sheet.getDataRange().getValues();
+  var rowIndex = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === appt.id) { rowIndex = i + 1; break; }
+  }
+  if (action === 'delete') {
+    if (rowIndex > 0) sheet.deleteRow(rowIndex);
+    return;
+  }
+  var zona = extra.zonaHoraria || ZONA_POR_DEFECTO;
+  var row = [
+    appt.id, appt.date, appt.start, appt.end, appt.client, appt.phone || '',
+    serviciosTexto(appt.services), appt.specialist || '', estadoDe(appt).texto,
+    Number(appt.price) || 0, Number(appt.abono) || 0, Number(appt.saldo) || 0, appt.notas || '',
+    new Date(),
+    appt.email || '', Number(appt.personas) || 1,
+    appt.abonoPrevio ? 'Abono de cita anterior' : (appt.metodoAbono || '') + (appt.abonoDevuelto ? ' (devuelto)' : ''),
+    pagoTexto(Number(appt.saldo) || 0, appt.metodoSaldo, appt.metodoSaldo2, appt.montoSaldo2, extra.moneda),
+    porCobrar(appt), pagoMarcadoTexto(appt, zona), appt.cursoId ? (appt.cursoNombre || 'Curso') : ''
+  ];
+  if (rowIndex > 0) {
+    sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+  } else {
+    sheet.appendRow(row);
+  }
+}
+
+// ---------------- Calendar ----------------
+function calendario() {
+  return CALENDAR_ID ? CalendarApp.getCalendarById(CALENDAR_ID) : CalendarApp.getDefaultCalendar();
+}
+function fechaHora(fecha, hora, zona) {
+  return Utilities.parseDate(fecha + ' ' + hora, zona, 'yyyy-MM-dd HH:mm');
+}
+// Todos los eventos de esta cita: el que quedó anotado, más los que tengan su
+// marca (sibanaId) ese día, más los de la versión anterior del script (sin
+// marca) que sean claramente la misma cita (misma clienta, mismo horario) —
+// así se juntan los duplicados que hubiera.
+function eventosDeLaCita(cal, appt, zona, props) {
+  var lista = [], vistos = {};
+  var agregar = function(ev) {
+    if (!ev) return;
+    var id = ev.getId();
+    if (vistos[id]) return;
+    vistos[id] = true;
+    lista.push(ev);
+  };
+  var anotado = props.getProperty('evt_' + appt.id);
+  if (anotado) { try { agregar(cal.getEventById(anotado)); } catch (e) {} }
+  if (appt.date) {
+    var desde = fechaHora(appt.date, '00:00', zona);
+    var hasta = new Date(desde.getTime() + 24 * 3600 * 1000);
+    var inicio = appt.start ? fechaHora(appt.date, appt.start, zona).getTime() : null;
+    cal.getEvents(desde, hasta).forEach(function(ev) {
+      var marca = ev.getTag('sibanaId');
+      if (marca === appt.id) { agregar(ev); return; }
+      if (!marca && inicio !== null && ev.getStartTime().getTime() === inicio &&
+          String(ev.getTitle()).indexOf(appt.client + ' — ') === 0) {
+        agregar(ev);
+      }
+    });
+  }
+  return lista;
+}
+function syncToCalendar(appt, action, extra) {
+  var cal = calendario();
+  var props = PropertiesService.getScriptProperties();
+  var key = 'evt_' + appt.id;
+  var zona = extra.zonaHoraria || ZONA_POR_DEFECTO;
+  var eventos = eventosDeLaCita(cal, appt, zona, props);
+
+  if (action === 'delete') {
+    eventos.forEach(function(ev) { try { ev.deleteEvent(); } catch (e) {} });
+    props.deleteProperty(key);
+    return;
+  }
+
+  var start = fechaHora(appt.date, appt.start, zona);
+  var end = fechaHora(appt.date, appt.end, zona);
+  var titulo = tituloEvento(appt);
+  var descripcion = descripcionEvento(appt, extra, zona);
+  var color = cancelada(appt) ? COLOR_GRIS : colorGoogle(extra.especialistaColor);
+
+  // Se queda con uno (el anotado si existe) y borra los repetidos.
+  var evt = eventos.length ? eventos[0] : null;
+  for (var i = 1; i < eventos.length; i++) { try { eventos[i].deleteEvent(); } catch (e) {} }
+  if (evt) {
+    evt.setTime(start, end);
+    evt.setTitle(titulo);
+    evt.setDescription(descripcion);
+  } else {
+    evt = cal.createEvent(titulo, start, end, {description: descripcion});
+  }
+  if (color) evt.setColor(color);
+  evt.setTag('sibanaId', appt.id);
+  props.setProperty(key, evt.getId());
+}
+
+// ---------------- Limpieza (ejecutar a mano UNA vez) ----------------
+// La versión anterior guardaba los eventos en el calendario principal de la
+// cuenta donde vive el script. Si ese calendario no es CALENDAR_ID, esos
+// eventos quedaron repetidos. Esto borra SOLO los eventos que este script
+// creó y tiene anotados (nada más del calendario se toca). Hay que ejecutarlo
+// ANTES de "Reenviar todo" en la agenda (que reemplaza esas anotaciones).
+function limpiarCalendarioAnterior() {
+  var destino = calendario();
+  var principal = CalendarApp.getDefaultCalendar();
+  if (!destino) { Logger.log('No se encontró el calendario ' + CALENDAR_ID + ': no se borró nada.'); return; }
+  if (destino.getId() === principal.getId()) {
+    Logger.log('El calendario principal de esta cuenta YA es ' + destino.getId() + ': no hay nada que limpiar.');
+    return;
+  }
+  var props = PropertiesService.getScriptProperties();
+  var todas = props.getProperties();
+  var borrados = 0, revisados = 0;
+  Object.keys(todas).forEach(function(k) {
+    if (k.indexOf('evt_') !== 0) return;
+    revisados++;
+    try {
+      var ev = principal.getEventById(todas[k]);
+      if (ev) { ev.deleteEvent(); borrados++; props.deleteProperty(k); }
+    } catch (e) {}
+  });
+  Logger.log('Revisados: ' + revisados + ' · borrados del calendario ' + principal.getId() + ': ' + borrados +
+             '. Ahora, en la agenda: Más → Respaldos → "Reenviar todo a Sheets/Calendar".');
+}

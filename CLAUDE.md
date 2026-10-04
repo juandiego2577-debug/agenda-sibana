@@ -16,14 +16,14 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
   `aplicarCuenta`). Nunca se pregunta "¿qué sede?" (al usuario le parecía
   tedioso). Tres cuentas de Firebase Auth, con contraseñas DISTINTAS entre
   sí (el login solo pide la contraseña y la prueba con cada cuenta en orden):
-  - `equipo@sibanasantiago.app` → Santiago, siempre Especialista, sin botón
+  - `sibana.cl+equipo@gmail.com` → Santiago, siempre Especialista, sin botón
     de Admin: `SOLO_DUENOS_ADMIN_SANTIAGO = true` desde el 04/10/2026 (Juan
     Diego y su papá ya entran con la cuenta de dueños). Un teléfono del
     equipo que estaba recordado como Admin pasa solo a Especialista. Con
     `false` vuelve el botón "🔒 Especialista / 🔓 Admin" de antes.
-  - `equipo@sibanabuenosaires.app` → Buenos Aires, siempre Especialista,
+  - `sibana.cl+buenosaires@gmail.com` → Buenos Aires, siempre Especialista,
     sin botón de Admin.
-  - `duenos@sibana.app` → Juan Diego y su papá: siempre Admin, con un botón
+  - `sibana.cl+duenos@gmail.com` → Juan Diego y su papá: siempre Admin, con un botón
     "📍 Sede" arriba para cambiar (`cambiarSede` guarda la elección en
     `SEDE_DUENOS_KEY` y RECARGA la página, para no arrastrar nada en memoria).
   - Más → "🔑 Entrar con otra contraseña" (`cambiarDeCuenta`) cierra la sesión.
@@ -276,7 +276,7 @@ para servir también a **Copiapó**, de la siguiente forma:
   1. Sesión anónima invisible (`signInAnonymously`) apenas carga la página,
      para que Firestore exija *algún* tipo de sesión.
   2. Login real del equipo (`showTeamLoginGate()`), con email/password de
-     Firebase Auth, usuario compartido `equipo@sibanasantiago.app` (una sola
+     Firebase Auth, usuario compartido `sibana.cl+equipo@gmail.com` (una sola
      contraseña para todo el equipo, especialistas y admins). Se pide una
      sola vez por dispositivo (se recuerda igual que el modo Admin).
   La regla de Firestore exige `request.auth != null && sign_in_provider !=
@@ -320,7 +320,22 @@ para servir también a **Copiapó**, de la siguiente forma:
   con el SDK 10.14.1: firmar, Panel Sibana, PDF y la agenda; la versión
   vieja sí ejecutaba la firma maliciosa). **Estado:** las reglas nuevas
   YA ESTÁN PUBLICADAS en Firebase (el usuario las pegó el 04/10/2026).
-  **Pendiente (el usuario lo dejó para después):** (3) los correos de las
+  3. **Correos de las cuentas (hecho el 04/10/2026):** antes eran
+     `equipo@sibanasantiago.app`, `equipo@sibanabuenosaires.app` y
+     `duenos@sibana.app`, de dominios que NO son de Sibana: cualquiera puede
+     pedir "olvidé mi contraseña" con la API pública, y quien comprara el
+     dominio recibía el enlace y se quedaba con la cuenta. Ahora son
+     `sibana.cl+equipo@gmail.com`, `sibana.cl+buenosaires@gmail.com` y
+     `sibana.cl+duenos@gmail.com` (Gmail ignora lo que va entre "+" y "@":
+     todo llega a sibana.cl), con las MISMAS contraseñas de antes (las cuentas
+     nuevas se crearon con `accounts:signUp`). Las reglas solo aceptan los
+     correos nuevos; un teléfono con sesión de una cuenta vieja la cierra solo
+     y pide la contraseña (`esCuentaConocida`, y `permission-denied` en el
+     `onSnapshot` → cerrar sesión y recargar); si la sesión se cierra con la
+     agenda abierta, recarga y pide la contraseña. El script de correos usa
+     `EQUIPO_EMAIL` nuevo (hay que cambiar esa línea en Google). Las cuentas
+     viejas se borran a mano en Firebase Auth.
+  **Pendiente (el usuario lo dejó para después):** (3, ya no) los correos de las
   cuentas usan dominios (`sibanasantiago.app`, `sibanabuenosaires.app`,
   `sibana.app`) que quizás nadie compró — si alguien los compra puede usar
   "olvidé mi contraseña" y quedarse con la cuenta; propuesta: cambiarlos a
@@ -936,7 +951,7 @@ para servir también a **Copiapó**, de la siguiente forma:
   **El script está en `apps-script/correo-postratamiento.gs`** (este repo
   solo lo guarda; se instala pegándolo a mano en script.google.com con la
   cuenta sibana.cl). Lee la agenda directo de Firestore por REST, entrando
-  como `equipo@sibanasantiago.app` (contraseña en la propiedad del script
+  como `sibana.cl+equipo@gmail.com` (contraseña en la propiedad del script
   `CLAVE_EQUIPO`, nunca en el código). Toma citas de hoy Y de ayer (si una
   noche falla, se recupera al día siguiente); anota cada envío en una Hoja
   "Registro correos post-tratamiento" (Drive de sibana.cl), que es lo que

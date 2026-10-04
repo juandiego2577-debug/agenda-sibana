@@ -32,7 +32,7 @@
 const FIREBASE_API_KEY = 'AIzaSyCpmGl31qLkbXU-OAJyK-thqGYOFnAoa-Y'; // la misma de la agenda (es pública)
 const FIREBASE_PROJECT = 'sibana-santiago';
 const AGENDA_DOC = 'sibana-agenda/santiago';
-const EQUIPO_EMAIL = 'equipo@sibanasantiago.app';
+const EQUIPO_EMAIL = 'sibana.cl+equipo@gmail.com'; // antes equipo@sibanasantiago.app (cambiado el 04/10/2026)
 const ZONA = 'America/Santiago';
 const HORA_ENVIO = 20, MINUTO_ENVIO = 30;
 const CARPETA_RAIZ = 'Post-tratamiento';

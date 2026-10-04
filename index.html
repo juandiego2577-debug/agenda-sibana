@@ -773,7 +773,11 @@ const SEDES = {
     backupWebhookUrl: BACKUP_WEBHOOK_URL,
     resenaLink: 'https://g.page/r/CRg9v-smnqROECE/review',
     correoPostratamiento: true, // apps-script/correo-postratamiento.gs (cuenta sibana.cl)
-    reglaComision: 'santiago', // % sobre la cita, sin las cremas (ver apptCommissionBase)
+    // A cada micropigmentación se le resta un monto antes de repartir el %
+    // (ver apptCommissionBase). En Santiago: $10.000 fijos, solo en las citas
+    // con los precios nuevos (la subida de octubre 2026, que llegó junto con
+    // la crema incluida); las citas con precio viejo se reparten como antes.
+    descuentoMicro: {tipo: 'fijo', pesos: 10000, soloPrecioNuevo: true},
     // Desde esta fecha (citas de ese día en adelante), el abono que pierde una
     // clienta que cancela o no viene queda 100% para el negocio, sin comisión.
     // Antes de esa fecha la especialista se llevaba su % del abono, y esos
@@ -794,7 +798,7 @@ const SEDES = {
     backupWebhookUrl: 'PEGA_AQUI_LA_URL_DEL_SCRIPT_DE_BUENOS_AIRES',
     resenaLink: '',
     correoPostratamiento: false, // todavía no hay script de correo para Buenos Aires
-    reglaComision: 'descuentoUSD', // resta 10 dólares por micropigmentación antes del % (ver apptCommissionBase)
+    descuentoMicro: {tipo: 'dolar', dolares: 10}, // 10 dólares en pesos (ver valorDolarParaFecha)
     abonoPerdidoSoloNegocioDesde: '0000-00-00', // siempre (desde el primer día)
     moneda: 'ARS',
     abonoSugerido: null, // = abonoSugeridoUSD dólares en pesos (ver abonoSugeridoPorTratamiento)
@@ -4213,6 +4217,22 @@ function showTeamLoginGate(){
   input.focus();
 }
 
+// Marca una sola vez qué servicios de Santiago son micropigmentación (llevan
+// los $10.000 de descuento antes de la comisión), según lo que dijo Juan
+// Diego: microblading, sombreado, delineado de ojos, técnica mixta
+// (MixBrows) y labios (Full Lips). De ahí en adelante se cambia a mano en
+// Servicios y tarifario.
+const MICRO_FLAGS_KEY = 'micropigmentacionServicios20261004';
+function runMicropigmentacionFlagsIfNeeded(){
+  if(state.settings[MICRO_FLAGS_KEY]) return false;
+  state.services.forEach(s=>{
+    const n = s.name || '';
+    if(!/retoque/i.test(n) && /microblading|sombreado|delineado|mixbrows|t[eé]cnica mixta|full lips/i.test(n)) s.micropigmentacion = true;
+  });
+  state.settings[MICRO_FLAGS_KEY] = true;
+  return true;
+}
+
 // Todas las cargas/correcciones automáticas de datos (corren una sola vez
 // cada una, marcadas en settings). Devuelve true si alguna cambió algo.
 function runSantiagoMigrations(){
@@ -4236,7 +4256,8 @@ function runSantiagoMigrations(){
   const personasNotas = runPersonasFromNotesIfNeeded();
   const cursoMicropigmentacion = runCursoMicropigmentacion20261025IfNeeded();
   const cursoHuerfanoRepair = runCursoHuerfanoRepairIfNeeded();
-  return !!(imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas || cursoMicropigmentacion || cursoHuerfanoRepair);
+  const microFlags = runMicropigmentacionFlagsIfNeeded();
+  return !!(microFlags || imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas || cursoMicropigmentacion || cursoHuerfanoRepair);
 }
 
 function startFirestoreSync(){
@@ -4263,6 +4284,7 @@ function startFirestoreSync(){
       if(!ui.modal) render();
       if(migrated) saveData({recordUndo:false, silent:true});
       runDailyAutoBackupIfNeeded();
+      actualizarDolarAutomatico();
       checkUnseenBlocksIfNeeded();
       checkStaffIdentityIfNeeded();
       checkNewServicesIfNeeded();
@@ -4322,7 +4344,7 @@ async function crearAgendaSede(){
       // claramente lo son; el resto se puede marcar a mano en Servicios.
       if(snap.exists) services = (snap.data().services||[]).map(x=>({
         name: x.name, price: 0, duration: x.duration||60,
-        micropigmentacion: !/retoque/i.test(x.name||'') && /microblading|sombreado|mixbrows|full lips|delineado/i.test(x.name||''),
+        micropigmentacion: !/retoque/i.test(x.name||'') && /microblading|sombreado|delineado|mixbrows|t[eé]cnica mixta|full lips/i.test(x.name||''),
       }));
     }catch(e){ console.error('No se pudo leer la lista de servicios de Santiago (se crea vacía)', e); }
     const settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
@@ -4819,7 +4841,7 @@ function toolbarHtml(){
             <hr>
             <button data-act="open-autobackups">🗓️ Respaldos</button>
             ${SEDE.id==='santiago' ? `<button data-act="open-security">Seguridad</button>` : ''}
-            ${SEDE.reglaComision==='descuentoUSD' ? `<button data-act="open-valores-sede">💱 Valor del dólar</button>` : ''}
+            ${(SEDE.descuentoMicro||{}).tipo==='dolar' ? `<button data-act="open-valores-sede">💱 Valor del dólar</button>` : ''}
             <button data-act="cambiar-cuenta">🔑 Entrar con otra contraseña</button>
           </div>` : ''}
       </div>` : ''}
@@ -5715,7 +5737,7 @@ function servicesModalHtml(){
       <input type="number" class="price" value="${s.price}" data-svc-price="${i}" placeholder="Precio" title="Precio (${SEDE.moneda})">
       <input type="number" class="dur" value="${s.duration||60}" data-svc-duration="${i}" placeholder="Min" title="Duración en minutos">
       <button class="iconbtn" data-act="remove-service" data-idx="${i}">✕</button>
-      ${SEDE.reglaComision==='descuentoUSD' ? `<label class="hint" style="grid-column:1/-1;flex:1 1 100%;display:flex;align-items:center;gap:8px;margin:-2px 0 4px;cursor:pointer;"><input type="checkbox" data-svc-micro="${i}" ${s.micropigmentacion?'checked':''} style="width:auto;"> Es micropigmentación (se restan ${DESCUENTO_USD} dólares antes de la comisión)</label>` : ''}
+      ${SEDE.descuentoMicro ? `<label class="hint" style="grid-column:1/-1;flex:1 1 100%;display:flex;align-items:center;gap:8px;margin:-2px 0 4px;cursor:pointer;"><input type="checkbox" data-svc-micro="${i}" ${s.micropigmentacion?'checked':''} style="width:auto;"> Es micropigmentación (se restan ${descuentoMicroTexto()} antes de la comisión)</label>` : ''}
     </div>`).join('');
   return `
   <div class="overlay" data-act="overlay-close">
@@ -6139,30 +6161,65 @@ function apptCremas(a){
 }
 function apptRevenue(a){
   if(a.estado==='Cancelada' || a.estado==='NoShow') return a.abonoDevuelto ? 0 : (Number(a.abono)||0);
+  // Si el abono ya se pagó en una cita anterior que se canceló/reagendó
+  // (abonoPrevio), esa plata ya está contada como ingreso en la cita
+  // anterior: acá solo entra lo nuevo (el precio menos ese abono). Antes se
+  // contaba dos veces en "Ingreso total" y Finanzas (en cambio "Abonos
+  // recibidos" y "Por método de pago" ya lo hacían bien). La comisión NO
+  // usa esto: se calcula sobre el precio completo (ver apptCommissionBase).
+  if(a.abonoPrevio) return Math.max(0, (Number(a.price)||0) - (Number(a.abono)||0));
   return Number(a.price)||0;
 }
 // Base sobre la que se calcula la comisión de la especialista: igual que
 // apptRevenue, pero sin los $5.000 de CADA crema post-tratamiento — esa plata
 // es 100% para el dueño, la especialista no se queda con nada de la crema.
 //
-// Buenos Aires tiene su propia regla (SEDE.reglaComision 'descuentoUSD',
-// definida con Juan Diego): a cada tratamiento de MICROPIGMENTACIÓN se le
-// restan primero 10 dólares (en pesos, ver valorDolarParaFecha) y recién eso
-// se reparte con el % — los demás servicios (lifting, perfilado, etc.), los
-// retoques y los cursos se reparten directo, sin descuento.
-// En AMBAS sedes, si la clienta cancela o no viene, el abono que pierde es
-// 100% del negocio: no genera comisión (en Santiago, para citas desde
+// Regla de comisión (igual en las dos sedes, definida con Juan Diego): a cada
+// tratamiento de MICROPIGMENTACIÓN se le resta primero un monto (Santiago:
+// $10.000 en las citas con precios nuevos; Buenos Aires: 10 dólares en pesos,
+// ver SEDE.descuentoMicro) que queda para el negocio, y recién eso se reparte
+// con el %. Los demás servicios (lifting, perfilado, etc.), los retoques y los
+// cursos se reparten directo, sin descuento. La crema comprada aparte nunca
+// se reparte.
+// Si la clienta cancela o no viene, el abono que pierde es 100% del negocio:
+// no genera comisión (en Santiago, para citas desde
 // SEDE.abonoPerdidoSoloNegocioDesde; las anteriores quedan como se pagaron).
+// Una cita realizada genera comisión sobre su precio COMPLETO, aunque parte
+// se haya pagado como abono en una cita anterior que se reagendó (abonoPrevio).
 function apptCommissionBase(a){
-  const rev = apptRevenue(a);
   const cancelada = a.estado==='Cancelada' || a.estado==='NoShow';
   if(cancelada){
     if(SEDE.abonoPerdidoSoloNegocioDesde && (a.date||'') >= SEDE.abonoPerdidoSoloNegocioDesde) return 0;
-    return rev;
+    return apptRevenue(a);
   }
-  const base = rev - CREMA_PRICE*apptCremas(a);
-  if(SEDE.reglaComision==='descuentoUSD') return Math.max(0, base - apptDescuentoUSD(a));
-  return Math.max(0, base);
+  const base = (Number(a.price)||0) - CREMA_PRICE*apptCremas(a);
+  return Math.max(0, base - apptDescuentoMicro(a));
+}
+// ¿Esta cita lleva el descuento por micropigmentación? Nunca los cursos. En
+// Santiago, solo las citas con precios nuevos: queda congelado al crear la
+// cita (a.conDescuentoMicro, según estuviera prendida la "crema incluida",
+// que llegó junto con la subida de precios); las citas de antes de esto usan
+// a.cremaIncluidaPolitica, que marca exactamente lo mismo.
+function apptLlevaDescuentoMicro(a){
+  const cfg = SEDE.descuentoMicro;
+  if(!cfg || a.cursoId) return false;
+  if(!cfg.soloPrecioNuevo) return true;
+  if(a.conDescuentoMicro!=null) return !!a.conDescuentoMicro;
+  return !!a.cremaIncluidaPolitica;
+}
+function descuentoMicroPorTratamiento(dateKey){
+  const cfg = SEDE.descuentoMicro;
+  if(!cfg) return 0;
+  return cfg.tipo==='dolar' ? descuentoUSDParaFecha(dateKey) : (Number(cfg.pesos)||0);
+}
+function apptDescuentoMicro(a){
+  return apptLlevaDescuentoMicro(a) ? descuentoMicroPorTratamiento(a.date) * tratamientosConDescuento(a) : 0;
+}
+// Texto corto del descuento ("$10.000" / "10 dólares"), para las pantallas.
+function descuentoMicroTexto(){
+  const cfg = SEDE.descuentoMicro;
+  if(!cfg) return '';
+  return cfg.tipo==='dolar' ? `${cfg.dolares} dólares` : fmtCLP(cfg.pesos);
 }
 // ---- Buenos Aires: el valor del dólar ----
 // Cuántos pesos es 1 dólar va cambiando, así que se guarda un historial
@@ -6171,7 +6228,7 @@ function apptCommissionBase(a){
 // ni semanas ya pasadas (mismo cuidado que comisionHistory). De ese mismo
 // valor salen los 10 dólares que se restan por micropigmentación y los 5
 // dólares del abono sugerido.
-const DESCUENTO_USD = 10;
+const DESCUENTO_USD = (SEDES.buenosaires.descuentoMicro || {}).dolares || 10;
 function valorDolarParaFecha(dateKey){
   const h = state.settings.dolarHistory;
   if(!Array.isArray(h)) return 0;
@@ -6184,9 +6241,9 @@ function valorDolarParaFecha(dateKey){
 function descuentoUSDParaFecha(dateKey){
   return Math.round(DESCUENTO_USD * valorDolarParaFecha(dateKey));
 }
-// ¿Este servicio es micropigmentación (lleva los 10 dólares)? Se marca a mano
-// en Servicios y tarifario (casilla de cada servicio, solo Buenos Aires). Un
-// retoque nunca cuenta, aunque esté marcado.
+// ¿Este servicio es micropigmentación (lleva el descuento)? Se marca a mano en
+// Servicios y tarifario (casilla de cada servicio). Un retoque nunca cuenta,
+// aunque esté marcado.
 function esMicropigmentacion(nombre){
   if(/retoque/i.test(nombre||'')) return false;
   const svc = state.services.find(x=>normalizeName(x.name)===normalizeName(nombre));
@@ -6199,14 +6256,10 @@ function contarMicropigmentaciones(services){
 // unidad (si vienen 2 personas y se anota el tratamiento 2 veces, se descuenta
 // 2 veces). Queda congelado en la cita al guardarla (a.tratamientosMicro), así
 // que cambiar después la casilla de un servicio no altera citas ya agendadas.
-// Las citas de curso nunca llevan descuento.
+// Las citas de curso nunca llevan descuento (ver apptLlevaDescuentoMicro).
 function tratamientosConDescuento(a){
-  if(a.cursoId) return 0;
   if(a.tratamientosMicro!=null && a.tratamientosMicro!=='') return Math.max(0, Number(a.tratamientosMicro)||0);
   return contarMicropigmentaciones(a.services);
-}
-function apptDescuentoUSD(a){
-  return descuentoUSDParaFecha(a.date) * tratamientosConDescuento(a);
 }
 function abonoSugeridoPorTratamiento(){
   if(SEDE.abonoSugerido!=null) return SEDE.abonoSugerido;
@@ -6416,6 +6469,46 @@ function payoutWeekBoxHtml(specialist){
     </div>`;
 }
 
+// ---- Buenos Aires: dólar automático ----
+// Si en "Valor del dólar" se eligió un tipo de dólar (state.settings.dolarAuto),
+// una vez al día la agenda consulta su valor en dolarapi.com (gratis, sin
+// clave) y, si cambió, lo agrega al historial desde hoy — igual que si alguien
+// lo hubiera anotado a mano. Si la página no responde, no pasa nada: se sigue
+// usando el último valor guardado (y se puede anotar a mano).
+const DOLAR_TIPOS = {oficial: 'Oficial (el del banco)', blue: 'Blue', bolsa: 'MEP (bolsa)'};
+const DOLAR_API_URL = 'https://dolarapi.com/v1/dolares/';
+let dolarAutoRevisado = null; // día ya revisado en esta pestaña
+async function actualizarDolarAutomatico(forzar){
+  const tipo = state.settings.dolarAuto;
+  if(!ui.loaded || appOutdated || !DOLAR_TIPOS[tipo] || (SEDE.descuentoMicro||{}).tipo!=='dolar') return false;
+  const hoy = toKey(new Date());
+  if(!forzar && dolarAutoRevisado===hoy) return false;
+  dolarAutoRevisado = hoy;
+  try{
+    const ctrl = typeof AbortController!=='undefined' ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(()=>ctrl.abort(), 10000) : null;
+    const resp = await fetch(DOLAR_API_URL + tipo, ctrl ? {signal: ctrl.signal} : {});
+    if(timer) clearTimeout(timer);
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    const pesos = Math.round((Number(data && data.venta)||0) * 100) / 100;
+    if(!(pesos > 0)) throw new Error('Respuesta sin valor');
+    if(state.settings.dolarAuto!==tipo) return false; // lo cambiaron mientras tanto
+    if(valorDolarParaFecha(hoy)===pesos) return false; // no cambió
+    const h = (state.settings.dolarHistory||[]).filter(x=>x.desde!==hoy);
+    h.push({desde: hoy, pesos, auto: tipo});
+    state.settings.dolarHistory = h;
+    if(!ui.modal || ui.modal.type==='valores-sede') render();
+    await saveData({recordUndo:false, silent:true});
+    return true;
+  }catch(e){
+    console.error('No se pudo actualizar el dólar automáticamente (se sigue usando el último valor)', e);
+    return false;
+  }
+}
+// Si la agenda queda abierta de un día para otro, revisa cada hora.
+setInterval(()=>{ actualizarDolarAutomatico(); }, 60*60*1000);
+
 // Explicación (y aviso si falta el valor del dólar) de la regla de Buenos
 // Aires, en Finanzas.
 function reglaDescuentoUSDHtml(){
@@ -6437,12 +6530,20 @@ function valoresSedeModalHtml(){
       <div class="hint" style="margin-bottom:8px;">${vigente
         ? `Hoy: 1 dólar = <b>${fmtCLP(vigente)}</b> → ${DESCUENTO_USD} dólares = <b>${fmtCLP(descuentoUSDParaFecha(hoyKey))}</b> · abono sugerido = <b>${fmtCLP(abonoSugeridoPorTratamiento())}</b> por tratamiento`
         : '<b>Todavía no hay ningún valor cargado.</b>'}</div>
+      <div class="field">
+        <label>Actualizar solo, una vez al día</label>
+        <select id="f-dolar-auto">
+          <option value="" ${!DOLAR_TIPOS[state.settings.dolarAuto]?'selected':''}>No — lo anoto yo a mano</option>
+          ${Object.keys(DOLAR_TIPOS).map(k=>`<option value="${k}" ${state.settings.dolarAuto===k?'selected':''}>Sí, con el dólar ${DOLAR_TIPOS[k]}</option>`).join('')}
+        </select>
+      </div>
+      <p class="hint" style="margin-top:-6px;">Con esto activado, cada día la agenda busca sola el valor en internet y lo anota acá. Igual se puede anotar o corregir a mano abajo.</p>
       <div class="field-row">
-        <div class="field"><label>1 dólar = $ (pesos)</label><input type="number" id="f-dolar-pesos" min="0" step="any" placeholder="Ej. 1200"></div>
+        <div class="field"><label>Anotar a mano: 1 dólar = $ (pesos)</label><input type="number" id="f-dolar-pesos" min="0" step="any" placeholder="Ej. 1200"></div>
         <div class="field"><label>Desde (fecha de las citas)</label><input type="date" id="f-dolar-desde" value="${hoyKey}"></div>
       </div>
       ${h.length ? `<table class="fin-table" style="margin-bottom:6px;"><thead><tr><th>Desde</th><th>1 dólar =</th><th></th></tr></thead><tbody>
-        ${h.map(x=>`<tr><td>${fmtFecha(x.desde)}</td><td>${fmtCLP(x.pesos)}</td><td><button type="button" class="btn btn-ghost" style="font-size:11.5px;padding:4px 10px;" data-act="remove-dolar" data-desde="${x.desde}">Quitar</button></td></tr>`).join('')}
+        ${h.map(x=>`<tr><td>${fmtFecha(x.desde)}</td><td>${fmtCLP(x.pesos)}${x.auto ? `<div class="hint" style="margin:0;">automático (${escapeHtml((DOLAR_TIPOS[x.auto]||x.auto).split(' (')[0])})</div>` : ''}</td><td><button type="button" class="btn btn-ghost" style="font-size:11.5px;padding:4px 10px;" data-act="remove-dolar" data-desde="${x.desde}">Quitar</button></td></tr>`).join('')}
       </tbody></table>` : ''}
       <div class="modal-actions">
         <div></div>
@@ -6455,17 +6556,25 @@ function valoresSedeModalHtml(){
   </div>`;
 }
 function saveValoresSedeFromForm(){
-  const pesos = Number(document.getElementById('f-dolar-pesos').value);
+  const auto = document.getElementById('f-dolar-auto').value;
+  const pesosRaw = document.getElementById('f-dolar-pesos').value.trim();
   const desde = document.getElementById('f-dolar-desde').value;
-  if(!(pesos>0)){ showAlert('Escribe cuántos pesos es 1 dólar (un número mayor que 0).'); return; }
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(desde)){ showAlert('Elige desde qué fecha aplica el valor nuevo.'); return; }
-  const h = Array.isArray(state.settings.dolarHistory) ? state.settings.dolarHistory.slice() : [];
-  const i = h.findIndex(x=>x.desde===desde);
-  if(i>=0) h[i] = {desde, pesos}; else h.push({desde, pesos});
-  state.settings.dolarHistory = h;
+  const autoCambio = (state.settings.dolarAuto||'') !== auto;
+  if(pesosRaw===''){
+    if(!autoCambio){ showAlert('Escribe cuántos pesos es 1 dólar, o elige si se actualiza solo.'); return; }
+  } else {
+    const pesos = Number(pesosRaw);
+    if(!(pesos>0)){ showAlert('Escribe cuántos pesos es 1 dólar (un número mayor que 0).'); return; }
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(desde)){ showAlert('Elige desde qué fecha aplica el valor nuevo.'); return; }
+    const h = Array.isArray(state.settings.dolarHistory) ? state.settings.dolarHistory.slice() : [];
+    const i = h.findIndex(x=>x.desde===desde);
+    if(i>=0) h[i] = {desde, pesos}; else h.push({desde, pesos});
+    state.settings.dolarHistory = h;
+  }
+  state.settings.dolarAuto = auto;
   ui.modal = null;
   render();
-  saveData();
+  saveData().then(ok=>{ if(ok && autoCambio && auto) actualizarDolarAutomatico(true); });
 }
 function removeValorDolar(desde){
   showConfirmDialog('¿Quitar este valor? Las citas desde esa fecha van a usar el valor anterior (y su comisión puede cambiar).', ()=>{
@@ -6566,8 +6675,8 @@ function finanzasResumenHtml(year, month){
       <button class="btn btn-ghost" data-act="save-comision-pct" data-year="${year}" data-month="${month}" style="font-size:12px;padding:6px 12px;">Guardar %</button>
     </div>
     <div class="hint" style="margin-bottom:8px;">Aplica desde <b>${MONTHS[month]} ${year}</b> en adelante — los meses anteriores se quedan con el % que tenían.</div>
-    ${SEDE.reglaComision==='descuentoUSD' ? reglaDescuentoUSDHtml()
-      : `<div class="hint" style="margin-bottom:8px;">Si la clienta cancela o no viene, el abono que pierde queda entero para el negocio (no genera comisión) — en citas desde el ${parseKey(SEDE.abonoPerdidoSoloNegocioDesde).getDate()} de ${MONTHS[parseKey(SEDE.abonoPerdidoSoloNegocioDesde).getMonth()]} de ${parseKey(SEDE.abonoPerdidoSoloNegocioDesde).getFullYear()}.</div>`}
+    ${(SEDE.descuentoMicro||{}).tipo==='dolar' ? reglaDescuentoUSDHtml()
+      : `<div class="hint" style="margin-bottom:8px;">Antes de repartir, a cada micropigmentación con los precios nuevos se le restan ${descuentoMicroTexto()}, que quedan para el negocio. Los demás servicios y los retoques se reparten directo. Si la clienta cancela o no viene, el abono que pierde queda entero para el negocio (citas desde el ${parseKey(SEDE.abonoPerdidoSoloNegocioDesde).getDate()} de ${MONTHS[parseKey(SEDE.abonoPerdidoSoloNegocioDesde).getMonth()]} de ${parseKey(SEDE.abonoPerdidoSoloNegocioDesde).getFullYear()}).</div>`}
     <table class="fin-table">
       <thead><tr><th>Especialista</th><th>Citas</th><th>Generó</th><th>Comisión</th></tr></thead>
       <tbody>${espRows}</tbody>
@@ -8240,11 +8349,17 @@ function saveApptFromForm(){
     personas: Math.max(1, Math.min(9, Math.floor(Number(document.getElementById('f-personas') ? get('f-personas') : 1))||1)),
   };
   updated.cremaComprada = updated.cremaCantidad>0;
-  // Buenos Aires: cuántas micropigmentaciones lleva la cita (para los 10
-  // dólares de la comisión) queda congelado al guardarla; solo se vuelve a
-  // contar si se cambian sus servicios.
-  if(SEDE.reglaComision==='descuentoUSD' && (d.tratamientosMicro==null || !sameValue(updated.services, d.services))){
-    updated.tratamientosMicro = contarMicropigmentaciones(updated.services);
+  // Cuántas micropigmentaciones lleva la cita (para el descuento de la
+  // comisión) queda congelado al guardarla; solo se vuelve a contar si se
+  // cambian sus servicios. Y si la cita lleva o no ese descuento (en
+  // Santiago, solo con los precios nuevos) se congela al crearla.
+  if(SEDE.descuentoMicro){
+    if(d.tratamientosMicro==null || !sameValue(updated.services, d.services)){
+      updated.tratamientosMicro = contarMicropigmentaciones(updated.services);
+    }
+    if(ui.modal.mode==='new'){
+      updated.conDescuentoMicro = SEDE.descuentoMicro.soloPrecioNuevo ? !!state.settings.cremaIncluida : true;
+    }
   }
   // Congela para siempre, en el momento de crear la cita, si la crema iba
   // incluida sin costo o se cobraba aparte — así, si más adelante se prende o

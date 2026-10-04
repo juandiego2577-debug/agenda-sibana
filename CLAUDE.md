@@ -48,24 +48,45 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
   la lección 1, y es segura (transacción que no hace nada si ya existe;
   nunca para Santiago; nunca automático). Arranca vacío, con los nombres de
   servicios de Santiago a precio $0 y la crema incluida.
-- **Comisión en Buenos Aires** (`reglaComision:'descuentoUSD'`, confirmado
-  con el usuario): a cada tratamiento de **MICROPIGMENTACIÓN** se le restan
-  10 dólares (en pesos) y recién eso se divide 50/50. Todo lo demás
-  (lifting, perfilado, laminado...), los retoques y los cursos se reparten
-  50/50 directo. Qué es micropigmentación se marca A MANO por servicio
-  (casilla en Servicios y tarifario, solo BA, `s.micropigmentacion`; al
-  crear la agenda se marcan solas microblading/sombreado/mixbrows/full
-  lips/delineado). La cantidad queda CONGELADA en cada cita al guardarla
-  (`a.tratamientosMicro`, solo se recuenta si cambian sus servicios), así
-  que tocar la casilla después no cambia citas ya agendadas. Cada servicio
-  anotado cuenta una vez por unidad (2 personas con el tratamiento ×2 = 2
-  descuentos). Ver `apptCommissionBase`/`tratamientosConDescuento`.
-  **Valor del dólar**: un solo historial por FECHA de cita
-  (`settings.dolarHistory` = `[{desde, pesos}]`, 1 dólar en pesos,
-  `valorDolarParaFecha`), editable en Más → "💱 Valor del dólar". De ahí
-  salen los 10 dólares del descuento y los 5 dólares del **abono sugerido**
-  (`abonoSugeridoUSD`, redondeado a la centena, con el valor de hoy).
-  Cambiarlo nunca recalcula citas anteriores. En Santiago no hay descuento.
+- **Comisión en AMBAS sedes: descuento por MICROPIGMENTACIÓN** (confirmado
+  con el usuario; `SEDE.descuentoMicro`, `apptCommissionBase`): a cada
+  tratamiento de micropigmentación se le resta un monto que queda para el
+  negocio, y recién eso se divide 50/50. Todo lo demás (lifting, perfilado,
+  laminado...), los retoques y los cursos se reparten 50/50 directo.
+  - **Santiago: $10.000 fijos**, solo en citas con los PRECIOS NUEVOS (la
+    subida de oct 2026: microblading/sombreado/delineado $69.990, técnica
+    mixta (MixBrows) y labios (Full Lips) $99.990 — vino junto con la crema
+    incluida y es lo que motivó el sistema, "para que no ganen tan poco").
+    Una cita nueva congela `a.conDescuentoMicro` = estado de "crema
+    incluida" al crearla; las citas de antes usan `a.cremaIncluidaPolitica`
+    (marca lo mismo). Las citas con precio viejo se reparten como antes.
+    Los servicios se marcaron con la migración `runMicropigmentacionFlagsIfNeeded`.
+  - **Buenos Aires: 10 dólares** en pesos (ver "Valor del dólar" abajo), siempre.
+  - Qué es micropigmentación se marca A MANO por servicio (casilla en
+    Servicios y tarifario, `s.micropigmentacion`, en las dos sedes). La
+    cantidad queda CONGELADA en cada cita al guardarla (`a.tratamientosMicro`,
+    solo se recuenta si cambian sus servicios). Cada servicio anotado cuenta
+    una vez por unidad (2 personas con el tratamiento ×2 = 2 descuentos).
+  - **Valor del dólar (BA)**: historial por FECHA de cita
+    (`settings.dolarHistory` = `[{desde, pesos, auto?}]`,
+    `valorDolarParaFecha`), Más → "💱 Valor del dólar". De ahí salen los 10
+    dólares del descuento y los 5 del **abono sugerido** (redondeado a la
+    centena). Cambiarlo nunca recalcula citas anteriores. **Automático**
+    (`settings.dolarAuto` = 'oficial' | 'blue' | 'bolsa'(MEP), elegido en ese
+    mismo modal): una vez al día cualquier teléfono de BA consulta
+    `dolarapi.com` (`actualizarDolarAutomatico`) y, si cambió, agrega el valor
+    desde hoy; si la página falla, sigue el último valor. **Pendiente:** el
+    usuario no sabe qué dólar usar (lo consulta con su tía, que va a manejar
+    la sede) — por eso queda en manual hasta que lo elijan ellos mismos. No
+    se pudo probar contra dolarapi.com real (el entorno de pruebas bloquea
+    esa conexión), solo con respuestas simuladas.
+- **Abono reagendado (`a.abonoPrevio`)**: si la clienta cancela/no viene,
+  la cita queda Cancelada/NoShow con su abono (ingreso del negocio, sin
+  comisión). Si después reagenda, la cita nueva marca "Este abono ya se pagó
+  en una cita anterior": su ingreso es precio − abono (`apptRevenue`; antes
+  se contaba dos veces en "Ingreso total"/Finanzas — bug corregido el
+  04/10/2026), pero su COMISIÓN es sobre el precio completo (la especialista
+  hizo el tratamiento entero).
 - **Abono perdido (Cancelada/NoShow) = 100% del negocio, en AMBAS sedes**
   (confirmado con el usuario el 04/10/2026): no genera comisión. En
   Santiago aplica a citas desde `SEDES.santiago.abonoPerdidoSoloNegocioDesde`
@@ -332,13 +353,16 @@ para servir también a **Copiapó**, de la siguiente forma:
 - **Comisión de especialistas**: 50% por defecto (variable por mes, ver
   punto 8 arriba) sobre lo que genera cada cita — pero NUNCA sobre la
   crema post-tratamiento (ver punto 7) ni sobre el ingreso pasivo del box
-  arrendado (abajo). Ver `apptCommissionBase`.
+  arrendado (abajo), y a cada micropigmentación se le restan antes $10.000
+  (Santiago, precios nuevos) / 10 dólares (BA). Ver `apptCommissionBase` y
+  "Comisión en AMBAS sedes" arriba.
 - **Cita Cancelada o NoShow**: cuenta solo el abono como ingreso (si se
   cobró y no se devolvió) — confirmado explícitamente con el usuario, es la
   regla correcta, no un bug. Ese abono perdido NO genera comisión: es 100%
   del negocio (cambio confirmado el 04/10/2026, para citas desde el
   05/10/2026 en Santiago — ver "Sede de Buenos Aires" arriba; antes sí
-  generaba comisión y esos meses no se recalculan). Si el abono SÍ se devolvió,
+  generaba comisión y esos meses no se recalculan). Si la clienta reagenda,
+  ver "Abono reagendado" arriba. Si el abono SÍ se devolvió,
   se marca el checkbox "Se le devolvió el abono" en esa cita (visible
   solo en Cancelada/NoShow) — el monto del abono queda igual en el campo
   (registro histórico de lo cobrado), pero no cuenta como ingreso ni

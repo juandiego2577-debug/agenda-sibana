@@ -322,8 +322,9 @@ para servir también a **Copiapó**, de la siguiente forma:
      y pide la contraseña (`esCuentaConocida`, y `permission-denied` en el
      `onSnapshot` → cerrar sesión y recargar); si la sesión se cierra con la
      agenda abierta, recarga y pide la contraseña. El script de correos usa
-     `EQUIPO_EMAIL` nuevo (hay que pegar el script nuevo en Google; se le
-     dieron las instrucciones al usuario el 04/10/2026, sin confirmar todavía).
+     `EQUIPO_EMAIL` nuevo (el usuario pegó el script nuevo en Google el
+     04/10/2026 y `verQueSeEnviariaHoy` corrió sin errores: entra y lee la
+     agenda con la cuenta nueva).
      **Hecho:** el usuario borró las 4 cuentas que ya no se usan
      (`equipo@sibanasantiago.app`, `equipo@sibanabuenosaires.app`,
      `duenos@sibana.app`, `sibana.cl+duenos@gmail.com`) el 04/10/2026, después

@@ -227,7 +227,13 @@ para servir también a **Copiapó**, de la siguiente forma:
   "Clienta — " y está a menos de 3 h (`MARGEN_VIEJOS_MS`). El calendario de
   Sibana estaba con zona horaria de Venezuela: para que muestre las horas
   como la agenda hay que ponerlo en "Hora de Chile - Santiago"
-  (Configuración → General → Zona horaria del calendario). Abrir Apps
+  (Configuración → General → Zona horaria del calendario). **Funcionó
+  (04/10/2026):** con la agenda nueva, "Reenviar todo" dejó UN evento por
+  cita en formato nuevo (sin repetidos, color de la especialista). La
+  diferencia Chile/Venezuela solo existe con el horario de verano de Chile
+  (sept–abril); en invierno tienen la misma hora — por eso no se había
+  notado. El proyecto viejo de la cuenta personal quedó sin uso (archivar
+  su implementación). Abrir Apps
   Script desde la Hoja con varias cuentas de Google abiertas da "No se puede
   abrir el archivo" → usar una ventana de incógnito con solo sibana.cl.
 - **Modo Admin / Especialista**: gateado por una contraseña guardada en

@@ -69,7 +69,16 @@ service cloud.firestore {
     }
     function usuarioActivoDe(sede) {
       return tieneUsuario() && datosUsuario().activo == true
-        && (datosUsuario().rol == 'duenos' || datosUsuario().sede == sede);
+        && (datosUsuario().rol == 'duenos'
+            || (datosUsuario().rol == 'especialista' && datosUsuario().sede == sede));
+    }
+    // Rol "lector": solo puede LEER la agenda de su sede (no guardar, ni ver
+    // respaldos ni fichas). Es para el script de correos post-tratamiento, que
+    // guarda su contraseña en Google: así, aunque alguien la sacara de ahí, no
+    // podría cambiar ni borrar nada.
+    function lectorDe(sede) {
+      return tieneUsuario() && datosUsuario().activo == true
+        && datosUsuario().rol == 'lector' && datosUsuario().sede == sede;
     }
     function esDueno() {
       return conCuenta() && (
@@ -84,7 +93,7 @@ service cloud.firestore {
         && d.nombre is string && d.nombre.size() > 0 && d.nombre.size() <= 60
         && d.email is string && d.email.size() <= 100
         && d.sede in ['santiago', 'buenosaires']
-        && d.rol in ['especialista', 'duenos']
+        && d.rol in ['especialista', 'duenos', 'lector']
         && d.activo is bool;
     }
     match /sibana-usuarios/{uid} {
@@ -93,7 +102,8 @@ service cloud.firestore {
     }
 
     match /sibana-agenda/{sede} {
-      allow read, create, update: if puedeSede(sede);
+      allow read: if puedeSede(sede) || lectorDe(sede);
+      allow create, update: if puedeSede(sede);
     }
 
     // ---------------- Respaldos ----------------

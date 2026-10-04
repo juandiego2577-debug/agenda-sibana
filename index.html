@@ -898,7 +898,8 @@ function emailDeUsuario(u){ return 'juandiego2577+usr.' + normalizarUsuario(u) +
 function cargarPerfilPersonal(user){
   return db.collection(USUARIOS_COLECCION).doc(user.uid).get().then(snap=>{
     const p = snap.exists ? snap.data() : null;
-    if(p && p.activo===true && SEDES[p.sede]){
+    // Un "lector" (la cuenta del script de correos) no entra a la agenda.
+    if(p && p.activo===true && SEDES[p.sede] && p.rol!=='lector'){
       safeSetLocal(USUARIO_PERFIL_KEY, JSON.stringify({uid:user.uid, usuario:p.usuario, nombre:p.nombre, sede:p.sede, rol:p.rol}));
       return p;
     }
@@ -7454,7 +7455,7 @@ function equipoModalHtml(){
     <div class="curso-row" style="cursor:default;${u.activo?'':'opacity:.6;'}">
       <div>
         <div class="cr-name">${escapeHtml(u.nombre||'')} <span class="hint" style="margin:0;">· usuario: <b>${escapeHtml(u.usuario||'')}</b></span></div>
-        <div class="cr-rut">${escapeHtml((SEDES[u.sede]||{}).nombre||u.sede||'')} · ${u.activo?'✅ Activa':'⛔ Desactivada'}</div>
+        <div class="cr-rut">${escapeHtml((SEDES[u.sede]||{}).nombre||u.sede||'')} · ${u.rol==='lector'?'🤖 Solo lectura (script de correos) · ':''}${u.activo?'✅ Activa':'⛔ Desactivada'}</div>
         <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
           <button type="button" class="btn btn-ghost" style="font-size:12px;" data-act="equipo-activo" data-uid="${escapeHtml(u.uid)}" data-activo="${u.activo?'0':'1'}">${u.activo?'Desactivar':'Reactivar'}</button>
           ${u.activo?`<button type="button" class="btn btn-ghost" style="font-size:12px;" data-act="equipo-reset-clave" data-uid="${escapeHtml(u.uid)}">🔑 Contraseña nueva</button>`:''}

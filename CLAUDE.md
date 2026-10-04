@@ -58,14 +58,32 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     pruebas de reglas + 29 de la agenda real (crear, entrar con
     tildes/mayúsculas, identidad fija, vale con nombre forzado, Mi cuenta,
     cerrar sesión, desactivar/reactivar, enlace de contraseña) + las
-    anteriores. **Etapa 2 (pendiente):** antes de darle usuarios a las
-    especialistas reales hay que adaptar el script de respaldo (hoy solo
-    acepta los correos de `CUENTAS_PERMITIDAS`: los avisos de un usuario
-    personal se RECHAZAN y el Calendar no se actualiza — que lea
-    `sibana-usuarios/<uid>` con el token), el Panel Sibana de la ficha de
-    consentimiento y el script de correos (cuenta propia de sistema), y al
-    final apagar las cuentas compartidas (primero sacarlas de las reglas,
-    después borrarlas). Para Buenos Aires: arrancar directo con usuarios.
+    anteriores. **Etapa 2 (construida el 04/10/2026):** (a) script de
+    respaldo: además de `CUENTAS_PERMITIDAS`, acepta usuarios personales
+    activos de `SEDE_SCRIPT` (especialista) y dueños, leyendo
+    `sibana-usuarios/<uid>` por REST con el mismo token
+    (`usuarioPersonalPermitido`; la copia de BA debe poner
+    `SEDE_SCRIPT='buenosaires'`); (b) rol **'lector'** en las reglas
+    (`lectorDe`): solo LEE la agenda de su sede (ni guarda, ni respaldos, ni
+    fichas) — para el script de correos, que ahora entra como el usuario
+    `sistema` (`juandiego2577+usr.sistema@gmail.com`, contraseña en la
+    propiedad `CLAVE_EQUIPO` del script); un lector no puede entrar a la
+    agenda; (c) Panel Sibana (repo sibana-consentimiento): campo "Usuario"
+    (vacío = contraseña del equipo); si el usuario no tiene acceso a las
+    fichas de Santiago lo dice claro. **Bug encontrado y corregido ahí:** la
+    ficha y la agenda están en la MISMA dirección (github.io del usuario),
+    así que COMPARTEN la sesión de Firebase en un navegador: la versión
+    anterior de la ficha cerraba toda sesión que no fuera la del equipo, y
+    eso sacaba de la agenda a los dueños al abrir la ficha (comprobado con
+    la versión publicada). Ahora la ficha nunca cierra la sesión de nadie.
+    Probado: 36 pruebas de reglas de usuarios (incl. lector), simulador del
+    script de respaldo contra los emuladores (12: compartida, dueños,
+    Salomé aceptados; BA, desactivada, sin perfil, lector, anónimo, sin
+    token rechazados), Panel con usuario (7) + todas las anteriores.
+    **Falta (con el usuario):** dar usuarios a las especialistas reales; y
+    al final apagar las cuentas compartidas (primero sacarlas de las reglas,
+    de `CUENTAS_PERMITIDAS` del script y de `CUENTAS`, después borrarlas).
+    Para Buenos Aires: arrancar directo con usuarios.
   - **Correos de las cuentas (cambiado el 04/10/2026, ver "Auditoría de
     seguridad" punto 3):** antes eran correos inventados de dominios que no
     son del usuario (`equipo@sibanasantiago.app`, ...). Contraseñas: nunca

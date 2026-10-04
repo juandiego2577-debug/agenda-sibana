@@ -852,12 +852,11 @@ const CUENTAS = [
   {email: 'equipo@sibanabuenosaires.app', rol: 'equipo', sede: 'buenosaires'},
   {email: 'duenos@sibana.app', rol: 'duenos'},
 ];
-// Mientras esto esté en false, el equipo de Santiago sigue viendo el botón
-// "🔒 Especialista / 🔓 Admin" igual que siempre (entrar a Admin con la
-// contraseña de administrador). Pasarlo a true recién cuando Juan Diego y su
-// papá ya entren con la cuenta de dueños en sus teléfonos: desde ahí, la
-// cuenta del equipo de Santiago queda siempre en modo Especialista.
-const SOLO_DUENOS_ADMIN_SANTIAGO = false;
+// En true (desde el 04/10/2026, cuando Juan Diego y su papá ya entraban con
+// la cuenta de dueños): la cuenta del equipo de Santiago queda siempre en
+// modo Especialista, sin el botón "🔒 Especialista / 🔓 Admin". En false
+// vuelve ese botón (entrar a Admin con la contraseña de administrador).
+const SOLO_DUENOS_ADMIN_SANTIAGO = true;
 const SEDE_DUENOS_KEY = 'sibanaSedeDuenos'; // última sede que eligió un dueño en este dispositivo
 let CUENTA = null; // {email, rol, sede} de la sesión actual
 let SEDE = SEDES.santiago;

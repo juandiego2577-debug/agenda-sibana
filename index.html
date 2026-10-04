@@ -850,17 +850,25 @@ function aplicarCuenta(user){
   if(window.__setManifestName) window.__setManifestName('Sibana ' + SEDE.nombre + ' - Agenda');
 }
 // Cambia los colores de toda la agenda a los de la sede (si tiene propios).
+// Se busca la hoja de estilos de la agenda por su contenido (no "la primera
+// <style>"): algunos navegadores/extensiones meten sus propias <style> al
+// principio de la página, y entonces se cambiaba la equivocada (pasó de
+// verdad: Buenos Aires se veía con los colores de Santiago). La versión con
+// los colores de la sede se agrega como una hoja NUEVA al final, para que
+// gane sobre la original.
 function aplicarTemaSede(){
   const tema = SEDE.tema;
-  if(!tema) return;
-  const hoja = document.querySelector('head style');
-  if(!hoja || hoja.dataset.tema===SEDE.id) return;
+  if(!tema || document.getElementById('tema-sede')) return;
+  const hoja = Array.from(document.querySelectorAll('style')).find(st=>/--wine\s*:/.test(st.textContent));
+  if(!hoja) return;
   let css = hoja.textContent;
   tema.reemplazos.forEach(([de, a])=>{
     css = css.replace(new RegExp(de.replace(/[()]/g, '\\$&'), 'gi'), a);
   });
-  hoja.textContent = css + tema.extra;
-  hoja.dataset.tema = SEDE.id;
+  const nueva = document.createElement('style');
+  nueva.id = 'tema-sede';
+  nueva.textContent = css + tema.extra;
+  document.head.appendChild(nueva);
   const meta = document.querySelector('meta[name="theme-color"]');
   if(meta && tema.themeColor) meta.setAttribute('content', tema.themeColor);
 }

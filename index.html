@@ -691,12 +691,22 @@ function backupAviso(action, appt){
     especialistaColor: appt && appt.specialist ? specialistColor(appt.specialist) : '',
   } };
 }
-function postBackupWebhook(body){
+// Cada aviso lleva el "token" de la sesión (prueba de que se entró con
+// contraseña, vence en una hora; getIdToken lo renueva solo): el script
+// ignora los avisos sin un token válido de las cuentas de la agenda, porque
+// su dirección está en este código público y antes cualquiera podía borrar o
+// inventar eventos del Calendar y filas de la Hoja.
+async function postBackupWebhook(body){
+  let token = '';
+  try{
+    const u = firebase.auth().currentUser;
+    if(u) token = await u.getIdToken();
+  }catch(e){ console.error('No se pudo obtener el token de la sesión para el respaldo', e); }
   return fetch(SEDE.backupWebhookUrl, {
     method: 'POST',
     mode: 'no-cors', // los Apps Script publicados como "cualquiera" se llaman así desde el navegador
     headers: {'Content-Type': 'text/plain;charset=utf-8'},
-    body: JSON.stringify(body),
+    body: JSON.stringify(Object.assign({token}, body)),
   });
 }
 function syncToBackupWebhook(action, appt){

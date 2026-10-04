@@ -330,10 +330,25 @@ para servir también a **Copiapó**, de la siguiente forma:
      `duenos@sibana.app`, `sibana.cl+duenos@gmail.com`) el 04/10/2026, después
      de publicar las reglas sin esos correos; comprobado contra Firebase real
      (ya no existen; las 3 nuevas entran y cada una lee solo lo suyo).
+  5. **Script de respaldo (Hoja/Calendar) protegido (04/10/2026):** su URL
+     está en el código público y aceptaba avisos de cualquiera (podían
+     borrar o inventar filas y eventos). Ahora `postBackupWebhook` manda
+     `token` (`getIdToken()` de la sesión) en cada aviso y tanda, y el script
+     (`cuentaDelAviso`) le pregunta a Firebase (`accounts:lookup`) de qué
+     cuenta es: solo acepta `CUENTAS_PERMITIDAS` (equipo de esa sede +
+     dueños; la copia de BA debe cambiar la del equipo); el resultado se
+     recuerda 5 min (`CacheService`). Rechazos en `probar()` ("Último aviso
+     rechazado"). Además la Hoja guarda como texto lo que empiece con
+     `= + - @` (un teléfono "+56 9…" daba error de fórmula). Probado con un
+     simulador de Google (Node) y tokens del Firebase REAL (anónimo, BA,
+     inventado y sin token se rechazan) + la agenda real en el emulador
+     (el token va en cada aviso). **Pendiente del usuario:** pegar el script
+     nuevo y publicar una "Nueva versión" de la implementación (misma URL);
+     y ARCHIVAR la implementación del proyecto viejo de su cuenta personal
+     ("Proyecto sin título", …P2E3mNT7c1gw6XA/exec), que sigue aceptando
+     avisos de cualquiera y escribe en el mismo calendario.
   **Pendiente (el usuario lo dejó para después):** (4) los dos repos son
   públicos y `HISTORICAL_IMPORT` tiene nombres/teléfonos de clientas;
-  (5) el script de respaldo acepta avisos de cualquiera (puede borrar
-  eventos/filas) — verificar el token de Firebase en el script;
   (6) contraseñas largas y cambiarlas cuando alguien se va; (7)
   verificación en dos pasos en GitHub y Google. Ojo: el "modo
   Especialista" es solo visual — la cuenta del equipo puede escribir todo

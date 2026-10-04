@@ -194,6 +194,16 @@ para servir también a **Copiapó**, de la siguiente forma:
   "Reenviar todo": borra solo los eventos que el script creó en el
   calendario principal de su cuenta, si no es el de Sibana). Probado con un
   simulador de los servicios de Google (Node), no contra Google real.
+  **Dónde vive (aclarado el 05/10/2026):** había DOS proyectos — "Proyecto
+  sin título" en la cuenta personal juandiego2577@gmail.com (código viejo,
+  el que la agenda usaba: …P2E3mNT7c1gw6XA/exec) y "Respaldo Agenda Sibana"
+  en sibana.cl@gmail.com. Los dos escribían en el calendario de Sibana (el
+  personal con permiso compartido), de ahí los duplicados ("creada por Juan
+  Diego"). Ahora `BACKUP_WEBHOOK_URL` apunta a "Respaldo Agenda Sibana"
+  (implementación "Sin título", …OVn2/exec, código nuevo). El proyecto
+  personal quedó sin uso: conviene ARCHIVAR su implementación. Abrir Apps
+  Script desde la Hoja con varias cuentas de Google abiertas da "No se puede
+  abrir el archivo" → usar una ventana de incógnito con solo sibana.cl.
 - **Modo Admin / Especialista**: gateado por una contraseña guardada en
   `state.settings.adminPassword` (dentro del propio documento de
   Firestore, no hay backend de autenticación real). Por defecto arranca

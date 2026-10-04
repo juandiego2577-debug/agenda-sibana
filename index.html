@@ -4322,15 +4322,26 @@ window.addEventListener('offline', ()=>setOffline(true));
 // se ve está al día (1 lectura; no cuesta nada dentro del plan gratis).
 setInterval(()=>{ if(document.visibilityState==='visible') refreshFromServer(); }, 2*60*1000);
 
+// Usuarios personales: mientras se preparan (oct 2026), el campo "Usuario"
+// de la entrada NO se muestra, para que el equipo vea la pantalla de siempre
+// (decidido con Juan Diego: se lanza todo de una vez cuando esté listo).
+// Para probar antes, abrir la agenda con "?usuario" al final de la dirección.
+// Cuando se lance, poner esto en true.
+const USUARIOS_PERSONALES_VISIBLES = false;
+function campoUsuarioVisible(){
+  return USUARIOS_PERSONALES_VISIBLES || /[?&]usuario(=|&|$)/.test(location.search);
+}
+
 function showTeamLoginGate(){
   const root = document.getElementById('root');
+  const conUsuario = campoUsuarioVisible();
   root.innerHTML = `
     <div class="login-gate">
       <img src="${LOGO_SRC}" alt="Sibana" class="login-gate-logo">
       <h1 class="serif">Agenda Sibana</h1>
-      <p class="hint">Escribe tu usuario y tu contraseña para entrar.</p>
+      <p class="hint">${conUsuario ? 'Escribe tu usuario y tu contraseña para entrar.' : 'Ingresa la contraseña del equipo para entrar.'}</p>
       <div class="login-gate-box">
-        <input type="text" id="team-login-user" class="client-search-input" placeholder="Usuario (déjalo vacío si no tienes uno)" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" style="margin-bottom:10px;">
+        ${conUsuario ? `<input type="text" id="team-login-user" class="client-search-input" placeholder="Usuario (déjalo vacío si no tienes uno)" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" style="margin-bottom:10px;">` : ''}
         <div class="pw-field">
           <input type="password" id="team-login-input" class="client-search-input" placeholder="Contraseña" autocomplete="current-password">
           <button type="button" class="pw-toggle" id="team-login-toggle" aria-label="Mostrar contraseña">👁</button>
@@ -4361,7 +4372,7 @@ function showTeamLoginGate(){
       return firebase.auth().signInWithEmailAndPassword(CUENTAS[i].email, pass).catch(()=>tryAccount(i+1));
     };
     // Con usuario: su cuenta personal. Sin usuario: las cuentas compartidas.
-    const usuario = normalizarUsuario(userInput.value);
+    const usuario = userInput ? normalizarUsuario(userInput.value) : '';
     const intento = usuario
       ? firebase.auth().signInWithEmailAndPassword(emailDeUsuario(usuario), pass)
       : tryAccount(0);
@@ -4376,8 +4387,10 @@ function showTeamLoginGate(){
   };
   btn.addEventListener('click', submit);
   input.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
-  userInput.addEventListener('keydown', e=>{ if(e.key==='Enter') input.focus(); });
-  userInput.focus();
+  if(userInput){
+    userInput.addEventListener('keydown', e=>{ if(e.key==='Enter') input.focus(); });
+    userInput.focus();
+  } else input.focus();
 }
 let avisoLoginGate = ''; // mensaje para mostrar en la pantalla de entrada (ej. usuario desactivado)
 

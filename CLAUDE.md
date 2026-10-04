@@ -49,23 +49,44 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
   nunca para Santiago; nunca automático). Arranca vacío, con los nombres de
   servicios de Santiago a precio $0 y la crema incluida.
 - **Comisión en Buenos Aires** (`reglaComision:'descuentoUSD'`, confirmado
-  con el usuario): a cada tratamiento se le restan 10 dólares (en pesos) y
-  recién eso se divide 50/50. Por tratamiento: cada servicio anotado, una vez
-  por unidad (2 personas con el tratamiento anotado ×2 = 2 descuentos). NO
-  llevan descuento: retoques (50/50 directo), cursos, evaluación, garantía.
-  Cancelada/NoShow: el abono queda 100% para el negocio (comisión 0). Ver
-  `apptCommissionBase`/`tratamientosConDescuento`. El valor en pesos de los
-  10 dólares es un historial por FECHA de cita
-  (`settings.descuentoUSDHistory`, `descuentoUSDParaFecha`), editable en Más
-  → "💱 Valores en pesos argentinos" (también el abono sugerido): cambiarlo
-  nunca recalcula citas anteriores. En Santiago no hay ningún descuento.
+  con el usuario): a cada tratamiento de **MICROPIGMENTACIÓN** se le restan
+  10 dólares (en pesos) y recién eso se divide 50/50. Todo lo demás
+  (lifting, perfilado, laminado...), los retoques y los cursos se reparten
+  50/50 directo. Qué es micropigmentación se marca A MANO por servicio
+  (casilla en Servicios y tarifario, solo BA, `s.micropigmentacion`; al
+  crear la agenda se marcan solas microblading/sombreado/mixbrows/full
+  lips/delineado). La cantidad queda CONGELADA en cada cita al guardarla
+  (`a.tratamientosMicro`, solo se recuenta si cambian sus servicios), así
+  que tocar la casilla después no cambia citas ya agendadas. Cada servicio
+  anotado cuenta una vez por unidad (2 personas con el tratamiento ×2 = 2
+  descuentos). Ver `apptCommissionBase`/`tratamientosConDescuento`.
+  **Valor del dólar**: un solo historial por FECHA de cita
+  (`settings.dolarHistory` = `[{desde, pesos}]`, 1 dólar en pesos,
+  `valorDolarParaFecha`), editable en Más → "💱 Valor del dólar". De ahí
+  salen los 10 dólares del descuento y los 5 dólares del **abono sugerido**
+  (`abonoSugeridoUSD`, redondeado a la centena, con el valor de hoy).
+  Cambiarlo nunca recalcula citas anteriores. En Santiago no hay descuento.
+- **Abono perdido (Cancelada/NoShow) = 100% del negocio, en AMBAS sedes**
+  (confirmado con el usuario el 04/10/2026): no genera comisión. En
+  Santiago aplica a citas desde `SEDES.santiago.abonoPerdidoSoloNegocioDesde`
+  ('2026-10-05', el lunes siguiente — inicio de una semana de pago); las
+  anteriores quedan como se calcularon y pagaron (antes la especialista se
+  llevaba su % del abono). En Buenos Aires, siempre.
+- **Colores de Buenos Aires: los de la bandera argentina** (celeste, blanco
+  y el sol dorado), a pedido del usuario aunque se pierdan los de Sibana,
+  para que no haya confusión de sede. `TEMA_BANDERA_ARGENTINA` +
+  `aplicarTemaSede` generan la hoja de estilos reemplazando cada color de la
+  de Santiago; "Confirmada" queda amarilla (sol) para no confundirse con el
+  celeste. Un color NUEVO que se agregue al CSS debe sumarse a esos
+  reemplazos (y los gráficos SVG usan `style="fill:var(--...)"` por eso).
+- **Mensajes a clientas con "vos" en Buenos Aires** (`SEDE.voseo`):
+  retoques ("¿Querés agendar tu turno?"), "cómo te fue" y reseña. Los textos
+  de la propia agenda (para el equipo) siguen con "tú".
 - Finanzas de cada sede por separado (no se suman entre sí: son monedas
   distintas). Admin: Juan Diego y su papá en ambas. Gmail aparte para
   Buenos Aires (su propio script de respaldo, todavía sin URL).
-- **Pendiente con el usuario:** colores de Buenos Aires (lo consulta con su
-  papá; los colores de Sibana "son los que son"), monto del abono sugerido,
-  textos de WhatsApp para clientas con "vos", link de reseñas de Google, y
-  si los servicios baratos (ej. perfilado) también llevan los 10 dólares.
+- **Pendiente con el usuario:** link de reseñas de Google de Buenos Aires,
+  script de respaldo (Gmail de BA), crear las cuentas y publicar las reglas.
 
 ## Posible extensión a Copiapó (en pausa, probablemente no se haga)
 **Actualización (oct 2026):** la sede de Copiapó al parecer prefiere seguir
@@ -312,9 +333,12 @@ para servir también a **Copiapó**, de la siguiente forma:
   punto 8 arriba) sobre lo que genera cada cita — pero NUNCA sobre la
   crema post-tratamiento (ver punto 7) ni sobre el ingreso pasivo del box
   arrendado (abajo). Ver `apptCommissionBase`.
-- **Cita Cancelada o NoShow**: cuenta solo el abono como ingreso/comisión
-  (si se cobró y no se devolvió) — confirmado explícitamente con el
-  usuario, es la regla correcta, no un bug. Si el abono SÍ se devolvió,
+- **Cita Cancelada o NoShow**: cuenta solo el abono como ingreso (si se
+  cobró y no se devolvió) — confirmado explícitamente con el usuario, es la
+  regla correcta, no un bug. Ese abono perdido NO genera comisión: es 100%
+  del negocio (cambio confirmado el 04/10/2026, para citas desde el
+  05/10/2026 en Santiago — ver "Sede de Buenos Aires" arriba; antes sí
+  generaba comisión y esos meses no se recalculan). Si el abono SÍ se devolvió,
   se marca el checkbox "Se le devolvió el abono" en esa cita (visible
   solo en Cancelada/NoShow) — el monto del abono queda igual en el campo
   (registro histórico de lo cobrado), pero no cuenta como ingreso ni

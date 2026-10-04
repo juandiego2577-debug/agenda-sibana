@@ -215,7 +215,7 @@ para servir también a **Copiapó**, de la siguiente forma:
    snapshot; "Eliminar cliente" pasa `saveData({allowRemoved:n})`).
    Además hay un **respaldo automático diario** en la colección
    `sibana-agenda-respaldos` (doc `<sede>_YYYY-MM-DD`, nunca se
-   sobrescribe, se guardan 60 días, índice en `<sede>_indice`) — se ve y
+   sobrescribe, se guardan 30 días — antes 60, se bajó a pedido del usuario; la limpieza borra todo lo que figure en el índice con más de 30 días —, índice en `<sede>_indice`) — se ve y
    descarga desde Más → "Respaldos". Su contenido se arma desde `DOC_KEYS`
    (`fullBackupPayload`): antes se escribía a mano y los CURSOS no se
    respaldaban (corregido 04/10/2026). **Restaurar** (oct 2026, pedido del

@@ -295,7 +295,7 @@ para servir también a **Copiapó**, de la siguiente forma:
   Probado con el emulador oficial (50 pruebas de reglas + páginas reales
   con el SDK 10.14.1: firmar, Panel Sibana, PDF y la agenda; la versión
   vieja sí ejecutaba la firma maliciosa). **Estado:** las reglas nuevas
-  hay que PEGARLAS a mano en Firebase (hasta entonces siguen las de antes).
+  YA ESTÁN PUBLICADAS en Firebase (el usuario las pegó el 04/10/2026).
   **Pendiente (el usuario lo dejó para después):** (3) los correos de las
   cuentas usan dominios (`sibanasantiago.app`, `sibanabuenosaires.app`,
   `sibana.app`) que quizás nadie compró — si alguien los compra puede usar

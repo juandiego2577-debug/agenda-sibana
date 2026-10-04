@@ -16,12 +16,11 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
   `aplicarCuenta`). Nunca se pregunta "¿qué sede?" (al usuario le parecía
   tedioso). Tres cuentas de Firebase Auth, con contraseñas DISTINTAS entre
   sí (el login solo pide la contraseña y la prueba con cada cuenta en orden):
-  - `equipo@sibanasantiago.app` → Santiago, Especialista. Mientras
-    `SOLO_DUENOS_ADMIN_SANTIAGO` sea `false` conserva el botón
-    "🔒 Especialista / 🔓 Admin" de siempre (para no dejar a Juan Diego sin
-    Admin antes de que use la cuenta de dueños). El usuario pidió quitar ese
-    botón: pasar la constante a `true` cuando él y su papá ya entren con la
-    cuenta de dueños en sus teléfonos.
+  - `equipo@sibanasantiago.app` → Santiago, siempre Especialista, sin botón
+    de Admin: `SOLO_DUENOS_ADMIN_SANTIAGO = true` desde el 04/10/2026 (Juan
+    Diego y su papá ya entran con la cuenta de dueños). Un teléfono del
+    equipo que estaba recordado como Admin pasa solo a Especialista. Con
+    `false` vuelve el botón "🔒 Especialista / 🔓 Admin" de antes.
   - `equipo@sibanabuenosaires.app` → Buenos Aires, siempre Especialista,
     sin botón de Admin.
   - `duenos@sibana.app` → Juan Diego y su papá: siempre Admin, con un botón
@@ -119,8 +118,14 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
 - Finanzas de cada sede por separado (no se suman entre sí: son monedas
   distintas). Admin: Juan Diego y su papá en ambas. Gmail aparte para
   Buenos Aires (su propio script de respaldo, todavía sin URL).
-- **Pendiente con el usuario:** link de reseñas de Google de Buenos Aires,
-  script de respaldo (Gmail de BA), crear las cuentas y publicar las reglas.
+- **Estado (04/10/2026):** cuentas creadas, reglas publicadas y la agenda de
+  Buenos Aires YA CREADA por los dueños. **Pendiente con el usuario** (lo
+  dejó para más adelante): cargar precios en pesos y especialistas de BA;
+  elegir el dólar (oficial/blue/MEP); el Gmail de BA y su script de
+  respaldo/Calendar (mismo `.gs`, cambiando `CALENDAR_ID` a ese correo;
+  Calendar de BA en hora de Buenos Aires; cada sede en su propio Calendar,
+  decidido); link de reseñas de Google de BA; ficha de consentimiento con
+  DNI (repo `sibana-consentimiento`).
 
 ## Posible extensión a Copiapó (en pausa, probablemente no se haga)
 **Actualización (oct 2026):** la sede de Copiapó al parecer prefiere seguir

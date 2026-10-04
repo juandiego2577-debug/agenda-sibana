@@ -682,30 +682,41 @@ document.getElementById('root').innerHTML = loadingScreenHtml();
 // dejaba cada cita repetida.
 const BACKUP_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxiGxGvhHGrnxSp57ARghDsT6rbg-ROIsH1d0LRYBzo0oQL2ERIaoI7v6HdACxDOVn2/exec';
 
+// "extra": datos para que el Calendar se parezca a la agenda (color de la
+// especialista, zona horaria y moneda de la sede). Un script viejo
+// simplemente los ignora.
+function backupAviso(action, appt){
+  return { action, appointment: appt, extra: {
+    sede: SEDE.nombre, zonaHoraria: SEDE.zonaHoraria, moneda: SEDE.moneda,
+    especialistaColor: appt && appt.specialist ? specialistColor(appt.specialist) : '',
+  } };
+}
+function postBackupWebhook(body){
+  return fetch(SEDE.backupWebhookUrl, {
+    method: 'POST',
+    mode: 'no-cors', // los Apps Script publicados como "cualquiera" se llaman así desde el navegador
+    headers: {'Content-Type': 'text/plain;charset=utf-8'},
+    body: JSON.stringify(body),
+  });
+}
 function syncToBackupWebhook(action, appt){
   if(!backupWebhookActivo()) return; // cada sede manda a su propio script (SEDE.backupWebhookUrl)
   try{
-    fetch(SEDE.backupWebhookUrl, {
-      method: 'POST',
-      mode: 'no-cors', // los Apps Script publicados como "cualquiera" se llaman así desde el navegador
-      headers: {'Content-Type': 'text/plain;charset=utf-8'},
-      // "extra": datos para que el Calendar se parezca a la agenda (color de
-      // la especialista, zona horaria y moneda de la sede). Un script viejo
-      // simplemente los ignora.
-      body: JSON.stringify({ action, appointment: appt, extra: {
-        sede: SEDE.nombre, zonaHoraria: SEDE.zonaHoraria, moneda: SEDE.moneda,
-        especialistaColor: appt && appt.specialist ? specialistColor(appt.specialist) : '',
-      } }),
-    });
+    postBackupWebhook(backupAviso(action, appt)).catch(e=>console.error('No se pudo avisar al respaldo/Calendar (la cita igual quedó guardada en Firebase)', e));
   }catch(e){
     console.error('No se pudo avisar al respaldo/Calendar (la cita igual quedó guardada en Firebase)', e);
   }
 }
 
-// Reenvía TODAS las citas actuales a la Hoja/Calendar conectados, una por una
-// con una pequeña pausa entre cada una (para no saturar el script de Google).
-// Se puede usar las veces que quieras — como ya identifica cada cita por su
-// ID, nunca duplica filas ni eventos, solo los actualiza si ya existían.
+// Reenvía TODAS las citas actuales a la Hoja/Calendar conectados. Se puede
+// usar las veces que quieras — como ya identifica cada cita por su ID, nunca
+// duplica filas ni eventos, solo los actualiza si ya existían (y junta los
+// repetidos). Va en TANDAS y espera a que el script termine cada una antes de
+// mandar la siguiente: antes mandaba una cita cada 350 ms sin esperar, y el
+// script (que atiende de a un aviso, para no duplicar) no alcanzaba —la
+// mayoría se perdían sin aviso y el Calendar quedaba a medias (pasó de
+// verdad el 04/10/2026). Necesita el script con "lote" (oct 2026).
+const BACKUP_TANDA = 15;
 function runFullBackupSync(){
   if(!backupWebhookActivo()){
     showAlert('Todavía no has conectado ninguna Hoja/Calendar (falta pegar la URL del script). Pídele a Claude que te ayude con ese paso primero.');
@@ -713,18 +724,30 @@ function runFullBackupSync(){
   }
   const total = state.appointments.length;
   if(!total){ showAlert('No hay ninguna cita guardada para sincronizar.'); return; }
-  showConfirmDialog(`Esto va a mandar las ${total} citas guardadas (incluidas las de meses anteriores) a tu Hoja de Google y a crear/actualizar su evento en Calendar. Puede tardar un par de minutos. ¿Continuar?`, ()=>{
-    let i = 0;
-    const sendNext = ()=>{
-      if(i >= state.appointments.length){
-        showAlert(`Listo — se mandaron ${state.appointments.length} citas a la Hoja y al Calendar.`);
-        return;
+  showConfirmDialog(`Esto va a mandar las ${total} citas guardadas (incluidas las de meses anteriores) a tu Hoja de Google y a crear/actualizar su evento en Calendar. Puede tardar varios minutos: no cierres la agenda hasta que diga "Listo". ¿Continuar?`, async ()=>{
+    const citas = state.appointments.slice();
+    const prog = document.createElement('div');
+    prog.id = 'backup-progress';
+    prog.className = 'confirm-overlay';
+    prog.innerHTML = '<div class="confirm-box"><p id="backup-progress-text"></p></div>';
+    document.body.appendChild(prog);
+    const texto = n => { const el = document.getElementById('backup-progress-text'); if(el) el.textContent = `☁️ Mandando citas a la Hoja y al Calendar… ${n} de ${citas.length}. No cierres la agenda.`; };
+    let enviadas = 0, fallidas = 0;
+    for(let i = 0; i < citas.length; i += BACKUP_TANDA){
+      texto(i);
+      const tanda = citas.slice(i, i + BACKUP_TANDA);
+      const body = { lote: tanda.map(a=>backupAviso('save', a)) };
+      let ok = false;
+      for(let intento = 0; intento < 2 && !ok; intento++){
+        try{ await postBackupWebhook(body); ok = true; }
+        catch(e){ console.error('Tanda del respaldo sin respuesta', e); await new Promise(r=>setTimeout(r, 3000)); }
       }
-      syncToBackupWebhook('save', state.appointments[i]);
-      i++;
-      setTimeout(sendNext, 350);
-    };
-    sendNext();
+      if(ok) enviadas += tanda.length; else fallidas += tanda.length;
+    }
+    prog.remove();
+    showAlert(fallidas
+      ? `Se mandaron ${enviadas} de ${citas.length} citas; ${fallidas} no se pudieron mandar (¿se cortó internet?). Puedes tocar "Reenviar todo" de nuevo: no duplica nada.`
+      : `Listo — se mandaron las ${citas.length} citas a la Hoja y al Calendar.`);
   });
 }
 

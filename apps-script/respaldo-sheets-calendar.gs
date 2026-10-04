@@ -89,38 +89,52 @@ function hojaDeCalculo() {
 }
 
 function doPost(e) {
+  var props = PropertiesService.getScriptProperties();
   // Un aviso a la vez: si llegan dos casi juntos para la misma cita (ej. se
   // guarda y enseguida se marca el pago), sin esto los dos podían crear su
   // propio evento → la cita aparecía duplicada.
   var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  try {
+    lock.waitLock(120000);
+  } catch (err) {
+    props.setProperty('ultimoError', ahoraTexto() + ' · Demasiados avisos juntos (se esperó 2 minutos): ' + err);
+    return respuesta({ok: false, error: String(err)});
+  }
   try {
     var data = JSON.parse(e.postData.contents);
-    var appt = data.appointment;
-    var extra = data.extra || {};
-    if (!appt || !appt.id) throw new Error('Aviso sin cita');
-    var props = PropertiesService.getScriptProperties();
-    props.setProperty('ultimoAviso', ahoraTexto() + ' · ' + (appt.client || appt.id));
-    // La Hoja y el Calendar van por separado: si una falla, la otra igual se
-    // hace. Los errores quedan en "Ejecuciones" y en probar().
+    // "Reenviar todo" manda las citas en tandas ("lote"); un guardado normal
+    // manda una sola ("appointment").
+    var avisos = data.lote || [{action: data.action, appointment: data.appointment, extra: data.extra}];
     var errores = [];
-    try { updateSheetRow(appt, data.action, extra); }
-    catch (err) { errores.push('Hoja: ' + err); }
-    try { syncToCalendar(appt, data.action, extra); }
-    catch (err) { errores.push('Calendar: ' + err); }
+    avisos.forEach(function(aviso) {
+      var appt = aviso.appointment;
+      var extra = aviso.extra || {};
+      if (!appt || !appt.id) { errores.push('Aviso sin cita'); return; }
+      // La Hoja y el Calendar van por separado: si una falla, la otra igual
+      // se hace. Los errores quedan en "Ejecuciones" y en probar().
+      try { updateSheetRow(appt, aviso.action, extra); }
+      catch (err) { errores.push((appt.client || appt.id) + ' · Hoja: ' + err); }
+      try { syncToCalendar(appt, aviso.action, extra); }
+      catch (err) { errores.push((appt.client || appt.id) + ' · Calendar: ' + err); }
+    });
+    var ultima = avisos[avisos.length - 1].appointment || {};
+    props.setProperty('ultimoAviso', ahoraTexto() + ' · ' + (ultima.client || ultima.id || '') +
+                      (avisos.length > 1 ? ' (tanda de ' + avisos.length + ' citas)' : ''));
     if (errores.length) {
       console.error(errores.join(' | '));
-      props.setProperty('ultimoError', ahoraTexto() + ' · ' + (appt.client || appt.id) + ' · ' + errores.join(' | '));
+      props.setProperty('ultimoError', ahoraTexto() + ' · ' + errores.join(' | ').slice(0, 8000));
     }
-    return ContentService.createTextOutput(JSON.stringify({ok: !errores.length, errores: errores}))
-      .setMimeType(ContentService.MimeType.JSON);
+    return respuesta({ok: !errores.length, errores: errores});
   } catch (err) {
     console.error(String(err));
-    return ContentService.createTextOutput(JSON.stringify({ok: false, error: String(err)}))
-      .setMimeType(ContentService.MimeType.JSON);
+    props.setProperty('ultimoError', ahoraTexto() + ' · ' + err);
+    return respuesta({ok: false, error: String(err)});
   } finally {
     lock.releaseLock();
   }
+}
+function respuesta(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ---------------- Formato ----------------
@@ -269,9 +283,12 @@ function fechaHora(fecha, hora, zona) {
   return Utilities.parseDate(fecha + ' ' + hora, zona, 'yyyy-MM-dd HH:mm');
 }
 // Todos los eventos de esta cita: el que quedó anotado, más los que tengan su
-// marca (sibanaId) ese día, más los de la versión anterior del script (sin
-// marca) que sean claramente la misma cita (misma clienta, mismo horario) —
-// así se juntan los duplicados que hubiera.
+// marca (sibanaId), más los de la versión anterior del script (sin marca) que
+// sean claramente la misma cita: mismo título "Clienta — ..." y a menos de 3
+// horas de distancia. (Una hora exacta no sirve: la versión anterior armaba la
+// hora con la zona horaria del proyecto —Venezuela— y no la de Chile, así que
+// sus eventos quedaron corridos una hora.) Así se juntan los duplicados.
+var MARGEN_VIEJOS_MS = 3 * 3600 * 1000;
 function eventosDeLaCita(cal, appt, zona, props) {
   var lista = [], vistos = {};
   var agregar = function(ev) {
@@ -284,13 +301,15 @@ function eventosDeLaCita(cal, appt, zona, props) {
   var anotado = props.getProperty('evt_' + appt.id);
   if (anotado) { try { agregar(cal.getEventById(anotado)); } catch (e) {} }
   if (appt.date) {
-    var desde = fechaHora(appt.date, '00:00', zona);
-    var hasta = new Date(desde.getTime() + 24 * 3600 * 1000);
+    var dia = fechaHora(appt.date, '00:00', zona).getTime();
+    var desde = new Date(dia - MARGEN_VIEJOS_MS);
+    var hasta = new Date(dia + 24 * 3600 * 1000 + MARGEN_VIEJOS_MS);
     var inicio = appt.start ? fechaHora(appt.date, appt.start, zona).getTime() : null;
     cal.getEvents(desde, hasta).forEach(function(ev) {
       var marca = ev.getTag('sibanaId');
       if (marca === appt.id) { agregar(ev); return; }
-      if (!marca && inicio !== null && ev.getStartTime().getTime() === inicio &&
+      if (!marca && inicio !== null && appt.client &&
+          Math.abs(ev.getStartTime().getTime() - inicio) <= MARGEN_VIEJOS_MS &&
           String(ev.getTitle()).indexOf(appt.client + ' — ') === 0) {
         agregar(ev);
       }

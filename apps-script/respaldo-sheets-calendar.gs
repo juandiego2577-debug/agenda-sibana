@@ -48,6 +48,17 @@ var COLORES_GOOGLE = [['1','#a4bdfc'],['2','#7ae7bf'],['3','#dbadff'],['4','#ff8
                       ['7','#46d6db'],['8','#e1e1e1'],['9','#5484ed'],['10','#51b749'],['11','#dc2127']];
 var COLOR_GRIS = '8'; // citas canceladas o en que la clienta no llegó
 
+// Solo se aceptan avisos que vengan de la agenda con una sesión de verdad.
+// La dirección de este script está en el código de la agenda (que es
+// público), así que antes CUALQUIERA podía mandarle avisos y borrar o
+// inventar filas de la Hoja y eventos del Calendar. Ahora la agenda manda su
+// "token" de Firebase (una prueba de que entró con contraseña, que vence en
+// una hora) y el script le pregunta a Firebase de qué cuenta es: si no es una
+// de estas, el aviso se ignora. Para la copia de Buenos Aires de este
+// script, cambiar la primera por 'sibana.cl+buenosaires@gmail.com'.
+var CUENTAS_PERMITIDAS = ['sibana.cl+equipo@gmail.com', 'juandiego2577+duenos@gmail.com'];
+var FIREBASE_API_KEY = 'AIzaSyCpmGl31qLkbXU-OAJyK-thqGYOFnAoa-Y'; // la misma de la agenda (es pública)
+
 // ---------------- Prueba (ejecutar a mano) ----------------
 // Elegir "probar" arriba → Ejecutar. La primera vez pide permisos (aceptar).
 // Muestra en el registro dónde está la Hoja, si encuentra el calendario y el
@@ -63,6 +74,7 @@ function probar() {
   var props = PropertiesService.getScriptProperties();
   Logger.log('Último aviso recibido de la agenda: ' + (props.getProperty('ultimoAviso') || 'ninguno todavía'));
   Logger.log('Último error: ' + (props.getProperty('ultimoError') || 'ninguno'));
+  Logger.log('Último aviso rechazado (no venía de la agenda): ' + (props.getProperty('ultimoRechazado') || 'ninguno'));
 }
 function verHoja() { probar(); }
 function ahoraTexto() {
@@ -88,8 +100,40 @@ function hojaDeCalculo() {
   return ss;
 }
 
+// De qué cuenta de la agenda viene el aviso (o null si el token no es
+// válido o ya venció). Se recuerda 5 minutos para no preguntarle a Firebase
+// en cada aviso.
+function cuentaDelAviso(token) {
+  if (!token || typeof token !== 'string') return null;
+  var cache = CacheService.getScriptCache();
+  var clave = 'tok_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token));
+  var recordada = cache.get(clave);
+  if (recordada) return recordada;
+  var r = UrlFetchApp.fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + FIREBASE_API_KEY, {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    payload: JSON.stringify({idToken: token}),
+  });
+  if (r.getResponseCode() !== 200) return null;
+  var u = (JSON.parse(r.getContentText()).users || [])[0];
+  if (!u || !u.email || u.disabled) return null;
+  var email = String(u.email).toLowerCase();
+  cache.put(clave, email, 300);
+  return email;
+}
+
 function doPost(e) {
   var props = PropertiesService.getScriptProperties();
+  var data;
+  try {
+    data = JSON.parse(e.postData.contents);
+  } catch (err) {
+    return respuesta({ok: false, error: 'Aviso ilegible'});
+  }
+  var cuenta = cuentaDelAviso(data.token);
+  if (!cuenta || CUENTAS_PERMITIDAS.indexOf(cuenta) < 0) {
+    props.setProperty('ultimoRechazado', ahoraTexto() + ' · ' + (cuenta || 'sin sesión válida de la agenda'));
+    return respuesta({ok: false, error: 'No autorizado'});
+  }
   // Un aviso a la vez: si llegan dos casi juntos para la misma cita (ej. se
   // guarda y enseguida se marca el pago), sin esto los dos podían crear su
   // propio evento → la cita aparecía duplicada.
@@ -101,7 +145,6 @@ function doPost(e) {
     return respuesta({ok: false, error: String(err)});
   }
   try {
-    var data = JSON.parse(e.postData.contents);
     // "Reenviar todo" manda las citas en tandas ("lote"); un guardado normal
     // manda una sola ("appointment").
     var avisos = data.lote || [{action: data.action, appointment: data.appointment, extra: data.extra}];
@@ -268,6 +311,9 @@ function updateSheetRow(appt, action, extra) {
     pagoTexto(Number(appt.saldo) || 0, appt.metodoSaldo, appt.metodoSaldo2, appt.montoSaldo2, extra.moneda),
     porCobrar(appt), pagoMarcadoTexto(appt, zona), appt.cursoId ? (appt.cursoNombre || 'Curso') : ''
   ];
+  // Un texto que empiece con "=", "+", "-" o "@" la Hoja lo tomaría como
+  // fórmula (ej. un teléfono "+56 9 …" daba error): se guarda como texto.
+  row = row.map(function(v) { return (typeof v === 'string' && /^[=+\-@]/.test(v)) ? "'" + v : v; });
   if (rowIndex > 0) {
     sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
   } else {

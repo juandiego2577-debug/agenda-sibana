@@ -345,9 +345,12 @@ para servir también a **Copiapó**, de la siguiente forma:
      (el token va en cada aviso). **Hecho por el usuario (04/10/2026):** pegó
      el script nuevo, publicó la "Nueva versión" y ARCHIVÓ la implementación
      del proyecto viejo de su cuenta personal ("Proyecto sin título",
-     …P2E3mNT7c1gw6XA/exec). No se pudo comprobar contra el script real desde
-     el entorno de pruebas (script.google.com bloqueado): la prueba es
-     guardar una cita y ver `probar()` ("Último aviso recibido").
+     …P2E3mNT7c1gw6XA/exec). **Comprobado en Google real:** el usuario guardó una
+     cita y `probar()` mostró ese aviso como recibido (aceptado) y "Último
+     aviso rechazado: ninguno". (Desde el entorno de pruebas
+     script.google.com está bloqueado.) Ojo al leer `probar()`: los avisos
+     se anotan en hora de Chile y el registro de ejecución de Google muestra
+     la zona del proyecto (Venezuela), así que difieren 1 h en verano.
   **Pendiente (el usuario lo dejó para después):** (4) los dos repos son
   públicos y `HISTORICAL_IMPORT` tiene nombres/teléfonos de clientas;
   (6) contraseñas largas y cambiarlas cuando alguien se va; (7)

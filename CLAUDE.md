@@ -154,6 +154,23 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     reglas finales + volver a aplicar el commit del lanzamiento (tags locales
     `lanzamiento-agenda` / `lanzamiento-panel`: prenden los interruptores y
     sacan las cuentas del equipo de las reglas).
+    **Ensayo hecho (05/10 ~20:00) contra el Firebase real:** reglas de ensayo
+    publicadas, versión escondida publicada (PR #96, con la garantía), Juan
+    Diego creó "Prueba Sibana", la aprobó, entró y probó "¿Olvidaste tu
+    contraseña?" — todo funcionó. Pidió: textos ("Correo electrónico", sin
+    "vacío si usas…", sin "Nadie más va a saber tu contraseña", "Avísale a
+    Sibana" en vez de Juan Diego) y algo más de estética (etiquetas arriba de
+    cada campo, "Crear cuenta" como botón, aparición suave, ✓ / ⏳). También
+    vio "tratamiento nuevo" en incógnito: en un navegador sin
+    `SERVICIOS_VISTOS_KEY` se mostraban TODOS los servicios con `creadoEn`;
+    ahora la primera vez solo se marca como visto. Los correos de Firebase
+    salen de noreply@sibana-santiago.firebaseapp.com con la plantilla por
+    defecto: se personalizan en Firebase Console → Authentication →
+    Plantillas (nombre del remitente, asunto, texto) y Configuración del
+    proyecto → Nombre público. Un usuario aprobado no se puede borrar desde
+    la agenda (solo desactivar); para borrar la cuenta de prueba: Firebase
+    Console (Authentication → borrar la cuenta; Firestore →
+    sibana-usuarios → borrar su documento).
     **Falta (con el usuario):** dar usuarios a las especialistas reales; y
     al final apagar las cuentas compartidas (primero sacarlas de las reglas,
     de `CUENTAS_PERMITIDAS` del script y de `CUENTAS`, después borrarlas).

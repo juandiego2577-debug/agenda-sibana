@@ -171,6 +171,15 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     la agenda (solo desactivar); para borrar la cuenta de prueba: Firebase
     Console (Authentication → borrar la cuenta; Firestore →
     sibana-usuarios → borrar su documento).
+    **LANZADO el 05/10/2026 (~20:30 hora de Chile):** reglas finales pegadas
+    por Juan Diego, PR #97 + sibana-consentimiento#10 publicados, mensaje
+    mandado al grupo del equipo. Comprobado contra Firebase real: las dos
+    contraseñas viejas del equipo dan 403, dueños leen las dos sedes, el
+    script de correos (`sistema`) sigue leyendo. Pendiente: aprobar a cada
+    especialista en Equipo a medida que crean su cuenta; días después,
+    borrar `sibana.cl+equipo@gmail.com` y `sibana.cl+buenosaires@gmail.com`
+    en Firebase Auth; opcional: personalizar el correo de "olvidé mi
+    contraseña" (remitente "Sibana", asunto y texto) en Firebase Console.
     **Falta (con el usuario):** dar usuarios a las especialistas reales; y
     al final apagar las cuentas compartidas (primero sacarlas de las reglas,
     de `CUENTAS_PERMITIDAS` del script y de `CUENTAS`, después borrarlas).

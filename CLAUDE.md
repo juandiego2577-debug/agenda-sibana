@@ -180,6 +180,11 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     borrar `sibana.cl+equipo@gmail.com` y `sibana.cl+buenosaires@gmail.com`
     en Firebase Auth; opcional: personalizar el correo de "olvidé mi
     contraseña" (remitente "Sibana", asunto y texto) en Firebase Console.
+    **Hecho (05/10/2026):** `sibana.cl+equipo@gmail.com` y
+    `sibana.cl+buenosaires@gmail.com` BORRADAS de Firebase Auth (comprobado:
+    ya no entran; dueños y `sistema` siguen). `CUENTAS` en la agenda y
+    `CUENTAS_PERMITIDAS` del script todavía las nombran, pero ya no existen
+    (y no están en las reglas): no hace falta tocarlos.
     **Falta (con el usuario):** dar usuarios a las especialistas reales; y
     al final apagar las cuentas compartidas (primero sacarlas de las reglas,
     de `CUENTAS_PERMITIDAS` del script y de `CUENTAS`, después borrarlas).
@@ -1058,6 +1063,17 @@ para servir también a **Copiapó**, de la siguiente forma:
   mensaje "Paso 1" (preguntar cómo le fue, genérico, sin pedir nada) antes
   del "Paso 2" (pedir la reseña en Google) — a propósito, para no pedirle
   una reseña pública a alguien que podría tener un reclamo sin resolver.
+  **Qué tratamientos llevan retoque (oct 2026, pedido de Juan Diego):** casilla
+  "🔁 Lleva retoque" por servicio en Servicios y tarifario (`s.llevaRetoque`,
+  `servicioLlevaRetoque`); una cita entra a Retoques pendientes solo si
+  alguno de sus servicios la tiene. Si nunca se marcó, vale lo de
+  micropigmentación — los 6 que confirmó: Microblading, Sombreado, MixBrows
+  (técnica mixta), Full Lips, Delineado de Ojos y Delineado Doble; NO
+  laminados, lifting, limpieza, perfilado, perfeccionamiento, realce,
+  acrocordones. Los retoques, la garantía y la evaluación no tienen casilla.
+  Un servicio que ya no está en la lista se reconoce por el nombre. Antes
+  se proponía retoque a cualquier tratamiento salvo unos pocos excluidos a
+  mano. Probado: e2e-retoque (9).
   El **"Lifting de Pestañas" no lleva retoque** (a diferencia de
   micropigmentación, que sí) — a pedido explícito del usuario, una ficha
   cuyo único servicio (o uno de ellos) sea Lifting de Pestañas no aparece

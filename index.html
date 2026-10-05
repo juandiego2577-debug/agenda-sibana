@@ -6174,6 +6174,7 @@ function servicesModalHtml(){
       <input type="number" class="dur" value="${s.duration||60}" data-svc-duration="${i}" placeholder="Min" title="Duración en minutos">
       <button class="iconbtn" data-act="remove-service" data-idx="${i}">✕</button>
       ${SEDE.descuentoMicro ? `<label class="hint" style="grid-column:1/-1;flex:1 1 100%;display:flex;align-items:center;gap:8px;margin:-2px 0 4px;cursor:pointer;"><input type="checkbox" data-svc-micro="${i}" ${s.micropigmentacion?'checked':''} style="width:auto;"> Es micropigmentación (se restan ${descuentoMicroTexto()} antes de la comisión)</label>` : ''}
+      ${/retoque|garant[ií]a|evaluaci[oó]n/i.test(s.name||'') ? '' : `<label class="hint" style="grid-column:1/-1;flex:1 1 100%;display:flex;align-items:center;gap:8px;margin:-2px 0 4px;cursor:pointer;"><input type="checkbox" data-svc-retoque="${i}" ${servicioLlevaRetoque(s.name)?'checked':''} style="width:auto;"> 🔁 Lleva retoque (aparece en "Retoques pendientes")</label>`}
     </div>`).join('');
   return `
   <div class="overlay" data-act="overlay-close">
@@ -7596,6 +7597,19 @@ function daysSince(dateKey){
 }
 // Si la clienta ya tiene una cita posterior a la sesión inicial (no cancelada),
 // ya no hace falta avisarle: significa que ya volvió o que ya está agendada.
+// ¿Este tratamiento lleva retoque? Se marca a mano por servicio en Servicios y
+// tarifario ("🔁 Lleva retoque", s.llevaRetoque; pedido de Juan Diego, oct
+// 2026: antes se proponía retoque a clientas de laminado, limpieza, etc.).
+// Si nunca se marcó, lleva retoque lo que es micropigmentación (los 6 que
+// confirmó: microblading, sombreado, MixBrows/técnica mixta, full lips,
+// delineado de ojos y delineado doble). Un servicio que ya no está en la
+// lista (se renombró o se borró) se reconoce por el nombre.
+function servicioLlevaRetoque(nombre){
+  if(!nombre || /retoque|garant[ií]a|evaluaci[oó]n/i.test(nombre)) return false;
+  const svc = (state.services||[]).find(s=>s.name===nombre);
+  if(svc) return svc.llevaRetoque!=null ? !!svc.llevaRetoque : !!svc.micropigmentacion;
+  return /microblading|sombreado|delineado|mixbrows|t[eé]cnica mixta|full lips/i.test(nombre);
+}
 function touchupCandidates(){
   const today = new Date(); today.setHours(0,0,0,0);
   // A diferencia de "Reseñas pendientes" (que sí se pide una sola vez), acá
@@ -7613,6 +7627,7 @@ function touchupCandidates(){
     if(isEvaluacionAppt(a)) return; // una evaluación no es un tratamiento, no le corresponde retoque
     if(isGarantiaAppt(a)) return; // una garantía tampoco es una sesión inicial nueva
     if(isLiftingPestanasAppt(a)) return; // el lifting de pestañas no lleva retoque
+    if(!(a.services||[]).some(servicioLlevaRetoque)) return; // ningún tratamiento de la cita lleva retoque (laminado, limpieza, perfilado…)
     if(a.cursoId) return; // una clase de un curso no es un tratamiento individual, no le corresponde retoque
     const dt = parseKey(a.date);
     if(dt < minDate || dt > maxDate) return;
@@ -9485,6 +9500,10 @@ function saveServicesFromForm(){
   document.querySelectorAll('[data-svc-micro]').forEach(inp=>{
     const i = Number(inp.dataset.svcMicro);
     if(state.services[i]) state.services[i].micropigmentacion = inp.checked;
+  });
+  document.querySelectorAll('[data-svc-retoque]').forEach(inp=>{
+    const i = Number(inp.dataset.svcRetoque);
+    if(state.services[i]) state.services[i].llevaRetoque = inp.checked;
   });
   const cremaIncluidaInput = document.getElementById('f-crema-incluida');
   if(cremaIncluidaInput) state.settings.cremaIncluida = cremaIncluidaInput.checked;

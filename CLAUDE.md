@@ -96,6 +96,37 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     en Hoja/Calendar. Le pasó al propio Juan Diego; cerrar y abrir la agenda
     lo arregló. Decidido: no forzar la recarga (subir `APP_VERSION`) para que
     el equipo no vea nada; en unos días hacer "Reenviar todo" para rellenar.
+    **"Crear cuenta" con correo propio (05/10/2026, reemplaza a "el dueño
+    crea el usuario con contraseña"):** Juan Diego no quería saber las
+    contraseñas y pidió algo "como AgendaPro, como crear una cuenta en
+    cualquier app". Se probó un enlace de invitación (borrador en la rama
+    local `borrador-invitaciones`) y se descartó: confundía ("vence en 7
+    días"). Quedó así: en la entrada, "¿Primera vez? Crear cuenta"
+    (`mostrarCrearCuenta`: nombre y apellido, SU correo, contraseña y
+    repetirla) → la cuenta queda sin acceso y deja un pedido en
+    `sibana-solicitudes/<uid>` → Más → 👥 Equipo muestra "Esperando que las
+    apruebes" con "¿Quién es en la agenda?" (lista de Especialistas de la
+    sede actual sin cuenta, ya elegida si el nombre coincide,
+    `especialistaSugerida`) → "Aprobar" crea `sibana-usuarios/<uid>`
+    ({nombre = el de la agenda, nombreCompleto, email, sede, rol, activo}) y
+    borra el pedido; "Rechazar" lo marca `rechazada` (no se borra, así no
+    vuelve a aparecer). ASÍ la agenda sabe quién es quién: `nombre` es el de
+    sus citas/vales. Se entra con correo + contraseña (`correoDeEntrada`:
+    sin "@" = usuario corto viejo, ej. `sistema`); "¿Olvidaste tu
+    contraseña?" le manda el correo A ELLA (`languageCode='es'`).
+    `revisarCuentaSinAcceso`: pedido pendiente → "Juan Diego todavía no te
+    da acceso"; rechazado → "no tiene acceso"; cuenta sin pedido y sin
+    `displayName` (ej. una vieja) → cerrar sesión como antes. `registradoPor`
+    y `pagoMarcadoPor.usuario` = su correo. Panel Sibana: campo "Correo".
+    Reglas: `sibana-solicitudes` (crea solo la propia, con su correo, si no
+    tiene acceso; ve dueños y ella; rechazar = dueños; aprobar = dueños) y
+    `usuarioValido` acepta `nombreCompleto` y `usuario` opcional. Probado:
+    25 de reglas + 32 de la agenda real (crear, validaciones, esperando,
+    aprobar con nombre sugerido, entrar, vale, olvidé contraseña, correo
+    repetido, rechazar, desactivar) + las anteriores. **NO publicado**
+    (rama `claude/epic-keller-yeq18p`): Juan Diego quiere lanzarlo después
+    de la última cita del día; al lanzar: pegar las reglas nuevas, publicar
+    los dos repos y `USUARIOS_PERSONALES_VISIBLES = true`.
     **Falta (con el usuario):** dar usuarios a las especialistas reales; y
     al final apagar las cuentas compartidas (primero sacarlas de las reglas,
     de `CUENTAS_PERMITIDAS` del script y de `CUENTAS`, después borrarlas).

@@ -86,10 +86,15 @@ service cloud.firestore {
         || (tieneUsuario() && datosUsuario().activo == true && datosUsuario().rol == 'duenos')
       );
     }
+    // "nombre" es el de la lista de Especialistas de la agenda (el que llevan
+    // sus citas y vales); "nombreCompleto" es el que ella escribió al crear su
+    // cuenta. "usuario" solo lo tienen las cuentas viejas de usuario corto
+    // (ej. la del script de correos); las nuevas entran con su propio correo.
     function usuarioValido(d) {
-      return d.keys().hasOnly(['usuario', 'nombre', 'email', 'sede', 'rol', 'activo',
-                               'creadoEn', 'actualizadoEn'])
-        && d.usuario is string && d.usuario.matches('^[a-z0-9]{3,20}$')
+      return d.keys().hasOnly(['usuario', 'nombre', 'nombreCompleto', 'email', 'sede', 'rol',
+                               'activo', 'creadoEn', 'actualizadoEn'])
+        && (!('usuario' in d) || (d.usuario is string && d.usuario.matches('^[a-z0-9]{3,20}$')))
+        && (!('nombreCompleto' in d) || (d.nombreCompleto is string && d.nombreCompleto.size() <= 80))
         && d.nombre is string && d.nombre.size() > 0 && d.nombre.size() <= 60
         && d.email is string && d.email.size() <= 100
         && d.sede in ['santiago', 'buenosaires']
@@ -99,6 +104,28 @@ service cloud.firestore {
     match /sibana-usuarios/{uid} {
       allow read: if esDueno() || (conCuenta() && request.auth.uid == uid);
       allow create, update: if esDueno() && usuarioValido(request.resource.data);
+    }
+
+    // ---------------- Pedidos de acceso ("Crear cuenta") ----------------
+    // Cada especialista crea su propia cuenta en la pantalla de entrada (nombre
+    // y apellido, su correo, su contraseña) y deja aquí un pedido de acceso.
+    // Con eso NO puede ver nada: recién cuando un dueño lo aprueba (Más →
+    // Equipo, eligiendo quién es en la lista de Especialistas) se crea su
+    // documento en sibana-usuarios y el pedido se borra.
+    match /sibana-solicitudes/{uid} {
+      allow read: if esDueno() || (conCuenta() && request.auth.uid == uid);
+      allow create: if conCuenta() && request.auth.uid == uid
+        && !exists(/databases/$(database)/documents/sibana-usuarios/$(uid))
+        && request.resource.data.keys().hasOnly(['nombreCompleto', 'email', 'creadaEn'])
+        && request.resource.data.nombreCompleto is string
+        && request.resource.data.nombreCompleto.size() > 1
+        && request.resource.data.nombreCompleto.size() <= 80
+        && request.resource.data.email == request.auth.token.email;
+      // Rechazar: el pedido queda marcado (así no vuelve a aparecer solo).
+      allow update: if esDueno()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rechazada', 'rechazadaEn'])
+        && request.resource.data.rechazada == true;
+      allow delete: if esDueno();
     }
 
     match /sibana-agenda/{sede} {

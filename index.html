@@ -879,7 +879,7 @@ function esCuentaConocida(user){
 // de Juan Diego: "que tengan que crear la cuenta obligatoriamente"): un
 // teléfono que había entrado con una de esas cuentas se sale solo y ve la
 // entrada con "Crear cuenta". Las reglas de Firebase ya no las aceptan.
-const CUENTAS_COMPARTIDAS_EQUIPO = true;
+const CUENTAS_COMPARTIDAS_EQUIPO = false;
 function esCuentaCompartidaApagada(user){
   if(CUENTAS_COMPARTIDAS_EQUIPO) return false;
   const email = ((user && user.email) || '').toLowerCase();
@@ -4359,7 +4359,7 @@ setInterval(()=>{ if(document.visibilityState==='visible') refreshFromServer(); 
 // (decidido con Juan Diego: se lanza todo de una vez cuando esté listo).
 // Para probar antes, abrir la agenda con "?usuario" al final de la dirección.
 // Cuando se lance, poner esto en true.
-const USUARIOS_PERSONALES_VISIBLES = false;
+const USUARIOS_PERSONALES_VISIBLES = true;
 function campoUsuarioVisible(){
   return USUARIOS_PERSONALES_VISIBLES || /[?&]usuario(=|&|$)/.test(location.search);
 }

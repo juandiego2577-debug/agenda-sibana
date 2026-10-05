@@ -127,6 +127,24 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     (rama `claude/epic-keller-yeq18p`): Juan Diego quiere lanzarlo después
     de la última cita del día; al lanzar: pegar las reglas nuevas, publicar
     los dos repos y `USUARIOS_PERSONALES_VISIBLES = true`.
+    **Lanzamiento decidido: 05/10/2026 a las 20:30 hora de Chile** (cierran
+    a las 20:00), obligatorio para todas: `CUENTAS_COMPARTIDAS_EQUIPO =
+    false` (agenda) / `CONTRASENA_EQUIPO_ACTIVA = false` (Panel) y reglas
+    sin los correos del equipo de Santiago NI de Buenos Aires (BA también
+    arranca con cuentas propias; para aprobar a alguien de BA, el dueño se
+    cambia a BA con 📍 Sede). Un teléfono con la agenda abierta se sale solo
+    apenas cambia algo (`permission-denied`); uno que la reabre ve "Desde
+    ahora cada una entra con su propia cuenta… Crear cuenta"; si al
+    actualizar/guardar Firebase dice "sin permiso", también se cierra la
+    sesión (`cerrarSiSinPermiso`, antes mostraba "Sin conexión"). Dueños:
+    correo vacío + su contraseña, en la agenda y en el Panel. Probado
+    (e2e-lanzamiento: versión publicada + reglas de hoy → reglas nuevas →
+    versión nueva, 15; reglas del lanzamiento, 8). ORDEN a las 20:30: (1)
+    Juan Diego pega las reglas (NO antes: sacan a las especialistas en el
+    acto), (2) publicar los dos repos, (3) WhatsApp al grupo, (4) aprobar en
+    Equipo. Después (días): borrar `sibana.cl+equipo@gmail.com` y
+    `sibana.cl+buenosaires@gmail.com` en Firebase Auth (ya fuera de las
+    reglas, es seguro; además así el script de respaldo deja de aceptarlas).
     **Falta (con el usuario):** dar usuarios a las especialistas reales; y
     al final apagar las cuentas compartidas (primero sacarlas de las reglas,
     de `CUENTAS_PERMITIDAS` del script y de `CUENTAS`, después borrarlas).

@@ -620,6 +620,30 @@
   .login-gate .hint{margin-bottom:18px;}
   .login-gate-box{width:100%;max-width:320px;}
   .login-gate-error{color:var(--danger);font-size:12.5px;min-height:16px;margin:-4px 0 8px;}
+  /* Entrar / Crear cuenta / esperando acceso (cuentas propias, oct 2026) */
+  .login-gate > *{animation:auth-in .45s ease both;}
+  .login-gate > *:nth-child(2){animation-delay:.05s;}
+  .login-gate > *:nth-child(3){animation-delay:.1s;}
+  .login-gate > *:nth-child(4){animation-delay:.15s;}
+  .login-gate > *:nth-child(5){animation-delay:.2s;}
+  @keyframes auth-in{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  .auth-title{font-family:'Fraunces',serif;font-size:17px;color:var(--ink);margin:0 0 4px;}
+  .auth-sub{font-size:13px;color:var(--ink-soft);line-height:1.5;margin:0 auto 20px;max-width:320px;}
+  .auth-sub b{color:var(--ink);}
+  .auth-label{display:block;text-align:left;font-size:12px;font-weight:600;color:var(--ink-soft);margin:0 0 5px 2px;}
+  .login-gate-box .client-search-input{font-size:16px;padding:12px 14px;border-radius:12px;margin-bottom:14px;}
+  .login-gate-box .pw-field .client-search-input{padding-right:44px;}
+  .login-gate-box .client-search-input:focus{outline:none;border-color:var(--wine);}
+  .login-gate-box .btn-primary{padding:12px;font-size:15px;border-radius:12px;}
+  .auth-link{background:none;border:none;padding:6px;color:var(--wine);cursor:pointer;font-size:13.5px;font-family:inherit;text-decoration:underline;text-underline-offset:3px;}
+  .auth-sep{display:flex;align-items:center;gap:10px;margin:20px 0 12px;color:var(--ink-soft);font-size:12px;}
+  .auth-sep::before,.auth-sep::after{content:"";flex:1;height:1px;background:var(--line);}
+  .auth-outline{width:100%;padding:11px;border-radius:12px;border:1px solid var(--wine);background:transparent;color:var(--wine);font-size:14.5px;font-weight:600;font-family:inherit;cursor:pointer;}
+  .auth-icon{width:64px;height:64px;border-radius:50%;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;font-size:28px;border:2px solid var(--wine);color:var(--wine);}
+  .auth-icon.ok{animation:auth-pop .5s cubic-bezier(.2,1.4,.4,1) both;}
+  .auth-icon.wait{animation:loading-pulse 2.4s ease-in-out infinite;}
+  @keyframes auth-pop{from{opacity:0;transform:scale(.4);}to{opacity:1;transform:scale(1);}}
+  @media (prefers-reduced-motion:reduce){.login-gate > *,.auth-icon{animation:none !important;}}
 
   @media (max-width:720px){
     header.topbar{padding:10px 14px;}
@@ -879,7 +903,7 @@ function esCuentaConocida(user){
 // de Juan Diego: "que tengan que crear la cuenta obligatoriamente"): un
 // teléfono que había entrado con una de esas cuentas se sale solo y ve la
 // entrada con "Crear cuenta". Las reglas de Firebase ya no las aceptan.
-const CUENTAS_COMPARTIDAS_EQUIPO = true;
+const CUENTAS_COMPARTIDAS_EQUIPO = false;
 function esCuentaCompartidaApagada(user){
   if(CUENTAS_COMPARTIDAS_EQUIPO) return false;
   const email = ((user && user.email) || '').toLowerCase();
@@ -3410,7 +3434,11 @@ function checkNewServicesIfNeeded(){
   if(ui.modal) return; // no interrumpir si hay un modal abierto
   if(document.getElementById('custom-dialog')) return; // ya hay un diálogo mostrándose
   const cutoff = safeGetLocal(SERVICIOS_VISTOS_KEY) || null;
-  const nuevos = (state.services||[]).filter(s=>s.creadoEn && (!cutoff || s.creadoEn > cutoff));
+  // Primera vez en este teléfono/navegador (o modo incógnito): no hay nada
+  // "nuevo" que avisar — antes le mostraba como nuevos TODOS los
+  // tratamientos agregados alguna vez (lo vio Juan Diego al probar).
+  if(!cutoff){ safeSetLocal(SERVICIOS_VISTOS_KEY, new Date().toISOString()); return; }
+  const nuevos = (state.services||[]).filter(s=>s.creadoEn && s.creadoEn > cutoff);
   if(!nuevos.length) return;
   nuevos.sort((a,b)=> (a.creadoEn||'') < (b.creadoEn||'') ? -1 : 1);
   const wrap = document.createElement('div');
@@ -4286,7 +4314,7 @@ function startRealtimeSync(){
         revisandoPerfil = false;
         if(perfil===null){ revisarCuentaSinAcceso(user); return; }
         if(!perfil){
-          avisoLoginGate = 'Tu acceso a la agenda está desactivado. Habla con Juan Diego.';
+          avisoLoginGate = 'Tu acceso a la agenda está desactivado. Si crees que es un error, avísale a Sibana.';
           firebase.auth().signOut().catch(err=>console.error(err));
           return;
         }
@@ -4369,7 +4397,7 @@ setInterval(()=>{ if(document.visibilityState==='visible') refreshFromServer(); 
 // (decidido con Juan Diego: se lanza todo de una vez cuando esté listo).
 // Para probar antes, abrir la agenda con "?usuario" al final de la dirección.
 // Cuando se lance, poner esto en true.
-const USUARIOS_PERSONALES_VISIBLES = false;
+const USUARIOS_PERSONALES_VISIBLES = true;
 function campoUsuarioVisible(){
   return USUARIOS_PERSONALES_VISIBLES || /[?&]usuario(=|&|$)/.test(location.search);
 }
@@ -4382,7 +4410,6 @@ function correoDeEntrada(v){
   return v.includes('@') ? v.toLowerCase() : emailDeUsuario(v);
 }
 function correoValido(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||'')); }
-const LINK_BTN_STYLE = 'background:none;border:none;padding:6px;color:var(--wine);text-decoration:underline;cursor:pointer;font-size:14px;font-family:inherit;';
 
 function showTeamLoginGate(){
   const root = document.getElementById('root');
@@ -4391,20 +4418,21 @@ function showTeamLoginGate(){
     <div class="login-gate">
       <img src="${LOGO_SRC}" alt="Sibana" class="login-gate-logo">
       <h1 class="serif">Agenda Sibana</h1>
-      <p class="hint">${conUsuario ? 'Entra con tu correo y tu contraseña.' : 'Ingresa la contraseña del equipo para entrar.'}</p>
+      <p class="hint">${conUsuario ? 'Entra con tu correo electrónico y tu contraseña.' : 'Ingresa la contraseña del equipo para entrar.'}</p>
       <div class="login-gate-box">
-        ${conUsuario ? `<input type="email" id="team-login-user" class="client-search-input" placeholder="${CUENTAS_COMPARTIDAS_EQUIPO ? 'Correo (vacío si usas la contraseña del equipo)' : 'Tu correo'}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" style="margin-bottom:10px;">` : ''}
+        ${conUsuario ? `<label class="auth-label" for="team-login-user">Correo electrónico</label>
+        <input type="email" id="team-login-user" class="client-search-input" placeholder="nombre@gmail.com" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
+        <label class="auth-label" for="team-login-input">Contraseña</label>` : ''}
         <div class="pw-field">
-          <input type="password" id="team-login-input" class="client-search-input" placeholder="Contraseña" autocomplete="current-password">
+          <input type="password" id="team-login-input" class="client-search-input" placeholder="${conUsuario ? '' : 'Contraseña'}" autocomplete="current-password">
           <button type="button" class="pw-toggle" id="team-login-toggle" aria-label="Mostrar contraseña">👁</button>
         </div>
         <div id="team-login-error" class="login-gate-error"></div>
         <button class="btn btn-primary" id="team-login-btn" style="width:100%;">Entrar</button>
         ${conUsuario ? `
-        <div style="margin-top:14px;display:flex;flex-direction:column;align-items:center;gap:4px;">
-          <button type="button" id="team-login-olvide" style="${LINK_BTN_STYLE}">¿Olvidaste tu contraseña?</button>
-          <div class="hint" style="margin:6px 0 0;">¿Primera vez? <button type="button" id="team-login-crear" style="${LINK_BTN_STYLE}font-weight:600;">Crear cuenta</button></div>
-        </div>` : ''}
+        <div style="margin-top:10px;"><button type="button" id="team-login-olvide" class="auth-link">¿Olvidaste tu contraseña?</button></div>
+        <div class="auth-sep">¿Primera vez?</div>
+        <button type="button" id="team-login-crear" class="auth-outline">Crear cuenta</button>` : ''}
       </div>
     </div>`;
   const input = document.getElementById('team-login-input');
@@ -4488,20 +4516,23 @@ function pantallaCuenta(contenido){
 }
 function mostrarCrearCuenta(){
   pantallaCuenta(`
-    <p class="hint"><b>Crear tu cuenta</b><br>Con tu correo y tu contraseña vas a entrar a la agenda desde cualquier teléfono. Nadie más va a saber tu contraseña.</p>
+    <p class="auth-title">Crear tu cuenta</p>
+    <p class="auth-sub">Con tu correo y tu contraseña vas a poder entrar a la agenda desde cualquier teléfono.</p>
     <div class="login-gate-box">
-      <input type="text" id="cc-nombre" class="client-search-input" placeholder="Nombre y apellido" autocomplete="name" autocapitalize="words" style="margin-bottom:10px;">
-      <input type="email" id="cc-correo" class="client-search-input" placeholder="Tu correo" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" style="margin-bottom:10px;">
+      <label class="auth-label" for="cc-nombre">Nombre y apellido</label>
+      <input type="text" id="cc-nombre" class="client-search-input" placeholder="Ej. Salomé Pérez" autocomplete="name" autocapitalize="words">
+      <label class="auth-label" for="cc-correo">Correo electrónico</label>
+      <input type="email" id="cc-correo" class="client-search-input" placeholder="nombre@gmail.com" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false">
+      <label class="auth-label" for="cc-clave">Contraseña <span style="font-weight:400;">(mínimo 8 caracteres)</span></label>
       <div class="pw-field">
-        <input type="password" id="cc-clave" class="client-search-input" placeholder="Contraseña (mínimo 8 caracteres)" autocomplete="new-password">
+        <input type="password" id="cc-clave" class="client-search-input" autocomplete="new-password">
         <button type="button" class="pw-toggle" id="cc-toggle" aria-label="Mostrar contraseña">👁</button>
       </div>
-      <input type="password" id="cc-repetir" class="client-search-input" placeholder="Repite la contraseña" autocomplete="new-password" style="margin-top:10px;">
+      <label class="auth-label" for="cc-repetir">Repite la contraseña</label>
+      <input type="password" id="cc-repetir" class="client-search-input" autocomplete="new-password">
       <div id="cc-error" class="login-gate-error"></div>
       <button class="btn btn-primary" id="cc-btn" style="width:100%;">Crear cuenta</button>
-      <div style="margin-top:14px;text-align:center;">
-        <button type="button" id="cc-volver" style="${LINK_BTN_STYLE}">Ya tengo cuenta, quiero entrar</button>
-      </div>
+      <div style="margin-top:12px;"><button type="button" id="cc-volver" class="auth-link">Ya tengo cuenta, quiero entrar</button></div>
     </div>`);
   const $ = id=>document.getElementById(id);
   const clave = $('cc-clave'), repetir = $('cc-repetir'), btn = $('cc-btn'), errBox = $('cc-error');
@@ -4519,7 +4550,9 @@ function mostrarCrearCuenta(){
     btn.disabled = true; btn.textContent = 'Creando…';
     crearCuentaPropia(nombre, correo, clave.value).then(()=>{
       pantallaCuenta(`
-        <p class="hint">✅ <b>¡Tu cuenta quedó creada, ${escapeHtml(nombre.split(' ')[0])}!</b><br><br>Ahora <b>avísale a Juan Diego</b> para que te dé acceso. Cuando lo haga, toca "Entrar".</p>
+        <div class="auth-icon ok">✓</div>
+        <p class="auth-title">¡Listo, ${escapeHtml(nombre.split(' ')[0])}!</p>
+        <p class="auth-sub">Tu cuenta quedó creada.<br>Ahora <b>avísale a Sibana</b> para que te den acceso. Cuando te confirmen, toca "Entrar".</p>
         <div class="login-gate-box"><button class="btn btn-primary" style="width:100%;" onclick="reloadFresh()">Entrar</button></div>`);
     }).catch(err=>{
       console.error('No se pudo crear la cuenta', err);
@@ -4555,7 +4588,7 @@ function pedirAcceso(user, nombre){
 }
 // Entró con una cuenta que no tiene acceso (no está en sibana-usuarios):
 // - creó su cuenta con "Crear cuenta" y no la aprueban todavía → se le dice
-//   que avise a Juan Diego (y si por algo no quedó su pedido, se deja ahora:
+//   que avise a Sibana (y si por algo no quedó su pedido, se deja ahora:
 //   esas cuentas tienen su nombre guardado, displayName);
 // - su pedido fue rechazado → "no tiene acceso";
 // - cualquier otra cuenta (ej. una vieja que ya no se usa) → se cierra la
@@ -4566,16 +4599,18 @@ function revisarCuentaSinAcceso(user){
   const esperando = ()=>{
     const nombre = String(user.displayName || '').split(' ')[0];
     pantallaCuenta(`
-      <p class="hint">Hola${nombre ? ' <b>' + escapeHtml(nombre) + '</b>' : ''} 👋<br><br>Tu cuenta (<b>${escapeHtml(user.email||'')}</b>) está creada, pero <b>Juan Diego todavía no te da acceso</b>. Avísale y, cuando lo haga, toca "Volver a revisar".</p>
+      <div class="auth-icon wait">⏳</div>
+      <p class="auth-title">Hola${nombre ? ' ' + escapeHtml(nombre) : ''} 👋</p>
+      <p class="auth-sub">Tu cuenta (<b>${escapeHtml(user.email||'')}</b>) ya está creada, pero <b>todavía no tiene acceso</b>.<br>Avísale a Sibana y, cuando te confirmen, toca "Volver a revisar".</p>
       <div class="login-gate-box">
         <button class="btn btn-primary" style="width:100%;" onclick="reloadFresh()">Volver a revisar</button>
-        <div style="margin-top:14px;text-align:center;"><button type="button" style="${LINK_BTN_STYLE}" onclick="${salir}">Salir (entrar con otra cuenta)</button></div>
+        <div style="margin-top:12px;"><button type="button" class="auth-link" onclick="${salir}">Salir (entrar con otra cuenta)</button></div>
       </div>`);
   };
   db.collection(SOLICITUDES_COLECCION).doc(user.uid).get().then(snap=>{
     if(snap.exists && snap.data().rechazada){
       pantallaCuenta(`
-        <p class="hint">Esta cuenta (<b>${escapeHtml(user.email||'')}</b>) no tiene acceso a la agenda. Si crees que es un error, habla con Juan Diego.</p>
+        <p class="auth-sub">Esta cuenta (<b>${escapeHtml(user.email||'')}</b>) no tiene acceso a la agenda. Si crees que es un error, avísale a Sibana.</p>
         <div class="login-gate-box"><button class="btn btn-primary" style="width:100%;" onclick="${salir}">Salir</button></div>`);
     } else if(snap.exists){
       esperando();

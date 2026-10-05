@@ -96,6 +96,64 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     en Hoja/Calendar. Le pasó al propio Juan Diego; cerrar y abrir la agenda
     lo arregló. Decidido: no forzar la recarga (subir `APP_VERSION`) para que
     el equipo no vea nada; en unos días hacer "Reenviar todo" para rellenar.
+    **"Crear cuenta" con correo propio (05/10/2026, reemplaza a "el dueño
+    crea el usuario con contraseña"):** Juan Diego no quería saber las
+    contraseñas y pidió algo "como AgendaPro, como crear una cuenta en
+    cualquier app". Se probó un enlace de invitación (borrador en la rama
+    local `borrador-invitaciones`) y se descartó: confundía ("vence en 7
+    días"). Quedó así: en la entrada, "¿Primera vez? Crear cuenta"
+    (`mostrarCrearCuenta`: nombre y apellido, SU correo, contraseña y
+    repetirla) → la cuenta queda sin acceso y deja un pedido en
+    `sibana-solicitudes/<uid>` → Más → 👥 Equipo muestra "Esperando que las
+    apruebes" con "¿Quién es en la agenda?" (lista de Especialistas de la
+    sede actual sin cuenta, ya elegida si el nombre coincide,
+    `especialistaSugerida`) → "Aprobar" crea `sibana-usuarios/<uid>`
+    ({nombre = el de la agenda, nombreCompleto, email, sede, rol, activo}) y
+    borra el pedido; "Rechazar" lo marca `rechazada` (no se borra, así no
+    vuelve a aparecer). ASÍ la agenda sabe quién es quién: `nombre` es el de
+    sus citas/vales. Se entra con correo + contraseña (`correoDeEntrada`:
+    sin "@" = usuario corto viejo, ej. `sistema`); "¿Olvidaste tu
+    contraseña?" le manda el correo A ELLA (`languageCode='es'`).
+    `revisarCuentaSinAcceso`: pedido pendiente → "Juan Diego todavía no te
+    da acceso"; rechazado → "no tiene acceso"; cuenta sin pedido y sin
+    `displayName` (ej. una vieja) → cerrar sesión como antes. `registradoPor`
+    y `pagoMarcadoPor.usuario` = su correo. Panel Sibana: campo "Correo".
+    Reglas: `sibana-solicitudes` (crea solo la propia, con su correo, si no
+    tiene acceso; ve dueños y ella; rechazar = dueños; aprobar = dueños) y
+    `usuarioValido` acepta `nombreCompleto` y `usuario` opcional. Probado:
+    25 de reglas + 32 de la agenda real (crear, validaciones, esperando,
+    aprobar con nombre sugerido, entrar, vale, olvidé contraseña, correo
+    repetido, rechazar, desactivar) + las anteriores. **NO publicado**
+    (rama `claude/epic-keller-yeq18p`): Juan Diego quiere lanzarlo después
+    de la última cita del día; al lanzar: pegar las reglas nuevas, publicar
+    los dos repos y `USUARIOS_PERSONALES_VISIBLES = true`.
+    **Lanzamiento decidido: 05/10/2026 a las 20:30 hora de Chile** (cierran
+    a las 20:00), obligatorio para todas: `CUENTAS_COMPARTIDAS_EQUIPO =
+    false` (agenda) / `CONTRASENA_EQUIPO_ACTIVA = false` (Panel) y reglas
+    sin los correos del equipo de Santiago NI de Buenos Aires (BA también
+    arranca con cuentas propias; para aprobar a alguien de BA, el dueño se
+    cambia a BA con 📍 Sede). Un teléfono con la agenda abierta se sale solo
+    apenas cambia algo (`permission-denied`); uno que la reabre ve "Desde
+    ahora cada una entra con su propia cuenta… Crear cuenta"; si al
+    actualizar/guardar Firebase dice "sin permiso", también se cierra la
+    sesión (`cerrarSiSinPermiso`, antes mostraba "Sin conexión"). Dueños:
+    correo vacío + su contraseña, en la agenda y en el Panel. Probado
+    (e2e-lanzamiento: versión publicada + reglas de hoy → reglas nuevas →
+    versión nueva, 15; reglas del lanzamiento, 8). ORDEN a las 20:30: (1)
+    Juan Diego pega las reglas (NO antes: sacan a las especialistas en el
+    acto), (2) publicar los dos repos, (3) WhatsApp al grupo, (4) aprobar en
+    Equipo. Después (días): borrar `sibana.cl+equipo@gmail.com` y
+    `sibana.cl+buenosaires@gmail.com` en Firebase Auth (ya fuera de las
+    reglas, es seguro; además así el script de respaldo deja de aceptarlas).
+    **Cambio de plan (05/10, 11:30):** ensayo general ANTES del lanzamiento,
+    en dos pasos. ~18:30 (última clienta del día): reglas "de ensayo" (las
+    nuevas pero CON la contraseña del equipo) + publicar la versión con todo
+    escondido (interruptores apagados) → Juan Diego ensaya en incógnito con
+    `?usuario` (cuenta de prueba aprobada como una especialista "Prueba"
+    agregada solo para eso, después desactivada). ~20:30, cuando terminen:
+    reglas finales + volver a aplicar el commit del lanzamiento (tags locales
+    `lanzamiento-agenda` / `lanzamiento-panel`: prenden los interruptores y
+    sacan las cuentas del equipo de las reglas).
     **Falta (con el usuario):** dar usuarios a las especialistas reales; y
     al final apagar las cuentas compartidas (primero sacarlas de las reglas,
     de `CUENTAS_PERMITIDAS` del script y de `CUENTAS`, después borrarlas).
@@ -812,6 +870,19 @@ para servir también a **Copiapó**, de la siguiente forma:
   agregó ("Agregado el DD/MM a las HH:MM", mismo formato que
   `pagoMarcadoHtml`) — a pedido explícito del usuario, que consideró que
   sin esa fecha/hora el aviso no decía lo más importante.
+- **Garantía de servicio (oct 2026, pedido de Juan Diego):** al marcar
+  "Garantía de servicio" en una cita aparece "¿Garantía de qué
+  tratamiento?" (`#f-garantia-de`, todos los servicios menos la garantía;
+  sugiere el último tratamiento de esa clienta, `ultimoTratamientoDe`). Se
+  guarda en `a.garantiaDe` (los `services` siguen diciendo "Garantía de
+  servicio", así nada que busque por nombre —correos post-tratamiento,
+  descuento de micropigmentación, retoques— la confunde con el tratamiento
+  real). La cita dura lo que ese tratamiento (`getTotalDuration`); elegirlo
+  solo mueve la hora de término (`ajustarDuracionGarantia`, no recalcula el
+  precio). Se muestra "Garantía de servicio (Microblading (MB))"
+  (`apptServiciosTexto`). Obligatorio solo en citas NUEVAS (las viejas se
+  pueden editar sin él). Una garantía no sugiere abono ni muestra "Sin
+  abono". Probado: e2e-garantia (15).
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos

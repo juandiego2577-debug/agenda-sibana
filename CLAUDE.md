@@ -870,6 +870,19 @@ para servir también a **Copiapó**, de la siguiente forma:
   agregó ("Agregado el DD/MM a las HH:MM", mismo formato que
   `pagoMarcadoHtml`) — a pedido explícito del usuario, que consideró que
   sin esa fecha/hora el aviso no decía lo más importante.
+- **Garantía de servicio (oct 2026, pedido de Juan Diego):** al marcar
+  "Garantía de servicio" en una cita aparece "¿Garantía de qué
+  tratamiento?" (`#f-garantia-de`, todos los servicios menos la garantía;
+  sugiere el último tratamiento de esa clienta, `ultimoTratamientoDe`). Se
+  guarda en `a.garantiaDe` (los `services` siguen diciendo "Garantía de
+  servicio", así nada que busque por nombre —correos post-tratamiento,
+  descuento de micropigmentación, retoques— la confunde con el tratamiento
+  real). La cita dura lo que ese tratamiento (`getTotalDuration`); elegirlo
+  solo mueve la hora de término (`ajustarDuracionGarantia`, no recalcula el
+  precio). Se muestra "Garantía de servicio (Microblading (MB))"
+  (`apptServiciosTexto`). Obligatorio solo en citas NUEVAS (las viejas se
+  pueden editar sin él). Una garantía no sugiere abono ni muestra "Sin
+  abono". Probado: e2e-garantia (15).
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos

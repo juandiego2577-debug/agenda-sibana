@@ -3640,7 +3640,14 @@ function getServiceQuantities(){
 }
 function getTotalDuration(){
   const q = getServiceQuantities();
-  const total = q.reduce((sum,{idx,qty})=> sum + (state.services[idx] ? (Number(state.services[idx].duration)||0)*qty : 0), 0);
+  const durGarantia = duracionGarantiaElegida();
+  const total = q.reduce((sum,{idx,qty})=>{
+    const svc = state.services[idx];
+    if(!svc) return sum;
+    // Una garantía dura lo que el tratamiento del que es garantía.
+    const dur = esServicioGarantia(svc.name) && durGarantia!=null ? durGarantia : (Number(svc.duration)||0);
+    return sum + dur*qty;
+  }, 0);
   return total || 60;
 }
 function setServiceQty(idx, qty){
@@ -3656,6 +3663,7 @@ function setServiceQty(idx, qty){
   recomputeServiceFields();
 }
 function recomputeServiceFields(){
+  actualizarCampoGarantia();
   const q = getServiceQuantities();
   const isNew = ui.modal && ui.modal.mode === 'new';
   const cremaEl = document.getElementById('f-crema');
@@ -3710,7 +3718,9 @@ function recomputeServiceFields(){
   // servicio (por cualquier motivo, incluso uno que no tenga que ver con el
   // pago) NUNCA debe borrar el abono que ya quedó registrado/cobrado.
   if(isNew && abonoInput){
-    abonoInput.value = abonoSugeridoPorTratamiento() * totalCount;
+    // Una garantía es gratis: no se le sugiere abono.
+    const conAbono = q.filter(({idx})=>!esServicioGarantia(state.services[idx] && state.services[idx].name)).reduce((s,x)=>s+x.qty,0);
+    abonoInput.value = abonoSugeridoPorTratamiento() * conAbono;
   }
   if(abonoInput && saldoInput){
     // Si el saldo está dividido entre dos métodos de pago, su valor ya lo
@@ -5338,13 +5348,13 @@ function dayViewHtml(){
     // Aviso visible desde afuera (sin entrar al detalle de la cita) cuando se
     // agendó sin cobrar abono — antes solo quedaba anotado en las notas, y la
     // especialista podía no enterarse si no abría la ficha.
-    const noAbono = !(Number(a.abono)>0) && a.estado!=='Cancelada' && a.estado!=='NoShow';
+    const noAbono = !(Number(a.abono)>0) && a.estado!=='Cancelada' && a.estado!=='NoShow' && !isGarantiaAppt(a); // una garantía es gratis
     const noAbonoBadge = noAbono ? `<span class="no-abono-badge">Sin abono</span>` : '';
     const personasBadge = apptPersonas(a)>1 ? `<span class="personas-badge">👥 ${apptPersonas(a)}</span>` : '';
     const nameServiceHtml = isCompact
-      ? `<div class="t-name-compact">${escapeHtml(a.client||'Sin nombre')}${(a.services&&a.services.length)?' · '+escapeHtml(summarizeServices(a.services||[])):''}</div>${personasBadge}${noAbonoBadge}`
+      ? `<div class="t-name-compact">${escapeHtml(a.client||'Sin nombre')}${(a.services&&a.services.length)?' · '+escapeHtml(apptServiciosTexto(a)):''}</div>${personasBadge}${noAbonoBadge}`
       : `<div class="t-name">${escapeHtml(a.client||'Sin nombre')}${personasBadge}</div>
-        <div class="t-service">${escapeHtml(summarizeServices(a.services||[]))}</div>`;
+        <div class="t-service">${escapeHtml(apptServiciosTexto(a))}</div>`;
     apptBlocks += `
       <div class="appt ${stClass}${isCompact?' compact':''}" style="top:${top}px;height:${height}px;${specBorder}${sidePos(apptCols[ai])}" data-act="edit-appt" data-id="${a.id}">
         <div class="t-time">${a.start}–${a.end}${a.specialist?`<span class="spec-dot" style="background:${dotColor}"></span>`:''}${!isCompact?noAbonoBadge:''}</div>
@@ -5779,7 +5789,7 @@ function apptViewOnlyHtml(d){
       ${d.phone ? `<div class="field"><label>Teléfono</label><div>${escapeHtml(d.phone)}</div></div>` : ''}
       ${d.email ? `<div class="field"><label>Correo electrónico</label><div>${escapeHtml(d.email)}</div></div>` : ''}
       ${postcareStatusHtml(d, 'margin:-4px 0 14px;')}
-      <div class="field"><label>Servicio</label><div>${escapeHtml(summarizeServices(d.services||[])) || '—'}</div></div>
+      <div class="field"><label>Servicio</label><div>${escapeHtml(apptServiciosTexto(d)) || '—'}</div></div>
       ${apptPersonas(d)>1 ? `<div class="field"><label>Personas</label><div>👥 ${apptPersonas(d)} personas en esta ficha</div></div>` : ''}
       ${apptCremas(d)>0 && (d.estado==='Cancelada' || d.estado==='NoShow') ? `<div class="field"><label>Crema post-tratamiento</label><div>🧴 Sí, compró ${apptCremas(d)===1?'1 crema':apptCremas(d)+' cremas'} (entregar)</div></div>` : ''}
       <div class="field"><label>Especialista</label><div>${escapeHtml(d.specialist||'Sin asignar')}</div></div>
@@ -5881,6 +5891,20 @@ function apptModalHtml(){
         <div class="svc-chips" id="svc-chips">${renderServiceChipsMarkup(initialEntries)}</div>
         <div class="svc-summary" id="svc-summary">${serviceSummaryHtml(initialTotalCount, initialTotalDuration, initialTotalPrice)}</div>
       </div>
+      ${(()=>{
+        const tieneGarantia = (d.services||[]).some(esServicioGarantia);
+        const opciones = tratamientosParaGarantia();
+        if(d.garantiaDe && !opciones.includes(d.garantiaDe)) opciones.unshift(d.garantiaDe);
+        return `
+      <div class="field" id="garantia-de-wrap" style="${tieneGarantia?'':'display:none;'}">
+        <label>¿Garantía de qué tratamiento?</label>
+        <select id="f-garantia-de" onchange="ajustarDuracionGarantia()">
+          <option value="">— Elige el tratamiento —</option>
+          ${opciones.map(n=>`<option value="${escapeHtml(n)}"${n===d.garantiaDe?' selected':''}>${escapeHtml(n)}</option>`).join('')}
+        </select>
+        <div class="hint" style="margin:4px 0 0;">La duración de la cita se ajusta sola a la de ese tratamiento.</div>
+      </div>`;
+      })()}
       <div class="field">
         <label>¿Cuántas personas se atienden en esta cita?</label>
         <div style="display:flex;align-items:center;gap:10px;">
@@ -6283,7 +6307,7 @@ function clientsModalHtml(){
         ${c.appts.map(a=>`
           <div class="client-history-row">
             <span>${a.date} · ${a.start}</span>
-            <span>${escapeHtml(summarizeServices(a.services||[])) || '—'}</span>
+            <span>${escapeHtml(apptServiciosTexto(a)) || '—'}</span>
             <span>${fmtCLP(a.price)}</span>
           </div>`).join('')}
       </div>` : '';
@@ -6356,7 +6380,7 @@ function renderApptSearchResults(query){
         <div class="client-row-main" data-goto-appt="${a.id}">
           <div>
             <div class="client-name">${escapeHtml(a.client||'(sin nombre)')}</div>
-            <div class="client-meta">${dateLabel} · ${a.start} · ${escapeHtml(summarizeServices(a.services||[])) || '—'} · ${estadoLabels[a.estado]||a.estado}</div>
+            <div class="client-meta">${dateLabel} · ${a.start} · ${escapeHtml(apptServiciosTexto(a)) || '—'} · ${estadoLabels[a.estado]||a.estado}</div>
           </div>
         </div>
       </div>`;
@@ -7454,7 +7478,71 @@ function isEvaluacionAppt(a){
 // un tratamiento anterior (gratis), no una sesión inicial nueva — tampoco
 // le corresponde un "retoque" de la garantía en sí.
 function isGarantiaAppt(a){
-  return (a.services||[]).some(s=>/garant[ií]a/i.test(s||''));
+  return (a.services||[]).some(s=>esServicioGarantia(s));
+}
+function esServicioGarantia(nombre){ return /garant[ií]a/i.test(nombre||''); }
+// Una garantía guarda de qué tratamiento es (a.garantiaDe, ej. "Microblading
+// (MB)", pedido de Juan Diego, oct 2026): se muestra "Garantía de servicio
+// (Microblading (MB))" y dura lo mismo que ese tratamiento. Las garantías
+// viejas no lo tienen y se muestran como siempre.
+function serviciosParaMostrar(a){
+  return (a.services||[]).map(n=> esServicioGarantia(n) && a.garantiaDe ? `${n} (${a.garantiaDe})` : n);
+}
+function apptServiciosTexto(a){ return summarizeServices(serviciosParaMostrar(a)); }
+// Para elegir de qué tratamiento es una garantía: todos menos la garantía misma.
+function tratamientosParaGarantia(){
+  return state.services.map(s=>s.name).filter(n=>n && !esServicioGarantia(n));
+}
+// El último tratamiento de esa clienta (para dejarlo sugerido).
+function ultimoTratamientoDe(cliente){
+  const n = normalizeName(cliente||'');
+  if(!n) return '';
+  const validos = new Set(tratamientosParaGarantia());
+  const citas = state.appointments.filter(a=>normalizeName(a.client||'')===n && !isGarantiaAppt(a))
+    .sort((x,y)=> (y.date+y.start).localeCompare(x.date+x.start));
+  for(const a of citas){
+    const t = (a.services||[]).find(sv=>validos.has(sv) && !/evaluaci[oó]n/i.test(sv));
+    if(t) return t;
+  }
+  return '';
+}
+// Duración del tratamiento elegido en "¿Garantía de qué tratamiento?" (o
+// null si no hay ninguno elegido).
+function duracionGarantiaElegida(){
+  const sel = document.getElementById('f-garantia-de');
+  const svc = sel && sel.value ? state.services.find(x=>x.name===sel.value) : null;
+  return svc ? (Number(svc.duration)||0) : null;
+}
+function hayGarantiaElegida(){
+  return getServiceQuantities().some(({idx})=>esServicioGarantia(state.services[idx] && state.services[idx].name));
+}
+// Al elegir el tratamiento de la garantía: solo cambia la hora de término y
+// el resumen (no se recalcula el precio de la cita).
+function ajustarDuracionGarantia(){
+  const q = getServiceQuantities();
+  const totalDuration = getTotalDuration();
+  const summary = document.getElementById('svc-summary');
+  if(summary){
+    const totalCount = q.reduce((s,x)=>s+x.qty,0);
+    const totalPrice = q.reduce((s,{idx,qty})=> s + (state.services[idx] ? (Number(state.services[idx].price)||0)*qty : 0), 0);
+    summary.innerHTML = serviceSummaryHtml(totalCount, totalDuration, totalPrice);
+  }
+  const startInput = document.getElementById('f-start'), endInput = document.getElementById('f-end');
+  if(startInput && endInput && startInput.value) endInput.value = addMinutesToHHMM(startInput.value, totalDuration);
+}
+// Muestra u oculta "¿Garantía de qué tratamiento?" según si está marcada la
+// garantía, y deja sugerido el último tratamiento de la clienta.
+function actualizarCampoGarantia(){
+  const wrap = document.getElementById('garantia-de-wrap');
+  if(!wrap) return;
+  const hay = hayGarantiaElegida();
+  wrap.style.display = hay ? '' : 'none';
+  const sel = document.getElementById('f-garantia-de');
+  if(hay && sel && !sel.value){
+    const clienteEl = document.getElementById('f-client');
+    const sugerido = ultimoTratamientoDe(clienteEl ? clienteEl.value : '');
+    if(sugerido && Array.from(sel.options).some(o=>o.value===sugerido)) sel.value = sugerido;
+  }
 }
 // El "Lifting de Pestañas" no lleva retoque (a diferencia de micropigmentación,
 // que sí) — a pedido explícito del usuario, quienes se hicieron solo eso no
@@ -7831,7 +7919,7 @@ function touchupsModalHtml(){
               <td>${a.date}</td>
               <td>${diffDays}</td>
               <td>${escapeHtml(a.client||'Sin nombre')}${a.phone?'':' <span class="hint">(sin teléfono)</span>'}</td>
-              <td>${escapeHtml(summarizeServices(a.services||[]))}</td>
+              <td>${escapeHtml(apptServiciosTexto(a))}</td>
               <td>
                 ${a.phone ? `<a class="btn btn-ghost" target="_blank" rel="noopener" href="${waLink(a.phone, buildTouchupMsg(a))}">WhatsApp</a>` : ''}
               </td>
@@ -7927,7 +8015,7 @@ function reviewsModalHtml(){
               <td>${a.date}</td>
               <td>${diffDays}</td>
               <td>${escapeHtml(a.client||'Sin nombre')}${a.phone?'':' <span class="hint">(sin teléfono)</span>'}</td>
-              <td>${escapeHtml(summarizeServices(a.services||[]))}</td>
+              <td>${escapeHtml(apptServiciosTexto(a))}</td>
               <td>
                 ${a.phone ? `<a class="btn btn-ghost" target="_blank" rel="noopener" href="${waLink(a.phone, genericCheckinMsg())}">WhatsApp</a>` : ''}
               </td>
@@ -9146,6 +9234,12 @@ function saveApptFromForm(){
     personas: Math.max(1, Math.min(9, Math.floor(Number(document.getElementById('f-personas') ? get('f-personas') : 1))||1)),
   };
   updated.cremaComprada = updated.cremaCantidad>0;
+  // De qué tratamiento es la garantía (solo si la cita lleva garantía).
+  const garantiaSel = document.getElementById('f-garantia-de');
+  if(updated.services.some(esServicioGarantia) && garantiaSel){
+    if(garantiaSel.value) updated.garantiaDe = garantiaSel.value;
+    else if(ui.modal.mode==='new'){ showAlert('Elige de qué tratamiento es la garantía (debajo de los servicios).'); return; }
+  } else delete updated.garantiaDe;
   // Cuántas micropigmentaciones lleva la cita (para el descuento de la
   // comisión) queda congelado al guardarla; solo se vuelve a contar si se
   // cambian sus servicios. Y si la cita lleva o no ese descuento (en

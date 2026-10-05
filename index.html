@@ -874,6 +874,25 @@ function esCuentaConocida(user){
   const email = ((user && user.email) || '').toLowerCase();
   return CUENTAS.some(c=>c.email===email);
 }
+// Contraseñas compartidas del EQUIPO (no la de dueños). En false (desde el
+// lanzamiento de las cuentas propias, 05/10/2026 20:30 hora de Chile, pedido
+// de Juan Diego: "que tengan que crear la cuenta obligatoriamente"): un
+// teléfono que había entrado con una de esas cuentas se sale solo y ve la
+// entrada con "Crear cuenta". Las reglas de Firebase ya no las aceptan.
+const CUENTAS_COMPARTIDAS_EQUIPO = true;
+function esCuentaCompartidaApagada(user){
+  if(CUENTAS_COMPARTIDAS_EQUIPO) return false;
+  const email = ((user && user.email) || '').toLowerCase();
+  return CUENTAS.some(c=>c.email===email && c.rol==='equipo');
+}
+// Firebase dice "sin permiso": la cuenta con la que se entró ya no sirve
+// (desactivada, o una compartida que se apagó). Se cierra la sesión y vuelve
+// la pantalla de entrada. Devuelve true si era eso.
+function cerrarSiSinPermiso(err){
+  if(!(err && err.code==='permission-denied')) return false;
+  firebase.auth().signOut().catch(e=>console.error(e)).finally(()=>reloadFresh());
+  return true;
+}
 // ---------------- Usuarios personales (oct 2026) ----------------
 // Además de las cuentas compartidas de arriba, cada persona del equipo puede
 // tener su propia cuenta (como en AgendaPro): así los vales y los "pago
@@ -4271,6 +4290,11 @@ function startRealtimeSync(){
       });
       return;
     }
+    if(user && !user.isAnonymous && esCuentaCompartidaApagada(user)){
+      avisoLoginGate = 'Desde ahora cada una entra con su propia cuenta. Si todavía no tienes una, toca "Crear cuenta".';
+      firebase.auth().signOut().catch(err=>console.error(err));
+      return;
+    }
     if(user && !user.isAnonymous){
       syncStarted = true;
       aplicarCuenta(user);
@@ -4312,6 +4336,7 @@ function refreshFromServer(){
     finished = true;
     clearTimeout(timer);
     console.error('No se pudieron actualizar los datos', err);
+    if(cerrarSiSinPermiso(err)) return;
     setOffline(true);
   }).finally(()=>{ refreshInFlight = false; });
 }
@@ -4358,7 +4383,7 @@ function showTeamLoginGate(){
       <h1 class="serif">Agenda Sibana</h1>
       <p class="hint">${conUsuario ? 'Entra con tu correo y tu contraseña.' : 'Ingresa la contraseña del equipo para entrar.'}</p>
       <div class="login-gate-box">
-        ${conUsuario ? `<input type="email" id="team-login-user" class="client-search-input" placeholder="Correo (vacío si usas la contraseña del equipo)" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" style="margin-bottom:10px;">` : ''}
+        ${conUsuario ? `<input type="email" id="team-login-user" class="client-search-input" placeholder="${CUENTAS_COMPARTIDAS_EQUIPO ? 'Correo (vacío si usas la contraseña del equipo)' : 'Tu correo'}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" style="margin-bottom:10px;">` : ''}
         <div class="pw-field">
           <input type="password" id="team-login-input" class="client-search-input" placeholder="Contraseña" autocomplete="current-password">
           <button type="button" class="pw-toggle" id="team-login-toggle" aria-label="Mostrar contraseña">👁</button>
@@ -4389,9 +4414,10 @@ function showTeamLoginGate(){
     // Solo se escribe la contraseña: se prueba con cada cuenta, en orden
     // (primero el equipo de Santiago, así a ellas les funciona igual que
     // siempre). Si ninguna la acepta, es una contraseña incorrecta.
+    const compartidas = CUENTAS.filter(c=>CUENTAS_COMPARTIDAS_EQUIPO || c.rol!=='equipo');
     const tryAccount = i=>{
-      if(i >= CUENTAS.length) return Promise.reject(new Error('Ninguna cuenta aceptó la contraseña'));
-      return firebase.auth().signInWithEmailAndPassword(CUENTAS[i].email, pass).catch(()=>tryAccount(i+1));
+      if(i >= compartidas.length) return Promise.reject(new Error('Ninguna cuenta aceptó la contraseña'));
+      return firebase.auth().signInWithEmailAndPassword(compartidas[i].email, pass).catch(()=>tryAccount(i+1));
     };
     // Con correo: su cuenta personal. Sin correo: las cuentas compartidas.
     const correo = userInput ? correoDeEntrada(userInput.value) : '';
@@ -4402,7 +4428,8 @@ function showTeamLoginGate(){
       console.error('No se pudo iniciar sesión', err);
       errBox.textContent = /too-many-requests/.test((err && err.code) || '')
         ? 'Demasiados intentos. Espera unos minutos y vuelve a intentar.'
-        : (correo ? 'Correo o contraseña incorrectos. Intenta de nuevo.' : 'Contraseña incorrecta. Intenta de nuevo.');
+        : (correo ? 'Correo o contraseña incorrectos. Intenta de nuevo.'
+          : (!CUENTAS_COMPARTIDAS_EQUIPO && userInput ? 'Escribe tu correo y tu contraseña. Si todavía no tienes cuenta, toca "Crear cuenta".' : 'Contraseña incorrecta. Intenta de nuevo.'));
       btn.disabled = false;
       btn.textContent = 'Entrar';
       input.value = '';
@@ -4645,10 +4672,7 @@ function startFirestoreSync(){
     console.error('Error de sincronización', err);
     // Sin permiso = la cuenta con la que se entró ya no sirve (ej. una de las
     // cuentas viejas): se cierra la sesión y vuelve a pedir la contraseña.
-    if(err && err.code==='permission-denied'){
-      firebase.auth().signOut().catch(e=>console.error(e)).finally(()=>reloadFresh());
-      return;
-    }
+    if(cerrarSiSinPermiso(err)) return;
     ui.loaded = true;
     render();
     showAlert('No se pudo conectar con la base de datos compartida (Firebase). Revisa tu conexión a internet o la configuración del proyecto.');
@@ -4997,6 +5021,8 @@ async function runSave(job, opts){
       showAlert('Por seguridad, no se guardó este cambio: habría hecho desaparecer '+e.lost+' citas de una sola vez. Recarga la página antes de seguir, y si vuelve a pasar, avísale a Juan Diego.');
     } else if(e && e.sibana==='missing'){
       showAlert('No se pudo leer la base de datos, así que por seguridad no se guardó nada. Recarga la página y avísale a Juan Diego si sigue pasando.');
+    } else if(cerrarSiSinPermiso(e)){
+      // la cuenta ya no tiene acceso: se cierra la sesión
     } else {
       if(e && (e.code==='unavailable' || e.code==='deadline-exceeded')) setOffline(true);
       showAlert('❌ No se pudo guardar el cambio (revisa tu conexión a internet). No quedó guardado: vuelve a intentarlo cuando tengas señal.');

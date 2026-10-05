@@ -145,6 +145,15 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     Equipo. Después (días): borrar `sibana.cl+equipo@gmail.com` y
     `sibana.cl+buenosaires@gmail.com` en Firebase Auth (ya fuera de las
     reglas, es seguro; además así el script de respaldo deja de aceptarlas).
+    **Cambio de plan (05/10, 11:30):** ensayo general ANTES del lanzamiento,
+    en dos pasos. ~18:30 (última clienta del día): reglas "de ensayo" (las
+    nuevas pero CON la contraseña del equipo) + publicar la versión con todo
+    escondido (interruptores apagados) → Juan Diego ensaya en incógnito con
+    `?usuario` (cuenta de prueba aprobada como una especialista "Prueba"
+    agregada solo para eso, después desactivada). ~20:30, cuando terminen:
+    reglas finales + volver a aplicar el commit del lanzamiento (tags locales
+    `lanzamiento-agenda` / `lanzamiento-panel`: prenden los interruptores y
+    sacan las cuentas del equipo de las reglas).
     **Falta (con el usuario):** dar usuarios a las especialistas reales; y
     al final apagar las cuentas compartidas (primero sacarlas de las reglas,
     de `CUENTAS_PERMITIDAS` del script y de `CUENTAS`, después borrarlas).

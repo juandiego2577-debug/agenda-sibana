@@ -43,14 +43,11 @@ service cloud.firestore {
     // Por eso ya no tienen acceso, aunque sigan existiendo. OJO: nunca borrar
     // una cuenta cuyo correo siga aquí (cualquiera podría volver a crearla con
     // ese correo y entrar): primero se saca de las reglas, después se borra.
-    // Las contraseñas compartidas del EQUIPO (sibana.cl+equipo@gmail.com y
-    // sibana.cl+buenosaires@gmail.com) se apagaron el 05/10/2026: desde ahí
-    // cada especialista entra con su propia cuenta (ver "Pedidos de acceso").
-    // Esas dos cuentas se pueden borrar en Firebase Authentication (ya no
-    // están aquí, así que es seguro).
     function puedeSede(sede) {
       return conCuenta() && (
         correo() == 'juandiego2577+duenos@gmail.com'
+        || (sede == 'santiago' && correo() == 'sibana.cl+equipo@gmail.com')
+        || (sede == 'buenosaires' && correo() == 'sibana.cl+buenosaires@gmail.com')
         || usuarioActivoDe(sede)
       );
     }

@@ -87,10 +87,15 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     aparece con `?usuario` al final de la dirección (para que Juan Diego
     pruebe). Al lanzar: `USUARIOS_PERSONALES_VISIBLES = true` en los DOS
     repos. Lo demás (Más → Equipo) ya era solo de dueños.
-    **Scripts (04/10/2026):** el usuario guardó la clave de `sistema` en
-    `CLAVE_EQUIPO` del script de correos; falta confirmar que pegó el código
-    nuevo y que `verQueSeEnviariaHoy` corre sin error, y pegar/publicar el
-    script de respaldo nuevo (`probar()`).
+    **Scripts instalados y comprobados en Google (05/10/2026):** correos con
+    el usuario `sistema` (`verQueSeEnviariaHoy` leyó la agenda sin error) y
+    respaldo nuevo publicado (`probar()` mostró un guardado aceptado). Ojo:
+    una agenda abierta desde ANTES de la "llave" (token, 04/10 ~17:15 hora
+    de Chile) y nunca recargada manda avisos sin token → el script los
+    rechaza ("sin sesión válida"); la cita queda bien en Firebase, solo falta
+    en Hoja/Calendar. Le pasó al propio Juan Diego; cerrar y abrir la agenda
+    lo arregló. Decidido: no forzar la recarga (subir `APP_VERSION`) para que
+    el equipo no vea nada; en unos días hacer "Reenviar todo" para rellenar.
     **Falta (con el usuario):** dar usuarios a las especialistas reales; y
     al final apagar las cuentas compartidas (primero sacarlas de las reglas,
     de `CUENTAS_PERMITIDAS` del script y de `CUENTAS`, después borrarlas).

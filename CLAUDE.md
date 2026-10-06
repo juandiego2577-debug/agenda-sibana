@@ -817,6 +817,41 @@ para servir también a **Copiapó**, de la siguiente forma:
   mostrarla. Admin conserva Finanzas con un aviso "⚠️ En ajuste… no usar
   para calcular pagos" arriba. La identidad "¿Quién eres?" sigue (vales y
   "pago marcado por").
+- **Finanzas → 💵 Pagos (06/10/2026, pedido de Juan Diego: "que el pago a
+  las especialistas salga solo y explicado")**: pestaña nueva (al final de
+  las de Finanzas, solo Admin). Semana de pago lun–sáb con flechas ‹ › a
+  cualquier semana anterior (no futuras) + tabla "Últimas semanas" (8) con
+  su estado. Por especialista: "A pagar" y, al tocarla, el detalle cita por
+  cita con la cuenta en palabras (`apptCommissionExplicacion`, que SOLO
+  explica: el número sale de `apptCommission`), garantías traspasadas,
+  vales, ajustes y la suma. Avisos: citas ya pasadas sin cerrar
+  (Pendiente/Confirmada, se cuentan como hechas; tocarlas abre la cita),
+  citas sin especialista, cosas anotadas el domingo (no entran en ninguna
+  semana). Todo sale de `payoutWeekData` (también la tabla corta del
+  Resumen y "Mis ganancias"). **La comisión se redondea al peso cita por
+  cita** (`apptCommission`; antes podía salir "$24.995,5"), también en
+  `monthFinancials`. "Marcar como pagado" guarda `state.pagos`
+  ({specialist, semana (lunes), comision, traspasos, ajustes, vales, neto,
+  pagadoEn, registradoPor}); si después cambia algo de esa semana, avisa la
+  diferencia ("Ya quedó resuelto" / "Desmarcar"). Semanas antes de
+  `PAGOS_REGISTRO_DESDE` ('2026-10-05') se pagaron a mano: "Antes de este
+  registro", no "Falta". **Ajustes a mano** (`state.ajustes` = {specialist,
+  semana, monto ±, motivo}): bonos, correcciones; entran en Finanzas como
+  gasto aparte. `ajustes` y `pagos` son DOC_KEYS nuevas → `APP_VERSION` 5
+  (probado: un teléfono con la 4 no puede guardar y ve "Recargar").
+  **Garantía hecha por OTRA especialista** (caso poco común, regla de Juan
+  Diego): TODA la comisión del tratamiento original pasa a la que hace la
+  garantía, en la semana de pago de la GARANTÍA (la del tratamiento ya se
+  pagó y no se toca). En el formulario de una garantía (Admin), si
+  `tratamientoOriginalDeGarantia` (última cita no cancelada de esa clienta
+  con ese tratamiento, antes de la garantía) es de otra especialista,
+  aparece una casilla ya marcada con el monto (editable; en un combo, la
+  parte proporcional al precio de lista, `montoTraspasoSugerido`). Se
+  congela en `a.traspasoComision` ({originalId, de, monto, tratamiento,
+  fechaOriginal}); desmarcada → `a.sinTraspasoComision`. No cuenta si la
+  garantía queda Cancelada/NoShow (`traspasoDeGarantia`). No cambia el
+  total de comisiones del mes. Probado contra el emulador (Firestore +
+  Auth) con la agenda real: 38 + 3 pruebas.
 - **"Mis ganancias"** (OCULTA por ahora, ver arriba): en modo Especialista, la pestaña de Finanzas muestra
   esto en vez del panel completo de Admin — cada especialista elige su
   nombre una vez (se recuerda por dispositivo, `STAFF_IDENTITY_KEY`) y ve

@@ -361,7 +361,7 @@
   .section-tabs button.active{color:var(--gold);border-bottom-color:var(--wine);font-weight:600;}
   .fin-main{flex:1;overflow-y:auto;padding:20px 24px 60px;}
   .fin-page{max-width:820px;margin:0 auto;}
-  .fin-subtabs{display:flex;gap:8px;margin-bottom:20px;}
+  .fin-subtabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;}
   .fin-subtabs button{
     background:var(--panel-2);border:1px solid var(--line);color:var(--ink-soft);border-radius:20px;
     padding:7px 16px;font-size:12.5px;cursor:pointer;transition:background .12s, color .12s;
@@ -378,6 +378,35 @@
   .fin-table{width:100%;border-collapse:collapse;font-size:13px;}
   .fin-table th,.fin-table td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;}
   .fin-table th{color:var(--ink-soft);font-size:11px;text-transform:uppercase;font-weight:600;}
+  /* Finanzas → Pagos (pago semanal de las especialistas) */
+  .pago-card{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;margin-bottom:10px;}
+  .pago-card.pagado{border-color:var(--ok);}
+  .pago-card.cambio{border-color:var(--danger);}
+  .pago-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px;cursor:pointer;}
+  .pago-head .quien{font-weight:600;font-size:15px;}
+  .pago-head .hint{margin:2px 0 0;}
+  .pago-neto{font-family:'Fraunces',serif;font-size:18px;font-weight:600;color:var(--gold-soft);white-space:nowrap;text-align:right;}
+  .pago-neto small{display:block;font-family:inherit;font-size:10.5px;font-weight:400;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;}
+  .pago-estado{padding:0 12px 12px;font-size:12.5px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+  .pago-estado .btn{font-size:12.5px;padding:7px 14px;}
+  .pago-detalle{border-top:1px solid var(--line);padding:4px 12px 12px;}
+  .pago-detalle h4{font-size:11.5px;color:var(--gold);text-transform:uppercase;letter-spacing:.4px;margin:14px 0 4px;font-weight:600;}
+  .pago-fila{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px;}
+  .pago-fila .como{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+  .pago-fila .monto{white-space:nowrap;font-weight:600;}
+  .pago-fila.click{cursor:pointer;}
+  .pago-fila.click:hover{background:rgba(201,162,39,0.06);}
+  .pago-suma{margin-top:12px;font-size:13px;}
+  .pago-suma div{display:flex;justify-content:space-between;padding:3px 0;}
+  .pago-suma .neto{border-top:1px solid var(--line);margin-top:4px;padding-top:7px;font-weight:700;color:var(--gold);font-size:14px;}
+  .pago-aviso{border:1px solid var(--warn);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;}
+  .pago-aviso.peligro{border-color:var(--danger);}
+  .pago-aviso ul{margin:6px 0 0;padding-left:18px;}
+  .pago-aviso li{margin:3px 0;}
+  .pago-ok{color:var(--ok);}
+  .pago-mal{color:var(--danger);}
+  .pago-hist tr.sel td{background:rgba(201,162,39,0.1);}
+  .pago-hist tr{cursor:pointer;}
   .fin-table td:last-child, .fin-table th:last-child{text-align:right;}
   .exp-row{display:grid;grid-template-columns:1.3fr 1.6fr 1fr .9fr 1.1fr auto;gap:6px;align-items:center;margin-bottom:8px;}
   .exp-row.rec-row{grid-template-columns:1.4fr 1fr .8fr 1.1fr auto;}
@@ -2837,6 +2866,8 @@ let state = {
   recurringExpenses: [], // {id,categoria,monto,diaPago,metodoPago} — arriendo, luz, internet: se pagan todos los meses, no hay que volver a anotarlos
   recurringIncomes: [], // {id,categoria,monto,metodoPago} — ingresos pasivos que llegan todas las semanas (ej. arriendo de un box), aparte de las citas
   stockItems: [], // {id,categoria:'Pigmentos'|'FilosAgujas'|'Anestesia',name,valor,umbral,actualizadoEn} — revisión semanal de insumos
+  ajustes: [], // {id,specialist,semana:'YYYY-MM-DD' (lunes de la semana de pago),monto (+/−),motivo,registradoPor,creadoEn} — ajustes a mano del pago semanal (Finanzas → Pagos)
+  pagos: [], // {id,specialist,semana,comision,traspasos,ajustes,vales,neto,citas,pagadoEn,registradoPor} — registro de lo que ya se le pagó a cada especialista
   vales: [], // {id,specialist,date:'YYYY-MM-DD',monto,notas} — plata que una especialista va sacando de la caja a cuenta de su comisión, para no perder el registro cuando se saca fraccionado en varios días
   settings: Object.assign({}, DEFAULT_SETTINGS),
 };
@@ -3773,7 +3804,7 @@ function recomputeServiceFields(){
 // ---------------- Carga / guardado (Firestore, en tiempo real) ----------------
 // Las partes del documento de Firestore que maneja la agenda (lo mismo que
 // escribe saveData).
-const DOC_KEYS = ['appointments','services','specialists','clients','blocks','courses','expenses','recurringExpenses','recurringIncomes','stockItems','vales','settings'];
+const DOC_KEYS = ['appointments','services','specialists','clients','blocks','courses','expenses','recurringExpenses','recurringIncomes','stockItems','vales','ajustes','pagos','settings'];
 
 // Convierte el documento tal como viene de Firestore en la forma en que la
 // agenda lo usa (servicios ordenados, valores por defecto, etc.). Devuelve
@@ -3805,6 +3836,8 @@ function normalizeDoc(data){
     recurringIncomes: d.recurringIncomes || [],
     stockItems: d.stockItems || [],
     vales: d.vales || [],
+    ajustes: d.ajustes || [],
+    pagos: d.pagos || [],
     settings: Object.assign({}, JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), d.settings || {}),
   };
 }
@@ -4774,7 +4807,7 @@ async function crearAgendaSede(){
     settings.creadaEn = new Date().toISOString();
     const inicial = {
       appointments: [], services, specialists: [], clients: [], blocks: [], courses: [],
-      expenses: [], recurringExpenses: [], recurringIncomes: [], stockItems: [], vales: [],
+      expenses: [], recurringExpenses: [], recurringIncomes: [], stockItems: [], vales: [], ajustes: [], pagos: [],
       settings, appVersion: APP_VERSION,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
@@ -4929,7 +4962,7 @@ function mergeDocs(base, mine, theirs){
 // muestra el aviso de recargar — así una versión vieja nunca puede estropear
 // nada. Subir este número cada vez que se publica un cambio en cómo se
 // guardan los datos.
-const APP_VERSION = 4;
+const APP_VERSION = 5;
 let appOutdated = false;
 let appOffline = false;
 function renderSyncBanner(){
@@ -5656,6 +5689,7 @@ function modalHtml(){
   if(ui.modal.type==='curso') return cursoModalHtml();
   if(ui.modal.type==='curso-attendee') return cursoAttendeeModalHtml();
   if(ui.modal.type==='vales') return valesModalHtml();
+  if(ui.modal.type==='ajuste') return ajusteModalHtml();
   if(ui.modal.type==='staff-identity') return staffIdentityModalHtml();
   if(ui.modal.type==='mi-cuenta') return miCuentaModalHtml();
   if(ui.modal.type==='equipo') return equipoModalHtml();
@@ -5952,6 +5986,7 @@ function apptModalHtml(){
           ${opciones.map(n=>`<option value="${escapeHtml(n)}"${n===d.garantiaDe?' selected':''}>${escapeHtml(n)}</option>`).join('')}
         </select>
         <div class="hint" style="margin:4px 0 0;">La duración de la cita se ajusta sola a la de ese tratamiento.</div>
+        <div id="garantia-traspaso">${ui.mode==='admin' ? traspasoGarantiaInnerHtml({id:d.id, client:d.client, specialist:d.specialist, garantiaDe:d.garantiaDe, date:d.date, start:d.start}, d) : ''}</div>
       </div>`;
       })()}
       <div class="field">
@@ -6649,6 +6684,94 @@ function apptCommissionBase(a){
   const base = (Number(a.price)||0) - CREMA_PRICE*apptCremas(a);
   return Math.max(0, base - apptDescuentoMicro(a));
 }
+// El % de comisión que le toca a una cita: el vigente en el mes de la cita.
+function apptComisionPct(a){
+  const d = parseKey(a.date);
+  return comisionPctForMonth(d.getFullYear(), d.getMonth());
+}
+// Lo que gana la especialista con esta cita, redondeado al peso cita por
+// cita (así el total de la semana es exactamente la suma de lo que se ve en
+// el detalle, y nunca aparecen decimales como "$24.995,5").
+function apptCommission(a){
+  return Math.round(apptCommissionBase(a) * apptComisionPct(a));
+}
+// Explicación, en palabras, de cómo se llegó a la comisión de una cita (para
+// el detalle de "Pagos"). El número sale SIEMPRE de apptCommission: esto
+// solo lo explica, nunca calcula por su cuenta.
+function apptCommissionExplicacion(a){
+  const pct = Math.round(apptComisionPct(a)*100) + '%';
+  const base = apptCommissionBase(a);
+  const cancelada = a.estado==='Cancelada' || a.estado==='NoShow';
+  if(cancelada){
+    const que = a.estado==='Cancelada' ? 'Cancelada' : 'No llegó';
+    const abono = Number(a.abono)||0;
+    if(a.abonoDevuelto) return `${que}: se le devolvió el abono, no genera comisión.`;
+    if(abono<=0) return `${que}: sin abono, no genera comisión.`;
+    if(base<=0) return `${que}: el abono (${fmtCLP(abono)}) queda entero para el negocio.`;
+    return `${que}: abono ${fmtCLP(base)} → ${pct} (regla anterior: antes el abono perdido también se repartía).`;
+  }
+  const precio = Number(a.price)||0;
+  const partes = [fmtCLP(precio)];
+  const cremas = apptCremas(a);
+  if(cremas) partes.push(`− ${cremas>1?cremas+' × ':''}${fmtCLP(CREMA_PRICE)} crema (es del negocio)`);
+  const desc = apptDescuentoMicro(a);
+  if(desc){
+    const n = tratamientosConDescuento(a);
+    partes.push(`− ${n>1?n+' × ':''}${fmtCLP(desc/n)} micropigmentación (es del negocio)`);
+  }
+  let txt = partes.join(' ');
+  if(partes.length>1) txt += ` = ${fmtCLP(base)}`;
+  txt += ` → ${pct}`;
+  if(precio<=0) txt = isGarantiaAppt(a) ? 'Garantía sin costo: no genera comisión.' : 'Sin precio anotado: no genera comisión.';
+  if(a.abonoPrevio) txt += ' (el abono lo pagó en una cita anterior; la comisión es sobre el precio completo)';
+  return txt;
+}
+
+// ---- Garantía hecha por OTRA especialista (pedido de Juan Diego, oct 2026) ----
+// Caso poco común: la clienta pide que la garantía se la haga otra
+// especialista. Regla: toda la comisión que ganó la especialista del
+// tratamiento original se le pasa a la que hace la garantía, en la semana de
+// pago de la garantía (la semana del tratamiento ya se pagó y queda como
+// fue). Queda anotado en la propia cita de garantía (a.traspasoComision =
+// {originalId, de, monto, tratamiento, fechaOriginal}), con el monto
+// congelado al guardarla. Si la garantía se cancela o no llega, no cuenta.
+function tratamientoOriginalDeGarantia(a){
+  if(!a || !a.garantiaDe) return null;
+  const n = normalizeName(a.client||'');
+  const t = normalizeName(a.garantiaDe);
+  if(!n) return null;
+  const limite = (a.date||'') + (a.start||'');
+  return state.appointments
+    .filter(x=>x.id!==a.id && normalizeName(x.client||'')===n && !isGarantiaAppt(x) && !x.cursoId
+      && x.estado!=='Cancelada' && x.estado!=='NoShow'
+      && (x.services||[]).some(s=>normalizeName(s)===t)
+      && (x.date+(x.start||'')) <= limite)
+    .sort((x,y)=>(y.date+(y.start||'')).localeCompare(x.date+(x.start||'')))[0] || null;
+}
+function traspasoDeGarantia(a){
+  const t = a && a.traspasoComision;
+  if(!t || !(Number(t.monto)>0) || !t.de || !a.specialist) return null;
+  if(a.estado==='Cancelada' || a.estado==='NoShow') return null;
+  if(normalizeName(t.de)===normalizeName(a.specialist)) return null;
+  return t;
+}
+// Movimientos de comisión por garantías en un rango de fechas (fecha de la
+// garantía): [{specialist, monto (+ o −), texto, apptId}].
+function traspasosEnRango(startKey, endKey){
+  const out = [];
+  state.appointments.forEach(a=>{
+    if(a.date<startKey || a.date>endKey) return;
+    const t = traspasoDeGarantia(a);
+    if(!t) return;
+    const trat = t.tratamiento || a.garantiaDe || 'tratamiento';
+    const cuando = t.fechaOriginal ? ` el ${parseKey(t.fechaOriginal).getDate()}/${pad(parseKey(t.fechaOriginal).getMonth()+1)}` : '';
+    out.push({specialist: a.specialist, monto: Number(t.monto), apptId: a.id, date: a.date,
+      texto: `Garantía de ${a.client} (${trat}): el tratamiento lo hizo ${t.de}${cuando} — se le pasa su comisión`});
+    out.push({specialist: t.de, monto: -Number(t.monto), apptId: a.id, date: a.date,
+      texto: `Garantía de ${a.client} (${trat}) la hizo ${a.specialist} — se le pasa la comisión de ese tratamiento`});
+  });
+  return out;
+}
 // ¿Esta cita lleva el descuento por micropigmentación? Nunca los cursos. En
 // Santiago, solo las citas con precios nuevos: queda congelado al crear la
 // cita (a.conDescuentoMicro, según estuviera prendida la "crema incluida",
@@ -6774,9 +6897,14 @@ function monthFinancials(year, month){
   // La comisión de las especialistas se calcula solo sobre lo que generan las
   // citas (sin contar la crema ni el ingreso pasivo del box) — ver
   // apptCommissionBase.
-  const comisionBaseTotal = appts.reduce((s,a)=>s+apptCommissionBase(a),0);
-  const comisiones = comisionBaseTotal * comisionPct;
-  const gastosTotal = gastosFijos + gastosVariables + comisiones;
+  // Redondeada cita por cita (apptCommission), igual que en "Pagos", para
+  // que los dos lugares den exactamente el mismo número.
+  const comisiones = appts.reduce((s,a)=>s+apptCommission(a),0);
+  // Ajustes a mano del pago de las especialistas (bonos, correcciones…), por
+  // la semana de pago a la que se anotaron (su lunes cae en este mes).
+  const ajustesMes = ajustesEnMes(year, month);
+  const ajustesTotal = ajustesMes.reduce((s,x)=>s+(Number(x.monto)||0),0);
+  const gastosTotal = gastosFijos + gastosVariables + comisiones + ajustesTotal;
   const beneficio = ingresos - gastosTotal;
 
   const porMetodo = paymentBreakdown(appts);
@@ -6787,20 +6915,29 @@ function monthFinancials(year, month){
     if(!porEspecialista[name]) porEspecialista[name] = {ingresos:0, comisionBase:0, citas:0, personas:0, multi:false, _appts:[]};
     porEspecialista[name].ingresos += apptRevenue(a);
     porEspecialista[name].comisionBase += apptCommissionBase(a);
+    porEspecialista[name].comision = (porEspecialista[name].comision||0) + apptCommission(a);
     porEspecialista[name].citas += 1;
     porEspecialista[name]._appts.push(a);
     if(apptPersonas(a)>1) porEspecialista[name].multi = true;
   });
+  // Garantías hechas por otra especialista: la comisión del tratamiento
+  // original pasa de una a otra (el total del negocio no cambia).
+  const ultimoDia = new Date(year, month+1, 0);
+  traspasosEnRango(toKey(new Date(year, month, 1)), toKey(ultimoDia)).forEach(t=>{
+    const name = state.specialists.map(s=>s.name).find(n=>normalizeName(n)===normalizeName(t.specialist)) || t.specialist;
+    if(!porEspecialista[name]) porEspecialista[name] = {ingresos:0, comisionBase:0, comision:0, citas:0, personas:0, multi:false, _appts:[]};
+    porEspecialista[name].comision = (porEspecialista[name].comision||0) + t.monto;
+  });
   Object.keys(porEspecialista).forEach(name=>{
     const e = porEspecialista[name];
-    e.comision = e.comisionBase * comisionPct;
+    e.comision = e.comision||0;
     // Misma clienta con más de una cita en el mes con esta especialista -> se
     // cuenta una sola vez (ver countPersonas).
     e.personas = countPersonas(e._appts);
     delete e._appts;
   });
 
-  return {ingresos, ingresosCitas, ingresosPasivos, gastosFijos, gastosVariables, comisiones, gastosTotal, beneficio, porMetodo, porEspecialista, comisionPct, appts, gastos, cremasVendidas};
+  return {ingresos, ingresosCitas, ingresosPasivos, gastosFijos, gastosVariables, comisiones, ajustesTotal, gastosTotal, beneficio, porMetodo, porEspecialista, comisionPct, appts, gastos, cremasVendidas};
 }
 function weekRangesForMonth(year, month){
   // Semanas de lunes a domingo, recortadas a los límites del mes — igual que
@@ -6850,16 +6987,93 @@ function commissionInRange(specialist, start, end){
   const key = normalizeName(specialist);
   return state.appointments
     .filter(a=>normalizeName(a.specialist)===key && a.date>=startKey && a.date<=endKey)
-    .reduce((s,a)=>{
-      const d = parseKey(a.date);
-      return s + apptCommissionBase(a)*comisionPctForMonth(d.getFullYear(), d.getMonth());
-    }, 0);
+    .reduce((s,a)=>s+apptCommission(a), 0);
 }
+// Ajustes a mano del pago (state.ajustes = [{id, specialist, semana:'YYYY-MM-DD'
+// (el lunes de la semana de pago), monto (+ suma / − resta), motivo,
+// registradoPor, creadoEn}]): bonos, correcciones, cualquier caso raro.
+function ajustesDeSemana(semanaKey){
+  return (state.ajustes||[]).filter(x=>x.semana===semanaKey);
+}
+function ajustesEnMes(year, month){
+  const pref = `${year}-${pad(month+1)}-`;
+  return (state.ajustes||[]).filter(x=>(x.semana||'').startsWith(pref));
+}
+// Registro de lo que ya se pagó (state.pagos = [{id, specialist, semana,
+// comision, traspasos, ajustes, vales, neto, citas, pagadoEn, registradoPor}]).
+function pagoRegistrado(semanaKey, specialist){
+  const k = normalizeName(specialist);
+  return (state.pagos||[]).find(p=>p.semana===semanaKey && normalizeName(p.specialist)===k) || null;
+}
+function hoySedeKey(){ return sedeNow().date; }
+// Todo lo que hace falta para pagar una semana (lun–sáb, que empieza el
+// lunes "monday"): por especialista, sus citas con lo que deja cada una,
+// las garantías traspasadas, los ajustes, los vales y el neto; más los
+// avisos de cosas que conviene revisar antes de pagar.
+function payoutWeekData(monday){
+  const {start, end} = payoutWeekRange(monday);
+  const startKey = toKey(start), endKey = toKey(end);
+  const domingoKey = toKey(addDays(start, 6));
+  const hoy = hoySedeKey();
+  const porNombre = new Map(); // normalizeName -> grupo
+  const grupo = name=>{
+    const k = normalizeName(name);
+    if(!porNombre.has(k)) porNombre.set(k, {name, citas:[], traspasos:[], ajustes:[], vales:[], comision:0, totalTraspasos:0, totalAjustes:0, totalVales:0, neto:0, sinCerrar:0});
+    return porNombre.get(k);
+  };
+  state.specialists.forEach(s=>grupo(s.name));
+  const citasSemana = state.appointments.filter(a=>a.date>=startKey && a.date<=endKey)
+    .sort((x,y)=>(x.date+(x.start||'')).localeCompare(y.date+(y.start||'')));
+  const sinEspecialista = [];
+  const sinCerrar = [];
+  const porVenir = [];
+  citasSemana.forEach(a=>{
+    const abierta = a.estado!=='Realizada' && a.estado!=='Cancelada' && a.estado!=='NoShow';
+    if(abierta && a.date<hoy) sinCerrar.push(a);
+    if(abierta && a.date>=hoy) porVenir.push(a);
+    if(!a.specialist){ if(!a.cursoId && apptCommission(a)>0) sinEspecialista.push(a); return; }
+    const g = grupo(a.specialist);
+    const c = apptCommission(a);
+    g.citas.push({a, comision:c});
+    g.comision += c;
+    if(abierta && a.date<hoy) g.sinCerrar++;
+  });
+  traspasosEnRango(startKey, endKey).forEach(t=>{
+    const g = grupo(t.specialist);
+    g.traspasos.push(t);
+    g.totalTraspasos += t.monto;
+  });
+  ajustesDeSemana(startKey).forEach(x=>{
+    const g = grupo(x.specialist);
+    g.ajustes.push(x);
+    g.totalAjustes += Number(x.monto)||0;
+  });
+  (state.vales||[]).filter(v=>v.date>=startKey && v.date<=endKey)
+    .sort((x,y)=>x.date.localeCompare(y.date)).forEach(v=>{
+      const g = grupo(v.specialist||'Sin nombre');
+      g.vales.push(v);
+      g.totalVales += Number(v.monto)||0;
+    });
+  const especialistas = Array.from(porNombre.values());
+  especialistas.forEach(g=>{
+    g.neto = g.comision + g.totalTraspasos + g.totalAjustes - g.totalVales;
+    g.pago = pagoRegistrado(startKey, g.name);
+    g.tieneAlgo = g.citas.length || g.traspasos.length || g.ajustes.length || g.vales.length;
+  });
+  // Lo del domingo (cerrado) no entra en ninguna semana de pago: se avisa.
+  const delDomingo = state.appointments.filter(a=>a.date===domingoKey && apptCommission(a)>0).length
+    + (state.vales||[]).filter(v=>v.date===domingoKey).length;
+  return { start, end, startKey, endKey, especialistas, sinEspecialista, sinCerrar, porVenir, delDomingo,
+    terminada: hoy>endKey, enCurso: hoy>=startKey && hoy<=endKey };
+}
+// Lo de una especialista en la semana de pago EN CURSO (lo usa "Mis
+// ganancias", hoy oculta).
 function payoutWeekSummary(specialist){
-  const {start,end} = payoutWeekRange(new Date());
-  const comision = commissionInRange(specialist, start, end);
-  const vales = valesTotalInRange(specialist, start, end);
-  return { start, end, comision, vales, neto: comision - vales };
+  const w = payoutWeekData(parseKey(hoySedeKey()));
+  const g = w.especialistas.find(x=>normalizeName(x.name)===normalizeName(specialist));
+  const comision = g ? g.comision + g.totalTraspasos + g.totalAjustes : 0;
+  const vales = g ? g.totalVales : 0;
+  return { start: w.start, end: w.end, comision, vales, neto: comision - vales };
 }
 
 // "Mis ganancias" (la pestaña de Finanzas de las especialistas) está OCULTA a
@@ -7044,24 +7258,315 @@ function removeValorDolar(desde){
   });
 }
 
+// ---------------- Finanzas → 💵 Pagos (pago semanal de las especialistas) ----------------
+// Pedido de Juan Diego (oct 2026): que lo que hay que pagarle a cada
+// especialista salga solo, explicado (de dónde sale cada peso), con las
+// semanas anteriores a la vista y un registro de lo que ya se pagó. Semana
+// de pago lun–sáb (payoutWeekRange), se paga el domingo.
+function fmtNeto(n){ n = Number(n)||0; return n<0 ? '−'+fmtCLP(-n) : fmtCLP(n); }
+function fmtSigno(n){ n = Number(n)||0; return (n<0 ? '−' : '+') + fmtCLP(Math.abs(n)); }
+function diaCorto(key){ const d = parseKey(key); return `${DAY_NAMES[d.getDay()]} ${pad(d.getDate())}/${pad(d.getMonth()+1)}`; }
+function rangoSemanaTexto(start, end){
+  return `${start.getDate()} ${MONTHS[start.getMonth()].slice(0,3)} – ${end.getDate()} ${MONTHS[end.getMonth()].slice(0,3)}`;
+}
+function semanaPagoActualKey(){ return toKey(startOfWeek(parseKey(hoySedeKey()))); }
+// Primera semana con citas (para no navegar hacia atrás sin fin).
+function primeraSemanaConDatos(){
+  let min = null;
+  state.appointments.forEach(a=>{ if(a.date && (!min || a.date<min)) min = a.date; });
+  return min ? toKey(startOfWeek(parseKey(min))) : semanaPagoActualKey();
+}
+// Estado del pago de una especialista en una semana: 'pagado' | 'cambio'
+// (se pagó, pero después cambió algo y el total ya no es el mismo) |
+// 'pendiente' | 'nada' (no tiene nada esa semana).
+function estadoPago(g){
+  if(g.pago) return Number(g.pago.neto)===g.neto ? 'pagado' : 'cambio';
+  return g.tieneAlgo ? 'pendiente' : 'nada';
+}
+function pagoFechaTexto(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  return `el ${pad(d.getDate())}/${pad(d.getMonth()+1)} a las ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function pagosPageHtml(){
+  const actual = semanaPagoActualKey();
+  if(!ui.pagoSemana || ui.pagoSemana>actual) ui.pagoSemana = actual;
+  if(!ui.pagoAbiertos) ui.pagoAbiertos = {};
+  const w = payoutWeekData(parseKey(ui.pagoSemana));
+  const domingo = addDays(w.start, 6);
+  const puedeAtras = ui.pagoSemana > primeraSemanaConDatos();
+  const puedeAdelante = ui.pagoSemana < actual;
+  const conAlgo = w.especialistas.filter(g=>g.tieneAlgo || state.specialists.some(s=>normalizeName(s.name)===normalizeName(g.name)));
+  const total = conAlgo.reduce((s,g)=>s+g.neto,0);
+  const etiqueta = w.enCurso ? 'Semana en curso' : (w.terminada ? 'Semana terminada' : 'Semana que viene');
+
+  const avisos = [];
+  if(w.sinCerrar.length){
+    avisos.push(`<div class="pago-aviso peligro">⚠️ <b>${w.sinCerrar.length} cita${w.sinCerrar.length===1?'':'s'} que ya pasó${w.sinCerrar.length===1?'':'aron'} sigue${w.sinCerrar.length===1?'':'n'} como Pendiente o Confirmada.</b> Por ahora se cuenta${w.sinCerrar.length===1?'':'n'} como hecha${w.sinCerrar.length===1?'':'s'}. Antes de pagar, márcala${w.sinCerrar.length===1?'':'s'} como Realizada, Cancelada o No llegó (tócala para abrirla):
+      <ul>${w.sinCerrar.map(a=>`<li><button type="button" class="linklike" data-act="edit-appt" data-id="${escapeHtml(a.id)}">${diaCorto(a.date)} ${escapeHtml(a.start||'')} · ${escapeHtml(a.client||'(sin nombre)')} · ${escapeHtml(a.specialist||'sin especialista')} (${escapeHtml(a.estado||'Pendiente')})</button></li>`).join('')}</ul></div>`);
+  }
+  if(w.sinEspecialista.length){
+    avisos.push(`<div class="pago-aviso peligro">⚠️ <b>${w.sinEspecialista.length} cita${w.sinEspecialista.length===1?'':'s'} sin especialista:</b> su comisión no se le está pagando a nadie.
+      <ul>${w.sinEspecialista.map(a=>`<li><button type="button" class="linklike" data-act="edit-appt" data-id="${escapeHtml(a.id)}">${diaCorto(a.date)} ${escapeHtml(a.start||'')} · ${escapeHtml(a.client||'(sin nombre)')}</button></li>`).join('')}</ul></div>`);
+  }
+  if(w.delDomingo){
+    avisos.push(`<div class="pago-aviso">⚠️ Hay citas o vales anotados el <b>domingo ${domingo.getDate()} de ${MONTHS[domingo.getMonth()]}</b>. El domingo no entra en ninguna semana de pago (lun–sáb), así que no se cuentan: revisa si la fecha está bien.</div>`);
+  }
+  if(w.enCurso && w.porVenir.length){
+    avisos.push(`<div class="hint" style="margin-bottom:12px;">ℹ️ Todavía faltan ${w.porVenir.length} cita${w.porVenir.length===1?'':'s'} de esta semana: ya están sumadas, y el número final queda el sábado al cerrar.</div>`);
+  }
+
+  const tarjetas = conAlgo.map(g=>pagoEspecialistaHtml(g, w)).join('')
+    || `<div class="empty-msg">No hay especialistas cargadas.</div>`;
+
+  return `
+    <div class="fin-monthnav">
+      <button class="arrow" data-act="pagos-prev" ${puedeAtras?'':'disabled'}>‹</button>
+      <div class="curdate">${rangoSemanaTexto(w.start, w.end)}<div class="hint" style="margin:2px 0 0;font-family:inherit;font-size:11.5px;">${etiqueta} · se paga el domingo ${domingo.getDate()} ${MONTHS[domingo.getMonth()].slice(0,3)}</div></div>
+      <button class="arrow" data-act="pagos-next" ${puedeAdelante?'':'disabled'}>›</button>
+    </div>
+    ${ui.pagoSemana!==actual ? `<div style="text-align:center;margin:-8px 0 14px;"><button type="button" class="linklike" data-act="pagos-hoy">Volver a la semana en curso</button></div>` : ''}
+    ${avisos.join('')}
+    <div class="fin-cards" style="grid-template-columns:1fr;">
+      <div class="fin-card highlight"><div class="lbl">Total a pagar esta semana</div><div class="val">${fmtNeto(total)}</div></div>
+    </div>
+    <div class="hint" style="margin-bottom:10px;">Toca a cada especialista para ver de dónde sale su número: cada cita con su cuenta, los vales y los ajustes.</div>
+    ${tarjetas}
+    ${pagosHistorialHtml()}
+    <div class="hint" style="margin-top:16px;">Cómo se calcula: a cada micropigmentación ${SEDE.descuentoMicro && SEDE.descuentoMicro.soloPrecioNuevo ? '(con los precios nuevos) ' : ''}se le restan ${descuentoMicroTexto()} que quedan para el negocio, y lo que queda se divide ${Math.round(comisionPctForMonth(w.start.getFullYear(), w.start.getMonth())*100)}% para la especialista. Lo demás (lifting, perfilado, retoques, cursos…) se divide directo. La crema es 100% del negocio. Si la clienta cancela o no llega, el abono queda entero para el negocio. Los vales sacados en la semana se restan.</div>`;
+}
+function pagoEspecialistaHtml(g, w){
+  const abierto = !!ui.pagoAbiertos[normalizeName(g.name)];
+  const estado = estadoPago(g);
+  const resumen = [];
+  resumen.push(`${g.citas.length} cita${g.citas.length===1?'':'s'}`);
+  if(g.totalVales) resumen.push(`vales −${fmtCLP(g.totalVales)}`);
+  if(g.totalTraspasos) resumen.push(`garantías ${fmtSigno(g.totalTraspasos)}`);
+  if(g.totalAjustes) resumen.push(`ajustes ${fmtSigno(g.totalAjustes)}`);
+  const nameAttr = escapeHtml(g.name);
+  let estadoHtml = '';
+  if(estado==='pagado'){
+    estadoHtml = `<span class="pago-ok">✅ Pagado ${fmtNeto(g.pago.neto)} ${pagoFechaTexto(g.pago.actualizadoEn||g.pago.pagadoEn)}</span>
+      <button type="button" class="linklike" data-act="pago-desmarcar" data-name="${nameAttr}">Desmarcar</button>`;
+  } else if(estado==='cambio'){
+    const dif = g.neto - (Number(g.pago.neto)||0);
+    estadoHtml = `<span class="pago-mal">⚠️ Se marcó pagado ${fmtNeto(g.pago.neto)} ${pagoFechaTexto(g.pago.actualizadoEn||g.pago.pagadoEn)}, pero después cambió algo de esta semana y ahora da ${fmtNeto(g.neto)}: ${dif>0 ? `falta pagarle ${fmtCLP(dif)}` : `se le pagaron ${fmtCLP(-dif)} de más`}.</span>
+      <button type="button" class="btn btn-primary" data-act="pago-actualizar" data-name="${nameAttr}">Ya quedó resuelto (dejar pagado ${fmtNeto(g.neto)})</button>
+      <button type="button" class="linklike" data-act="pago-desmarcar" data-name="${nameAttr}">Desmarcar</button>`;
+  } else if(estado==='pendiente' && w.startKey<PAGOS_REGISTRO_DESDE){
+    estadoHtml = `<span class="hint" style="margin:0;">Semana anterior a este registro (se pagó a mano).</span>
+      <button type="button" class="linklike" data-act="pago-marcar" data-name="${nameAttr}">Marcar como pagado igual</button>`;
+  } else if(estado==='pendiente'){
+    estadoHtml = w.start > parseKey(hoySedeKey()) ? '' : `<button type="button" class="btn btn-primary" data-act="pago-marcar" data-name="${nameAttr}">Marcar como pagado (${fmtNeto(g.neto)})</button>
+      ${g.sinCerrar ? `<span class="pago-mal">${g.sinCerrar} cita${g.sinCerrar===1?'':'s'} sin cerrar</span>` : ''}`;
+  } else {
+    estadoHtml = `<span class="hint" style="margin:0;">Nada que pagar esta semana.</span>`;
+  }
+  return `
+    <div class="pago-card ${estado==='pagado'?'pagado':''} ${estado==='cambio'?'cambio':''}">
+      <div class="pago-head" data-act="pago-toggle" data-name="${nameAttr}">
+        <div><div class="quien">${escapeHtml(g.name)} <span class="hint" style="margin:0;font-weight:400;">${abierto?'▴':'▾'}</span></div><div class="hint">${resumen.join(' · ')}</div></div>
+        <div class="pago-neto"><small>A pagar</small>${fmtNeto(g.neto)}</div>
+      </div>
+      <div class="pago-estado">${estadoHtml}</div>
+      ${abierto ? pagoDetalleHtml(g, w) : ''}
+    </div>`;
+}
+function pagoDetalleHtml(g, w){
+  const nameAttr = escapeHtml(g.name);
+  const citas = g.citas.map(({a, comision})=>{
+    const abierta = a.estado!=='Realizada' && a.estado!=='Cancelada' && a.estado!=='NoShow';
+    const estadoTxt = a.estado==='NoShow' ? 'No llegó' : (a.estado||'Pendiente');
+    const marca = (abierta && a.date<hoySedeKey()) ? ` <span class="pago-mal">· ${escapeHtml(estadoTxt)}, sin cerrar</span>` : (a.estado!=='Realizada' ? ` · ${escapeHtml(estadoTxt)}` : '');
+    const clic = a.cursoId ? '' : ` click" data-act="edit-appt" data-id="${escapeHtml(a.id)}`;
+    return `
+      <div class="pago-fila${clic}">
+        <div>
+          <div>${diaCorto(a.date)} ${escapeHtml(a.start||'')} · <b>${escapeHtml(a.client||'(sin nombre)')}</b>${marca}</div>
+          <div class="como">${escapeHtml(a.cursoId ? '📚 Curso: '+(a.cursoNombre||'') : apptServiciosTexto(a))}</div>
+          <div class="como">${escapeHtml(apptCommissionExplicacion(a))}</div>
+        </div>
+        <div class="monto">${fmtCLP(comision)}</div>
+      </div>`;
+  }).join('') || `<div class="hint">Sin citas esta semana.</div>`;
+  const traspasos = g.traspasos.map(t=>`
+      <div class="pago-fila click" data-act="edit-appt" data-id="${escapeHtml(t.apptId)}">
+        <div><div>${diaCorto(t.date)}</div><div class="como">${escapeHtml(t.texto)}</div></div>
+        <div class="monto ${t.monto<0?'pago-mal':'pago-ok'}">${fmtSigno(t.monto)}</div>
+      </div>`).join('');
+  const ajustes = g.ajustes.map(x=>`
+      <div class="pago-fila">
+        <div><div>${escapeHtml(x.motivo||'(sin motivo)')}</div>${x.creadoEn?`<div class="como">Anotado ${pagoFechaTexto(x.creadoEn)}</div>`:''}</div>
+        <div style="display:flex;align-items:center;gap:6px;"><span class="monto ${Number(x.monto)<0?'pago-mal':'pago-ok'}">${fmtSigno(x.monto)}</span><button type="button" class="iconbtn" data-act="delete-ajuste" data-id="${escapeHtml(x.id)}" title="Borrar ajuste">✕</button></div>
+      </div>`).join('');
+  const vales = g.vales.map(v=>`
+      <div class="pago-fila">
+        <div><div>${diaCorto(v.date)}</div>${v.notas?`<div class="como">${escapeHtml(v.notas)}</div>`:''}</div>
+        <div class="monto pago-mal">−${fmtCLP(v.monto)}</div>
+      </div>`).join('');
+  return `
+    <div class="pago-detalle">
+      <h4>Citas (${g.citas.length}) — lo que gana con cada una</h4>
+      ${citas}
+      ${traspasos ? `<h4>Garantías hechas por otra especialista</h4>${traspasos}` : ''}
+      ${vales ? `<h4>Vales sacados esta semana</h4>${vales}` : ''}
+      <h4>Ajustes</h4>
+      ${ajustes || `<div class="hint" style="margin:0 0 6px;">Para sumar o restar algo a mano (un bono, una corrección…), con su motivo.</div>`}
+      <button type="button" class="btn btn-ghost" style="margin-top:8px;font-size:12.5px;padding:6px 12px;" data-act="ajuste-nuevo" data-name="${nameAttr}">＋ Agregar ajuste</button>
+      <div class="pago-suma">
+        <div><span>Comisión de las citas</span><span>${fmtCLP(g.comision)}</span></div>
+        ${g.totalTraspasos ? `<div><span>Garantías</span><span>${fmtSigno(g.totalTraspasos)}</span></div>` : ''}
+        ${g.totalAjustes ? `<div><span>Ajustes</span><span>${fmtSigno(g.totalAjustes)}</span></div>` : ''}
+        ${g.totalVales ? `<div><span>Vales</span><span>−${fmtCLP(g.totalVales)}</span></div>` : ''}
+        <div class="neto"><span>A pagar el domingo</span><span>${fmtNeto(g.neto)}</span></div>
+      </div>
+    </div>`;
+}
+// Las últimas semanas, para ver de un vistazo cuáles ya se pagaron.
+const PAGOS_SEMANAS_HISTORIAL = 8;
+// Primera semana de pago que se paga con esta pantalla (la del lunes 5 de
+// octubre de 2026, que se paga el domingo 11). Las anteriores se pagaron a
+// mano, sin registro: no se marcan como "Falta pagar".
+const PAGOS_REGISTRO_DESDE = '2026-10-05';
+function pagosHistorialHtml(){
+  const actual = parseKey(semanaPagoActualKey());
+  const primera = primeraSemanaConDatos();
+  const filas = [];
+  for(let i=0; i<PAGOS_SEMANAS_HISTORIAL; i++){
+    const lunes = addDays(actual, -7*i);
+    const key = toKey(lunes);
+    if(key<primera) break;
+    const w = payoutWeekData(lunes);
+    const gs = w.especialistas.filter(g=>g.tieneAlgo);
+    const total = gs.reduce((s,g)=>s+g.neto,0);
+    const estados = gs.map(g=>({g, e:estadoPago(g)}));
+    const cambios = estados.filter(x=>x.e==='cambio').map(x=>x.g.name);
+    const faltan = estados.filter(x=>x.e==='pendiente').map(x=>x.g.name);
+    let estadoTxt;
+    const antes = key<PAGOS_REGISTRO_DESDE && !cambios.length && !estados.some(x=>x.e==='pagado');
+    if(!gs.length) estadoTxt = '<span class="hint" style="margin:0;">Sin movimientos</span>';
+    else if(antes) estadoTxt = '<span class="hint" style="margin:0;">Antes de este registro</span>';
+    else if(cambios.length) estadoTxt = `<span class="pago-mal">⚠️ Cambió después de pagar: ${escapeHtml(cambios.join(', '))}</span>`;
+    else if(!faltan.length) estadoTxt = '<span class="pago-ok">✅ Pagada</span>';
+    else if(w.enCurso) estadoTxt = '<span class="hint" style="margin:0;">En curso</span>';
+    else estadoTxt = `Falta: ${escapeHtml(faltan.join(', '))}`;
+    if(w.sinCerrar.length && gs.length && !antes) estadoTxt += ` <span class="pago-mal">· ${w.sinCerrar.length} sin cerrar</span>`;
+    filas.push(`<tr class="${key===ui.pagoSemana?'sel':''}" data-act="pagos-ir" data-semana="${key}"><td>${rangoSemanaTexto(w.start, w.end)}</td><td>${fmtNeto(total)}</td><td>${estadoTxt}</td></tr>`);
+  }
+  return `
+    <h3 class="fin-sub">Últimas semanas</h3>
+    <table class="fin-table pago-hist">
+      <thead><tr><th>Semana (lun–sáb)</th><th>Total</th><th>Estado</th></tr></thead>
+      <tbody>${filas.join('')}</tbody>
+    </table>
+    <div class="hint" style="margin-top:8px;">Toca una semana para verla. Con las flechas de arriba puedes ir a cualquier semana anterior.${actual>parseKey(PAGOS_REGISTRO_DESDE) ? ` Las semanas de antes del ${parseKey(PAGOS_REGISTRO_DESDE).getDate()} de ${MONTHS[parseKey(PAGOS_REGISTRO_DESDE).getMonth()]} se pagaron antes de que existiera este registro.` : ''}</div>`;
+}
+function ajusteModalHtml(){
+  const m = ui.modal;
+  const lunes = parseKey(m.semana);
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">Ajuste del pago</h2>
+      <div class="hint">Para <b>${escapeHtml(m.specialist)}</b>, semana del ${rangoSemanaTexto(lunes, addDays(lunes,5))}. Sirve para cualquier caso raro: un bono, algo que faltó pagar, un descuento… Queda anotado con su motivo en el detalle del pago.</div>
+      <div class="field"><label>¿Sumar o restar?</label>
+        <select id="f-ajuste-signo">
+          <option value="1">Sumar (se le paga más)</option>
+          <option value="-1">Restar (se le paga menos)</option>
+        </select>
+      </div>
+      <div class="field"><label>Monto</label><input type="number" id="f-ajuste-monto" min="0" step="1" placeholder="0"></div>
+      <div class="field"><label>Motivo</label><input type="text" id="f-ajuste-motivo" placeholder="Ej.: bono por cubrir el sábado"></div>
+      <div class="modal-actions">
+        <div></div>
+        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cancelar</button><button class="btn btn-primary" data-act="save-ajuste">Guardar ajuste</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+function saveAjusteFromForm(){
+  const m = ui.modal;
+  const signo = Number((document.getElementById('f-ajuste-signo')||{}).value)<0 ? -1 : 1;
+  const monto = Math.round(Math.max(0, Number((document.getElementById('f-ajuste-monto')||{}).value)||0));
+  const motivo = (((document.getElementById('f-ajuste-motivo')||{}).value)||'').trim();
+  if(monto<=0){ showAlert('Escribe un monto mayor a 0.'); return; }
+  if(!motivo){ showAlert('Escribe el motivo del ajuste, para que después se entienda por qué cambió el pago.'); return; }
+  if(!state.ajustes) state.ajustes = [];
+  const x = { id: uid(), specialist: m.specialist, semana: m.semana, monto: signo*monto, motivo, creadoEn: new Date().toISOString() };
+  if(CUENTA) x.registradoPor = CUENTA.usuario || CUENTA.email || '';
+  state.ajustes.push(x);
+  ui.modal = null;
+  render();
+  saveData();
+}
+// Busca la especialista (con sus números de esa semana) por el nombre del botón.
+function pagoGrupoDe(name){
+  const w = payoutWeekData(parseKey(ui.pagoSemana || semanaPagoActualKey()));
+  return {w, g: w.especialistas.find(x=>normalizeName(x.name)===normalizeName(name))};
+}
+function registroDePago(g, w){
+  return { specialist: g.name, semana: w.startKey, comision: g.comision, traspasos: g.totalTraspasos,
+    ajustes: g.totalAjustes, vales: g.totalVales, neto: g.neto, citas: g.citas.length };
+}
+function marcarPagado(name){
+  const {w, g} = pagoGrupoDe(name);
+  if(!g) return;
+  const avisos = [];
+  if(g.sinCerrar) avisos.push(`OJO: tiene ${g.sinCerrar} cita${g.sinCerrar===1?'':'s'} que ya pasó${g.sinCerrar===1?'':'aron'} y sigue${g.sinCerrar===1?'':'n'} sin marcar como Realizada/Cancelada/No llegó (se está${g.sinCerrar===1?'':'n'} contando como hecha${g.sinCerrar===1?'':'s'}).`);
+  if(!w.terminada) avisos.push('OJO: la semana todavía no termina, el número todavía puede cambiar.');
+  showConfirmDialog(`¿Marcar como pagado ${fmtNeto(g.neto)} a ${g.name} por la semana del ${rangoSemanaTexto(w.start, w.end)}?${avisos.length?' '+avisos.join(' '):''}`, ()=>{
+    if(pagoRegistrado(w.startKey, g.name)) return;
+    if(!state.pagos) state.pagos = [];
+    const p = Object.assign({ id: uid() }, registroDePago(g, w), { pagadoEn: new Date().toISOString() });
+    if(CUENTA) p.registradoPor = CUENTA.usuario || CUENTA.email || '';
+    state.pagos.push(p);
+    render();
+    saveData();
+  });
+}
+function actualizarPagado(name){
+  const {w, g} = pagoGrupoDe(name);
+  if(!g || !g.pago) return;
+  showConfirmDialog(`¿Ya quedó resuelta la diferencia con ${g.name}? El pago de esa semana queda en ${fmtNeto(g.neto)}.`, ()=>{
+    const p = (state.pagos||[]).find(x=>x.id===g.pago.id);
+    if(!p) return;
+    p.netoAntes = p.neto;
+    Object.assign(p, registroDePago(g, w), { actualizadoEn: new Date().toISOString() });
+    render();
+    saveData();
+  });
+}
+function desmarcarPagado(name){
+  const {g} = pagoGrupoDe(name);
+  if(!g || !g.pago) return;
+  showConfirmDialog(`¿Desmarcar el pago de ${g.name}? La semana vuelve a quedar como "sin pagar".`, ()=>{
+    state.pagos = (state.pagos||[]).filter(x=>x.id!==g.pago.id);
+    render();
+    saveData();
+  });
+}
+
 function finanzasPageHtml(){
   if(!ui.reportsDate) ui.reportsDate = new Date();
   if(!ui.financeTab) ui.financeTab = 'resumen';
   const year = ui.reportsDate.getFullYear(), month = ui.reportsDate.getMonth();
   return `
     <div class="fin-page">
-      <div class="hint" style="border:1px solid var(--warn);border-radius:8px;padding:10px 12px;margin-bottom:12px;color:var(--ink);">⚠️ <b>En ajuste:</b> mientras se termina de ajustar la agenda, estos números todavía pueden tener errores. No usarlos para calcular pagos. (Las especialistas no ven esta sección.)</div>
+      ${ui.financeTab==='pagos'
+        ? `<div class="hint" style="border:1px solid var(--warn);border-radius:8px;padding:10px 12px;margin-bottom:12px;color:var(--ink);">💡 Las primeras semanas, compara este número con tu cuenta a mano antes de pagar. Si algo no cuadra, abre el detalle de la especialista: ahí está cita por cita. (Las especialistas no ven esta sección.)</div>`
+        : `<div class="hint" style="border:1px solid var(--warn);border-radius:8px;padding:10px 12px;margin-bottom:12px;color:var(--ink);">⚠️ <b>En ajuste:</b> mientras se termina de ajustar la agenda, estos números todavía pueden tener errores. Para pagarle a las especialistas usa la pestaña "💵 Pagos". (Las especialistas no ven esta sección.)</div>
       <div class="fin-monthnav">
         <button class="arrow" data-act="reports-prev-month">‹</button>
         <div class="curdate">${MONTHS[month][0].toUpperCase()}${MONTHS[month].slice(1)} ${year}</div>
         <button class="arrow" data-act="reports-next-month">›</button>
-      </div>
+      </div>`}
       <div class="fin-subtabs">
         <button class="${ui.financeTab==='resumen'?'active':''}" data-act="finance-tab" data-tab="resumen">Resumen</button>
         <button class="${ui.financeTab==='graficos'?'active':''}" data-act="finance-tab" data-tab="graficos">Gráficos</button>
         <button class="${ui.financeTab==='gastos'?'active':''}" data-act="finance-tab" data-tab="gastos">Ingresos y gastos fijos</button>
+        <button class="${ui.financeTab==='pagos'?'active':''}" data-act="finance-tab" data-tab="pagos">💵 Pagos</button>
       </div>
-      ${ui.financeTab==='resumen' ? finanzasResumenHtml(year,month) : ui.financeTab==='graficos' ? finanzasGraficosHtml(year,month) : finanzasGastosHtml(year,month)}
+      ${ui.financeTab==='resumen' ? finanzasResumenHtml(year,month) : ui.financeTab==='graficos' ? finanzasGraficosHtml(year,month) : ui.financeTab==='pagos' ? pagosPageHtml() : finanzasGastosHtml(year,month)}
     </div>`;
 }
 
@@ -7078,11 +7583,12 @@ function finanzasResumenHtml(year, month){
     return `<tr><td>${escapeHtml(name)}</td><td>${e.citas}${(e.multi || e.personas!==e.citas)?`<div class="hint" style="margin:0;">${e.personas} personas</div>`:''}</td><td>${fmtCLP(e.ingresos)}</td><td>${fmtCLP(e.comision)}</td></tr>`;
   }).join('') || `<tr><td colspan="4" class="hint">Sin citas registradas este mes.</td></tr>`;
 
-  const payoutWeek = payoutWeekRange(new Date());
-  const payoutRangeLabel = `${payoutWeek.start.getDate()} ${MONTHS[payoutWeek.start.getMonth()].slice(0,3)} – ${payoutWeek.end.getDate()} ${MONTHS[payoutWeek.end.getMonth()].slice(0,3)}`;
-  const payoutRows = state.specialists.map(s=>{
-    const w = payoutWeekSummary(s.name);
-    return `<tr><td>${escapeHtml(s.name)}</td><td>${fmtCLP(w.comision)}</td><td>${w.vales>0?fmtCLP(w.vales):'—'}</td><td><b>${fmtCLP(w.neto)}</b></td></tr>`;
+  // Mismo cálculo que la pestaña "💵 Pagos" (payoutWeekData), en corto.
+  const payoutW = payoutWeekData(parseKey(semanaPagoActualKey()));
+  const payoutRangeLabel = rangoSemanaTexto(payoutW.start, payoutW.end);
+  const payoutRows = payoutW.especialistas.filter(g=>g.tieneAlgo || state.specialists.some(s=>normalizeName(s.name)===normalizeName(g.name))).map(g=>{
+    const otros = g.totalTraspasos + g.totalAjustes;
+    return `<tr><td>${escapeHtml(g.name)}</td><td>${fmtCLP(g.comision)}${otros?`<div class="hint" style="margin:0;">${fmtSigno(otros)} ajustes/garantías</div>`:''}</td><td>${g.totalVales>0?fmtCLP(g.totalVales):'—'}</td><td><b>${fmtNeto(g.neto)}</b></td></tr>`;
   }).join('') || `<tr><td colspan="4" class="hint">No hay especialistas cargadas.</td></tr>`;
 
   const weekRows = weeks.map((w,i)=>`
@@ -7115,6 +7621,7 @@ function finanzasResumenHtml(year, month){
         <tr><td>Gastos fijos operativos</td><td>${fmtCLP(f.gastosFijos)}</td></tr>
         <tr><td>Insumos y gastos variables</td><td>${fmtCLP(f.gastosVariables)}</td></tr>
         <tr><td>Comisiones de especialistas (${Math.round(f.comisionPct*100)}%)</td><td>${fmtCLP(f.comisiones)}</td></tr>
+        ${f.ajustesTotal ? `<tr><td>Ajustes a mano del pago de especialistas</td><td>${fmtSigno(f.ajustesTotal)}</td></tr>` : ''}
       </tbody>
     </table>
 
@@ -7149,6 +7656,7 @@ function finanzasResumenHtml(year, month){
       <thead><tr><th>Especialista</th><th>Comisión</th><th>Vales</th><th>Neto a pagar</th></tr></thead>
       <tbody>${payoutRows}</tbody>
     </table>
+    <button type="button" class="btn btn-ghost" style="margin-top:8px;font-size:12.5px;padding:6px 12px;" data-act="finance-tab" data-tab="pagos">Ver de dónde sale cada número y las semanas anteriores →</button>
 
     ${MIS_GANANCIAS_VISIBLE ? `
     <div class="field-row" style="align-items:center;gap:8px;margin:16px 0 4px;">
@@ -7579,6 +8087,7 @@ function ajustarDuracionGarantia(){
   }
   const startInput = document.getElementById('f-start'), endInput = document.getElementById('f-end');
   if(startInput && endInput && startInput.value) endInput.value = addMinutesToHHMM(startInput.value, totalDuration);
+  actualizarTraspasoGarantia();
 }
 // Muestra u oculta "¿Garantía de qué tratamiento?" según si está marcada la
 // garantía, y deja sugerido el último tratamiento de la clienta.
@@ -7593,6 +8102,60 @@ function actualizarCampoGarantia(){
     const sugerido = ultimoTratamientoDe(clienteEl ? clienteEl.value : '');
     if(sugerido && Array.from(sel.options).some(o=>o.value===sugerido)) sel.value = sugerido;
   }
+  actualizarTraspasoGarantia();
+}
+// Cuánto de la comisión de la cita original corresponde al tratamiento de la
+// garantía: toda, si la cita fue solo eso; si fue un combo (ej. Microblading
+// + Delineado), la parte proporcional al precio de lista de ese tratamiento.
+function montoTraspasoSugerido(orig, tratamiento){
+  const total = apptCommission(orig);
+  const servicios = orig.services||[];
+  const t = normalizeName(tratamiento||'');
+  const precioDe = n=>{ const svc = state.services.find(x=>normalizeName(x.name)===normalizeName(n)); return svc ? (Number(svc.price)||0) : 0; };
+  const suma = servicios.reduce((s,n)=>s+precioDe(n),0);
+  const delTrat = servicios.filter(n=>normalizeName(n)===t).reduce((s,n)=>s+precioDe(n),0);
+  if(servicios.length<=1 || !suma || !delTrat || servicios.every(n=>normalizeName(n)===t)) return total;
+  return Math.round(total * delTrat / suma);
+}
+// El cuadro "el tratamiento original lo hizo otra especialista" dentro de
+// una garantía (solo Admin). prev = la cita como está guardada (para
+// respetar lo que ya se decidió).
+function traspasoGarantiaInnerHtml(cand, prev){
+  if(!cand.garantiaDe || !cand.specialist) return '';
+  const orig = tratamientoOriginalDeGarantia(cand);
+  if(!orig || !orig.specialist || normalizeName(orig.specialist)===normalizeName(cand.specialist)) return '';
+  const sugerido = montoTraspasoSugerido(orig, cand.garantiaDe);
+  if(sugerido<=0) return '';
+  prev = prev || {};
+  const mismo = prev.traspasoComision && prev.traspasoComision.originalId===orig.id;
+  const marcado = mismo ? true : (prev.sinTraspasoComision ? false : true);
+  const monto = mismo ? Number(prev.traspasoComision.monto)||sugerido : sugerido;
+  const combo = (orig.services||[]).length>1 && sugerido!==apptCommission(orig);
+  return `
+    <div class="pago-aviso" style="margin:10px 0 0;">
+      <input type="hidden" id="f-traspaso-orig" value="${escapeHtml(orig.id)}">
+      <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;"><input type="checkbox" id="f-traspaso" ${marcado?'checked':''} style="width:15px;height:15px;accent-color:var(--wine);flex-shrink:0;margin-top:3px;">
+        <span>El tratamiento original (${escapeHtml(cand.garantiaDe)}, ${diaCorto(orig.date)}) lo hizo <b>${escapeHtml(orig.specialist)}</b>. Pasarle a <b>${escapeHtml(cand.specialist)}</b> la comisión que ganó ${escapeHtml(orig.specialist)} con ese tratamiento.</span></label>
+      <div class="field" style="margin:8px 0 0;"><label>Monto que pasa de ${escapeHtml(orig.specialist)} a ${escapeHtml(cand.specialist)}</label><input type="number" id="f-traspaso-monto" min="0" step="1" value="${monto}"></div>
+      <div class="hint" style="margin:4px 0 0;">${combo ? `Esa cita fue un combo: ${fmtCLP(sugerido)} es la parte de ${escapeHtml(cand.garantiaDe)} (de ${fmtCLP(apptCommission(orig))} en total). ` : ''}Se le resta a ${escapeHtml(orig.specialist)} y se le suma a ${escapeHtml(cand.specialist)} en la semana de pago de esta garantía (Finanzas → 💵 Pagos). Si la garantía se cancela o no llega, no cuenta.</div>
+    </div>`;
+}
+// Vuelve a dibujar ese cuadro cuando cambia algo del formulario (clienta,
+// especialista, tratamiento, fecha), sin perder lo que ya se marcó.
+function actualizarTraspasoGarantia(){
+  const box = document.getElementById('garantia-traspaso');
+  if(!box || !ui.modal || ui.modal.type!=='appt' || ui.mode!=='admin') return;
+  const val = id=>{ const el = document.getElementById(id); return el ? el.value : ''; };
+  const cand = { id: ui.modal.data && ui.modal.data.id, client: val('f-client'), specialist: val('f-specialist'),
+    garantiaDe: hayGarantiaElegida() ? val('f-garantia-de') : '', date: val('f-date'), start: val('f-start') };
+  const prev = Object.assign({}, ui.modal.data||{});
+  const chk = document.getElementById('f-traspaso');
+  if(chk){
+    const origId = val('f-traspaso-orig');
+    if(chk.checked){ prev.traspasoComision = {originalId: origId, monto: Number(val('f-traspaso-monto'))||0}; delete prev.sinTraspasoComision; }
+    else { delete prev.traspasoComision; prev.sinTraspasoComision = true; }
+  }
+  box.innerHTML = traspasoGarantiaInnerHtml(cand, prev);
 }
 // El "Lifting de Pestañas" no lleva retoque (a diferencia de micropigmentación,
 // que sí) — a pedido explícito del usuario, quienes se hicieron solo eso no
@@ -8617,6 +9180,7 @@ function blankCourseAttendee(course){
 }
 
 const ADMIN_ONLY_ACTIONS = new Set([
+  'pagos-prev','pagos-next','pagos-hoy','pagos-ir','pago-toggle','pago-marcar','pago-actualizar','pago-desmarcar','ajuste-nuevo','save-ajuste','delete-ajuste',
   'new-appt','new-appt-at','save-appt','delete-appt',
   'open-services','add-service','remove-service','save-services',
   'open-specialists','add-specialist','remove-specialist','save-specialists',
@@ -9016,6 +9580,36 @@ function onAction(e){
       render(); break;
     case 'finance-tab':
       ui.financeTab = e.currentTarget.dataset.tab; render(); break;
+    case 'pagos-prev':
+      ui.pagoSemana = toKey(addDays(parseKey(ui.pagoSemana || semanaPagoActualKey()), -7)); render(); break;
+    case 'pagos-next':
+      ui.pagoSemana = toKey(addDays(parseKey(ui.pagoSemana || semanaPagoActualKey()), 7)); render(); break;
+    case 'pagos-hoy':
+      ui.pagoSemana = semanaPagoActualKey(); render(); break;
+    case 'pagos-ir':
+      ui.pagoSemana = e.currentTarget.dataset.semana; render(); break;
+    case 'pago-toggle': {
+      const k = normalizeName(e.currentTarget.dataset.name);
+      if(!ui.pagoAbiertos) ui.pagoAbiertos = {};
+      ui.pagoAbiertos[k] = !ui.pagoAbiertos[k];
+      render(); break;
+    }
+    case 'pago-marcar': marcarPagado(e.currentTarget.dataset.name); break;
+    case 'pago-actualizar': actualizarPagado(e.currentTarget.dataset.name); break;
+    case 'pago-desmarcar': desmarcarPagado(e.currentTarget.dataset.name); break;
+    case 'ajuste-nuevo':
+      ui.modal = {type:'ajuste', specialist: e.currentTarget.dataset.name, semana: ui.pagoSemana || semanaPagoActualKey()};
+      render(); break;
+    case 'save-ajuste': saveAjusteFromForm(); break;
+    case 'delete-ajuste': {
+      const id = e.currentTarget.dataset.id;
+      showConfirmDialog('¿Borrar este ajuste? El pago de esa semana vuelve a quedar sin él.', ()=>{
+        state.ajustes = (state.ajustes||[]).filter(x=>x.id!==id);
+        render();
+        saveData();
+      });
+      break;
+    }
     case 'reports-prev-month':
       ui.reportsDate = addMonths(ui.reportsDate||new Date(), -1); render(); break;
     case 'reports-next-month':
@@ -9304,6 +9898,26 @@ function saveApptFromForm(){
     if(garantiaSel.value) updated.garantiaDe = garantiaSel.value;
     else if(ui.modal.mode==='new'){ showAlert('Elige de qué tratamiento es la garantía (debajo de los servicios).'); return; }
   } else delete updated.garantiaDe;
+  // Garantía hecha por otra especialista: se congela cuánto de la comisión
+  // del tratamiento original pasa a la que hace la garantía (ver
+  // traspasoDeGarantia). Solo Admin ve este cuadro; si no aparece (misma
+  // especialista, o no se encontró el tratamiento original) no hay traspaso.
+  const traspasoChk = document.getElementById('f-traspaso');
+  const traspasoOrig = traspasoChk ? state.appointments.find(x=>x.id===(document.getElementById('f-traspaso-orig')||{}).value) : null;
+  if(updated.garantiaDe && traspasoChk && traspasoOrig){
+    const monto = Math.round(Math.max(0, Number((document.getElementById('f-traspaso-monto')||{}).value)||0));
+    if(traspasoChk.checked){
+      if(monto<=0){ showAlert('Escribe el monto de la comisión que pasa a '+updated.specialist+' (o desmarca la casilla).'); return; }
+      updated.traspasoComision = { originalId: traspasoOrig.id, de: traspasoOrig.specialist, monto, tratamiento: updated.garantiaDe, fechaOriginal: traspasoOrig.date };
+      delete updated.sinTraspasoComision;
+    } else {
+      delete updated.traspasoComision;
+      updated.sinTraspasoComision = true;
+    }
+  } else if(ui.mode==='admin'){
+    delete updated.traspasoComision;
+    delete updated.sinTraspasoComision;
+  }
   // Cuántas micropigmentaciones lleva la cita (para el descuento de la
   // comisión) queda congelado al guardarla; solo se vuelve a contar si se
   // cambian sus servicios. Y si la cita lleva o no ese descuento (en
@@ -9565,6 +10179,7 @@ function saveScheduleFromForm(){
 // de inicio, y autocompletado de cliente mientras se escribe — delegados en
 // document para que sigan funcionando después de cada render() del modal.
 document.addEventListener('change', e=>{
+  if(e.target && ['f-specialist','f-client','f-date','f-start'].includes(e.target.id)) actualizarTraspasoGarantia();
   if(e.target && e.target.id==='f-start'){
     const endInput = document.getElementById('f-end');
     if(endInput && e.target.value){
@@ -9658,6 +10273,7 @@ document.addEventListener('mousedown', e=>{
   }
   const box = document.getElementById('client-ac');
   if(box){ box.style.display='none'; box.innerHTML=''; }
+  actualizarTraspasoGarantia();
 });
 
 startRealtimeSync();

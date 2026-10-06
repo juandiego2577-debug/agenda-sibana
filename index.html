@@ -476,6 +476,11 @@
     font-size:13.5px;font-family:'Inter',sans-serif;background:var(--panel-2);color:var(--ink);
   }
   .field input::placeholder,.field textarea::placeholder{color:#6B6152;}
+  /* Iconos de calendario/reloj de los campos de fecha y hora: el navegador los
+     pinta negros y sobre el fondo oscuro casi no se veían → blancos. */
+  input[type=date]::-webkit-calendar-picker-indicator,
+  input[type=time]::-webkit-calendar-picker-indicator,
+  input[type=month]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.9;cursor:pointer;}
   .field select option{background:var(--panel-2);color:var(--ink);}
   .split-fields input,.split-fields select{
     padding:8px 10px;border:1px solid var(--line);border-radius:8px;

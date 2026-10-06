@@ -909,6 +909,23 @@ para servir también a **Copiapó**, de la siguiente forma:
   decidido: NO vincularlo al nombre de "Mis ganancias". Todas ven los
   bloqueos de todas; se puede tocar una hora libre aunque otra especialista
   la tenga bloqueada (solo un bloqueo de "Todas" la impide).
+  **Columnas por box en la vista Día (06/10/2026, pedido de Juan Diego):**
+  antes cada cita iba a la primera columna libre desde la izquierda (y si
+  empezaban a la misma hora, la que se agendó primero), así que las de una
+  misma especialista saltaban de lado. Ahora `layoutSideBySide` usa el box
+  habitual de cada especialista (`boxDeEspecialista`): Box 1 a la izquierda
+  (Salomé, Melissa), Box 2 a la derecha (Lucy, Helen). Si su box ya está
+  ocupado a esa hora (Lucy y Helen a la vez, una en la silla de afuera) va
+  a una columna extra a la derecha; lo que no tiene box (bloqueo de
+  "Todas", sin especialista) va a la primera libre; las columnas vacías de
+  un grupo se quitan, y una cita que no se cruza con nada sigue a todo el
+  ancho. El box se elige en Más → Especialistas (`s.box` = 1 | 2 |
+  'libre'); si nunca se eligió, en Santiago vale `BOX_POR_DEFECTO` (por
+  nombre, sin tildes) y en otra sede ninguno — así funcionó sin escribir
+  nada en la base. Solo cambia dónde se DIBUJA: ningún dato, precio ni el
+  aviso de choque (`NUM_BOXES`) depende de esto. `s.box` es un campo dentro
+  de cada especialista (no un `DOC_KEYS`): no exigió subir `APP_VERSION`.
+  Probado contra el emulador: e2e-boxes (16).
 - **Cuántas citas pueden cruzarse a la misma hora: `NUM_BOXES`** (una
   constante simple, no un ajuste en Configuración — a propósito, cambia muy
   de vez en cuando). Antes había un solo box físico, así que CUALQUIER

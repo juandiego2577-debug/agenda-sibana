@@ -561,7 +561,8 @@
     font-family:'Inter',sans-serif;
   }
   .spec-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
-  .spec-row input[type=text]{flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;background:var(--panel-2);color:var(--ink);font-family:'Inter',sans-serif;}
+  .spec-row input[type=text]{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;background:var(--panel-2);color:var(--ink);font-family:'Inter',sans-serif;}
+  .spec-row select{width:auto;flex-shrink:0;padding:7px 6px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--panel-2);color:var(--ink);font-family:'Inter',sans-serif;}
   .spec-row input[type=color]{width:38px;height:34px;padding:2px;border:1px solid var(--line);border-radius:6px;background:var(--panel-2);cursor:pointer;flex-shrink:0;}
   .iconbtn{background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px;padding:4px 6px;flex-shrink:0;}
   .addbtn{background:none;border:1px solid var(--line);color:var(--gold);cursor:pointer;font-size:16px;line-height:1;padding:4px 10px;border-radius:8px;flex-shrink:0;}
@@ -3378,21 +3379,64 @@ function allBlocksForDate(dateKey){
 // Reparte en columnas los elementos que se cruzan en horario (ej. dos
 // especialistas que bloquean la misma hora), para dibujarlos lado a lado.
 // Devuelve, para cada elemento, {col, cols}.
+// Box habitual de cada especialista: en la vista Día, cuando hay citas al
+// mismo tiempo, las del Box 1 van a la izquierda y las del Box 2 a la derecha
+// (pedido de Juan Diego: Salomé y Melissa siempre en el 1, Lucy y Helen en el
+// 2). Se elige en Más → Especialistas (s.box = 1 | 2 | 'libre'). Si nunca se
+// eligió, en Santiago vale BOX_POR_DEFECTO (así funcionó desde el primer día
+// sin guardar nada); en otra sede, sin box fijo. Solo cambia DÓNDE se dibuja
+// cada cita: ningún dato, precio ni aviso de choque depende de esto.
+const BOX_POR_DEFECTO = {salome:1, melissa:1, lucy:2, helen:2};
+function sinTildes(s){ return normalizeName(s).normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function boxDeEspecialista(nombre){
+  const key = normalizeName(nombre);
+  if(!key) return null;
+  const s = state.specialists.find(x=>normalizeName(x.name)===key);
+  const b = s ? s.box : undefined;
+  if(b===1 || b===2) return b;
+  if(b==='libre') return null;
+  if(SEDE.id!=='santiago') return null;
+  return BOX_POR_DEFECTO[sinTildes(nombre)] || null;
+}
+// Reparte lado a lado lo que se cruza en el horario. Cada grupo de cosas que
+// se cruzan entre sí usa sus propias columnas; una cita que no se cruza con
+// nada ocupa todo el ancho. Dentro de un grupo, cada una va a la columna de
+// su box (Box 1 = 1ra, Box 2 = 2da); si su box ya está ocupado a esa hora
+// (ej. Lucy y Helen a la vez, una en la silla de afuera) va a una columna
+// extra a la derecha. Lo que no tiene box (bloqueo de "Todas", cita sin
+// especialista, una reemplazo sin box) va a la primera columna libre. Las
+// columnas que quedan vacías en un grupo se quitan.
 function layoutSideBySide(items){
-  const order = items.map((it,i)=>i).sort((a,b)=>minutesFromMidnight(items[a].start)-minutesFromMidnight(items[b].start));
+  const pref = items.map(it=>{ const b = boxDeEspecialista(it.specialist); return b ? b-1 : null; });
+  const order = items.map((it,i)=>i).sort((a,b)=>
+    (minutesFromMidnight(items[a].start)-minutesFromMidnight(items[b].start))
+    || ((pref[a]==null) - (pref[b]==null))
+    || (a-b));
   const result = items.map(()=>({col:0, cols:1}));
-  let cluster = [], colEnds = [], clusterEnd = -1;
-  const close = ()=>{ cluster.forEach(i=>{ result[i].cols = colEnds.length; }); cluster = []; colEnds = []; };
+  let cluster = [], laneEnds = [], clusterEnd = -1;
+  const isFree = (l, st)=> laneEnds[l]==null || laneEnds[l] <= st;
+  const close = ()=>{
+    // Quita las columnas que nadie usó en este grupo y renumera en orden.
+    const used = [...new Set(cluster.map(i=>result[i].col))].sort((x,y)=>x-y);
+    cluster.forEach(i=>{ result[i].col = used.indexOf(result[i].col); result[i].cols = used.length; });
+    cluster = []; laneEnds = [];
+  };
   order.forEach(i=>{
     const st = minutesFromMidnight(items[i].start), en = minutesFromMidnight(items[i].end);
     if(cluster.length && st >= clusterEnd) close();
-    let c = colEnds.findIndex(e=>e <= st);
-    if(c<0){ c = colEnds.length; colEnds.push(en); } else colEnds[c] = en;
+    let c;
+    if(pref[i]!=null){
+      if(isFree(pref[i], st)) c = pref[i];
+      else { c = 2; while(!isFree(c, st)) c++; }
+    } else {
+      c = 0; while(!isFree(c, st)) c++;
+    }
+    laneEnds[c] = en;
     result[i].col = c;
     cluster.push(i);
     clusterEnd = cluster.length===1 ? en : Math.max(clusterEnd, en);
   });
-  close();
+  if(cluster.length) close();
   return result;
 }
 // Aviso compacto de quién tiene el día completo bloqueado, para las vistas
@@ -6339,13 +6383,16 @@ function specialistsModalHtml(){
     <div class="spec-row">
       <input type="text" value="${escapeHtml(s.name)}" data-spec-name="${i}" placeholder="Nombre de la especialista">
       <input type="color" value="${colorSeguro(s.color)}" data-spec-color="${i}" title="Color en la agenda">
+      <select data-spec-box="${i}" title="Box donde trabaja (columna en la vista Día)">
+        ${[[1,'Box 1'],[2,'Box 2'],['libre','Sin box']].map(([v,l])=>`<option value="${v}" ${String(boxDeEspecialista(s.name)||'libre')===String(v)?'selected':''}>${l}</option>`).join('')}
+      </select>
       <button class="iconbtn" data-act="remove-specialist" data-idx="${i}">✕</button>
     </div>`).join('');
   return `
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
       <h2 class="serif">Especialistas</h2>
-      <div class="hint">El color distingue las citas de cada especialista en la agenda y se usa en el filtro.</div>
+      <div class="hint">El color distingue las citas de cada especialista en la agenda y se usa en el filtro. El box decide dónde se ven sus citas en la vista Día cuando hay varias a la misma hora: Box 1 a la izquierda, Box 2 a la derecha.</div>
       <div id="spec-list">${rows}</div>
       <button class="btn btn-ghost" style="margin-top:6px" data-act="add-specialist">+ Agregar especialista</button>
       <div class="modal-actions">
@@ -10260,6 +10307,14 @@ function saveSpecialistsFromForm(){
   document.querySelectorAll('[data-spec-color]').forEach(inp=>{
     const i = Number(inp.dataset.specColor);
     if(state.specialists[i]) state.specialists[i].color = inp.value;
+  });
+  document.querySelectorAll('[data-spec-box]').forEach(sel=>{
+    const i = Number(sel.dataset.specBox);
+    if(!state.specialists[i]) return;
+    const v = sel.value==='1' ? 1 : sel.value==='2' ? 2 : 'libre';
+    // Solo se anota si cambió respecto de lo que ya valía (así no se escribe
+    // nada si solo se tocó un nombre o un color).
+    if((boxDeEspecialista(state.specialists[i].name)||'libre') !== v) state.specialists[i].box = v;
   });
   ui.modal = null;
   render();

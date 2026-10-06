@@ -992,6 +992,28 @@ para servir también a **Copiapó**, de la siguiente forma:
   (`apptServiciosTexto`). Obligatorio solo en citas NUEVAS (las viejas se
   pueden editar sin él). Una garantía no sugiere abono ni muestra "Sin
   abono". Probado: e2e-garantia (15).
+- **Reprogramar una cita (06/10/2026, pedido de Juan Diego):** cuando la
+  clienta cambia de día u hora, antes se cancelaba la cita y se creaba otra
+  (con riesgo de contar el abono dos veces si no se marcaba "abono ya pagado
+  en una cita anterior", y quedaba como "Cancelada" sin serlo). Decidido: NO
+  hay un estado "Reprogramada" (habría que enseñárselo a los >30 lugares que
+  miran Cancelada/NoShow). En el formulario de Admin (solo Admin, decidido
+  por él) hay un botón "📅 Reprogramar" que MUEVE la misma cita (mismo
+  abono, precio, especialista, notas; misma duración) con las revisiones de
+  siempre (`aplicarReprogramacion` → `saveApptFromForm`: choque con la misma
+  especialista, box, bloqueos, horario). Anota la fecha/hora anterior en
+  `a.reprogramaciones` = [{desde, inicio, fin, en}] y se ve como "🔁
+  Reprogramada — antes era el mar 06/10 a las 15:00" en la cita (Admin y
+  especialista, `reprogramacionesHtml`) y un 🔁 en la ficha de la vista
+  Día. Confirmada/Cancelada/NoShow pasan a Pendiente (hay que confirmar el
+  día nuevo). `puedeReprogramar`: nunca Realizada ni cursos; Cancelada/NoShow
+  solo si eran de hoy en adelante y sin abono devuelto (una más vieja sigue
+  el camino de "abono ya pagado en una cita anterior", para no mover plata
+  de semanas ya cerradas). Cambiar la fecha a mano en el formulario es una
+  corrección y NO se anota. No exigió subir `APP_VERSION` (campo nuevo
+  dentro de la cita, no un `DOC_KEYS`). El Calendar mueve el evento pero su
+  descripción no dice "reprogramada" (el script no se tocó). Probado contra
+  el emulador (Firestore + Auth) con la agenda real: 37 pruebas.
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos

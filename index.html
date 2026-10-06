@@ -283,6 +283,9 @@
   .block-kind input{display:none;}
   .block-kind label.on{background:var(--gold);color:#1a140c;font-weight:700;}
   .personas-badge{background:rgba(30,15,22,0.6);color:#FFF3D6;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;flex-shrink:0;white-space:nowrap;letter-spacing:.2px;margin-left:4px;}
+  .reprog-badge{background:rgba(30,15,22,0.6);color:#FFF3D6;font-size:9px;font-weight:700;padding:1px 5px;border-radius:999px;flex-shrink:0;white-space:nowrap;margin-right:4px;}
+  .reprog-panel{border:1px solid var(--line);border-radius:10px;padding:12px;margin:-4px 0 14px;}
+  .reprog-hist b{display:block;margin-bottom:2px;}
   .no-abono-badge{background:rgba(217,106,106,0.28);color:#FFD9D9;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;flex-shrink:0;white-space:nowrap;letter-spacing:.2px;}
   .cobrar-box{background:rgba(201,162,39,0.12);border:1px solid rgba(201,162,39,0.35);border-radius:10px;padding:10px 14px;margin:2px 0 16px;}
   .cobrar-box label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:2px;}
@@ -5433,13 +5436,16 @@ function dayViewHtml(){
     const noAbono = !(Number(a.abono)>0) && a.estado!=='Cancelada' && a.estado!=='NoShow' && !isGarantiaAppt(a); // una garantía es gratis
     const noAbonoBadge = noAbono ? `<span class="no-abono-badge">Sin abono</span>` : '';
     const personasBadge = apptPersonas(a)>1 ? `<span class="personas-badge">👥 ${apptPersonas(a)}</span>` : '';
+    // La clienta cambió de día u hora (botón "📅 Reprogramar"): se ve desde
+    // afuera para que quien la atiende sepa que no es la fecha original.
+    const reprogBadge = (Array.isArray(a.reprogramaciones) && a.reprogramaciones.length) ? `<span class="reprog-badge" title="Reprogramada">🔁</span>` : '';
     const nameServiceHtml = isCompact
-      ? `<div class="t-name-compact">${escapeHtml(a.client||'Sin nombre')}${(a.services&&a.services.length)?' · '+escapeHtml(apptServiciosTexto(a)):''}</div>${personasBadge}${noAbonoBadge}`
+      ? `<div class="t-name-compact">${escapeHtml(a.client||'Sin nombre')}${(a.services&&a.services.length)?' · '+escapeHtml(apptServiciosTexto(a)):''}</div>${reprogBadge}${personasBadge}${noAbonoBadge}`
       : `<div class="t-name">${escapeHtml(a.client||'Sin nombre')}${personasBadge}</div>
         <div class="t-service">${escapeHtml(apptServiciosTexto(a))}</div>`;
     apptBlocks += `
       <div class="appt ${stClass}${isCompact?' compact':''}" style="top:${top}px;height:${height}px;${specBorder}${sidePos(apptCols[ai])}" data-act="edit-appt" data-id="${escapeHtml(a.id)}">
-        <div class="t-time">${a.start}–${a.end}${a.specialist?`<span class="spec-dot" style="background:${dotColor}"></span>`:''}${!isCompact?noAbonoBadge:''}</div>
+        <div class="t-time">${a.start}–${a.end}${a.specialist?`<span class="spec-dot" style="background:${dotColor}"></span>`:''}${!isCompact?reprogBadge+noAbonoBadge:''}</div>
         ${nameServiceHtml}
       </div>`;
   });
@@ -5805,6 +5811,77 @@ function pagoMarcadoHtml(d){
   return `<div class="hint" style="margin:-4px 0 14px;">✅ Pago marcado ${quien} el ${cuando}.</div>`;
 }
 
+// Reprogramar (solo Admin): la clienta cambia de día u hora. Se MUEVE la misma
+// cita (mismo abono, precio, especialista y notas) en vez de cancelarla y
+// crear otra — así el abono nunca se cuenta dos veces ni hay que acordarse de
+// marcar "abono ya pagado en una cita anterior". Cada cambio queda anotado en
+// a.reprogramaciones = [{desde, inicio, fin, en}] (la fecha/hora de ANTES).
+// Una cita Cancelada/No llegó se puede reprogramar solo si era de hoy en
+// adelante (y sin abono devuelto); una más vieja sigue el camino de siempre
+// (cita nueva con "abono ya pagado en una cita anterior"), para no mover
+// plata de semanas ya cerradas.
+function puedeReprogramar(d){
+  if(!d || !d.id || d.cursoId || d.estado==='Realizada') return false;
+  if(d.estado==='Cancelada' || d.estado==='NoShow'){
+    return !d.abonoDevuelto && d.date >= sedeNow().date;
+  }
+  return true;
+}
+function fechaCortaConDia(key){
+  const dt = parseKey(key);
+  return `${DAY_NAMES[dt.getDay()].toLowerCase()} ${pad(dt.getDate())}/${pad(dt.getMonth()+1)}`;
+}
+function reprogramacionesHtml(d, style){
+  const lista = Array.isArray(d.reprogramaciones) ? d.reprogramaciones.filter(r=>r && /^\d{4}-\d{2}-\d{2}$/.test(r.desde||'')) : [];
+  if(!lista.length) return '';
+  const filas = lista.map(r=>{
+    const dt = new Date(r.en);
+    const cuando = isNaN(dt) ? '' : ` <span style="opacity:.75">(cambiada el ${dt.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'})})</span>`;
+    return `<div>Antes era el ${fechaCortaConDia(r.desde)}${/^\d{2}:\d{2}$/.test(r.inicio||'')?' a las '+r.inicio:''}${cuando}</div>`;
+  }).join('');
+  return `<div class="hint reprog-hist" style="${style||''}"><b>🔁 Reprogramada${lista.length>1?' '+lista.length+' veces':''}</b>${filas}</div>`;
+}
+function reprogramarPanelHtml(d){
+  if(ui.mode!=='admin' || !puedeReprogramar(d)) return '';
+  const vuelvePendiente = d.estado==='Cancelada' || d.estado==='NoShow' || d.estado==='Confirmada';
+  return `
+      <button type="button" class="btn btn-ghost" id="reprog-open" style="width:100%;margin:-4px 0 14px;font-size:12.5px;">📅 Reprogramar (la clienta cambió de día u hora)</button>
+      <div id="reprog-panel" class="reprog-panel" style="display:none;">
+        <div class="hint" style="margin:0 0 10px;">Se mueve <b>esta misma cita</b>, con su abono, precio y especialista. No hace falta cancelarla ni crear otra.${vuelvePendiente?' Queda como <b>Pendiente</b> (hay que confirmarla de nuevo para el día nuevo).':''}</div>
+        <div class="row2">
+          <div class="field"><label>Nuevo día</label><input type="date" id="reprog-date" value=""></div>
+          <div class="field"><label>Nueva hora</label><input type="time" id="reprog-start" value="${escapeHtml(d.start||'')}"></div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button type="button" class="btn btn-ghost" id="reprog-cancel">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="reprog-ok">Reprogramar y guardar</button>
+        </div>
+      </div>`;
+}
+// Pasa lo elegido en el cuadro "Reprogramar" al formulario y guarda (con las
+// mismas revisiones de siempre: otra cita a esa hora, box, bloqueos, horario).
+function aplicarReprogramacion(){
+  const d = ui.modal && ui.modal.data;
+  if(!d) return;
+  const nuevaFecha = document.getElementById('reprog-date').value;
+  const nuevaHora = document.getElementById('reprog-start').value;
+  if(!nuevaFecha || !nuevaHora){ showAlert('Elige el nuevo día y la nueva hora.'); return; }
+  if(nuevaFecha===d.date && nuevaHora===d.start){ showAlert('Es el mismo día y la misma hora que ya tiene la cita. Elige otro día u otra hora.'); return; }
+  const hoy = sedeNow();
+  if(nuevaFecha < hoy.date){ showAlert('Ese día ya pasó. Elige un día de hoy en adelante.'); return; }
+  const fEnd = document.getElementById('f-end'), fStart = document.getElementById('f-start');
+  // Misma duración que tiene la cita en el formulario (por si se cambió un servicio).
+  const dur = Math.max(5, minutesFromMidnight(fEnd.value||d.end) - minutesFromMidnight(fStart.value||d.start));
+  if(minutesFromMidnight(nuevaHora) + dur > 23*60+59){ showAlert('Con esa hora la cita terminaría pasada la medianoche. Elige una hora más temprano.'); return; }
+  document.getElementById('f-date').value = nuevaFecha;
+  fStart.value = nuevaHora;
+  fEnd.value = addMinutesToHHMM(nuevaHora, dur);
+  const est = document.getElementById('f-estado');
+  if(['Cancelada','NoShow','Confirmada'].includes(d.estado)) est.value = 'Pendiente';
+  ui.modal.reprogramar = true;
+  saveApptFromForm();
+}
+
 // "Pagó con dos métodos" en la vista de la especialista (ej. parte en
 // efectivo y parte por transferencia). Usa los mismos campos que el
 // formulario de Admin: metodoSaldo2 + montoSaldo2 (lo que se pagó con el
@@ -5867,6 +5944,7 @@ function apptViewOnlyHtml(d){
     <div class="modal" data-stop="1">
       <h2 class="serif">Detalle de la cita</h2>
       <div class="field"><label>Fecha</label><div>${d.date} · ${d.start}–${d.end}</div></div>
+      ${reprogramacionesHtml(d, 'margin:-6px 0 14px;')}
       <div class="field"><label>Cliente</label><div>${escapeHtml(d.client||'Sin nombre')}</div></div>
       ${d.client && d.client.trim() ? `<button type="button" class="btn btn-ghost" style="margin:0 0 14px;font-size:12.5px;" data-act="view-consent" data-client="${escapeHtml(d.client)}" data-appt-id="${escapeHtml(d.id||'')}" data-consent-id="${escapeHtml(d.consentId||'')}">${d.consentId ? 'Ver consentimiento firmado ✓' : 'Ver consentimiento firmado'}</button>` : ''}
       ${d.phone ? `<div class="field"><label>Teléfono</label><div>${escapeHtml(d.phone)}</div></div>` : ''}
@@ -5959,6 +6037,8 @@ function apptModalHtml(){
         <div class="field"><label>Hora inicio</label><input type="time" id="f-start" value="${d.start}"></div>
         <div class="field"><label>Hora fin</label><input type="time" id="f-end" value="${d.end}"></div>
       </div>
+      ${isEdit ? reprogramacionesHtml(d, 'margin:-4px 0 12px;') : ''}
+      ${isEdit ? reprogramarPanelHtml(d) : ''}
       <div class="field">
         <label>Cliente</label>
         <input type="text" id="f-client" value="${escapeHtml(d.client)}" placeholder="Nombre del cliente" autocomplete="off">
@@ -9006,6 +9086,20 @@ function attachEvents(){
       document.getElementById('f-block-date-label').textContent = kind==='days' ? 'Desde el día' : 'Fecha';
     });
   }
+  const reprogOpen = document.getElementById('reprog-open');
+  if(reprogOpen){
+    const panel = document.getElementById('reprog-panel');
+    reprogOpen.addEventListener('click', ()=>{
+      panel.style.display = 'block';
+      reprogOpen.style.display = 'none';
+      document.getElementById('reprog-date').focus();
+    });
+    document.getElementById('reprog-cancel').addEventListener('click', ()=>{
+      panel.style.display = 'none';
+      reprogOpen.style.display = '';
+    });
+    document.getElementById('reprog-ok').addEventListener('click', aplicarReprogramacion);
+  }
   const splitToggle = document.getElementById('staff-split-toggle');
   if(splitToggle){
     splitToggle.addEventListener('click', ()=>{
@@ -9946,6 +10040,15 @@ function saveApptFromForm(){
     updated.cremaIncluidaPolitica = !!state.settings.cremaIncluida && !isRetoqueAppt(updated);
   }
   delete updated.service;
+  // Reprogramada con el botón "📅 Reprogramar": se anota de qué día/hora venía.
+  // (Cambiar la fecha a mano en el formulario es una corrección y no se anota.)
+  const original0 = ui.modal.original || d;
+  if(ui.modal.reprogramar && ui.modal.mode==='edit' && (updated.date!==original0.date || updated.start!==original0.start)){
+    updated.reprogramaciones = [
+      ...(Array.isArray(original0.reprogramaciones) ? original0.reprogramaciones : []),
+      {desde: original0.date, inicio: original0.start, fin: original0.end, en: new Date().toISOString()},
+    ];
+  }
   if(!updated.client){ showAlert('Ingresa el nombre del cliente.'); return; }
   if(updated.email && !isValidEmail(updated.email)){ showAlert('El correo electrónico no parece estar bien escrito (ej. nombre@gmail.com). Corrígelo o déjalo vacío.'); return; }
   if(!updated.services.length){ showAlert('Elige al menos un servicio.'); return; }

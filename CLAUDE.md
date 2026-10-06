@@ -178,8 +178,17 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     script de correos (`sistema`) sigue leyendo. Pendiente: aprobar a cada
     especialista en Equipo a medida que crean su cuenta; días después,
     borrar `sibana.cl+equipo@gmail.com` y `sibana.cl+buenosaires@gmail.com`
-    en Firebase Auth; opcional: personalizar el correo de "olvidé mi
-    contraseña" (remitente "Sibana", asunto y texto) en Firebase Console.
+    en Firebase Auth. **Correo de "olvidé mi contraseña" (05/10/2026):** en
+    Firebase Console → Authentication → Plantillas, el usuario cambió el
+    nombre del remitente a "Sibana" y "Responder a" a sibana.cl@gmail.com
+    (en "Restablecimiento de contraseña" y, por error, también en
+    "Verificación de correo", que la agenda no usa — inofensivo). El ASUNTO y
+    el MENSAJE no se pueden cambiar: Firebase muestra "Por el momento, no se
+    pueden actualizar las plantillas de correo electrónico de este
+    proyecto" (bloqueo de Firebase, solo su asistencia lo levanta). Se
+    descartó mandar ese correo con un Apps Script propio: necesitaría una
+    llave de administrador de Firebase guardada en Google. Probado: el
+    correo llega (en español) al Gmail de Juan Diego.
     **Hecho (05/10/2026):** `sibana.cl+equipo@gmail.com` y
     `sibana.cl+buenosaires@gmail.com` BORRADAS de Firebase Auth (comprobado:
     ya no entran; dueños y `sistema` siguen). `CUENTAS` en la agenda y

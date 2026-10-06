@@ -8148,11 +8148,15 @@ function actualizarTraspasoGarantia(){
   const val = id=>{ const el = document.getElementById(id); return el ? el.value : ''; };
   const cand = { id: ui.modal.data && ui.modal.data.id, client: val('f-client'), specialist: val('f-specialist'),
     garantiaDe: hayGarantiaElegida() ? val('f-garantia-de') : '', date: val('f-date'), start: val('f-start') };
-  const prev = Object.assign({}, ui.modal.data||{});
+  // Lo que se eligió en la casilla se recuerda mientras el formulario siga
+  // abierto, aunque el cuadro desaparezca un momento (ej. al cambiar de
+  // especialista y volver).
   const chk = document.getElementById('f-traspaso');
-  if(chk){
-    const origId = val('f-traspaso-orig');
-    if(chk.checked){ prev.traspasoComision = {originalId: origId, monto: Number(val('f-traspaso-monto'))||0}; delete prev.sinTraspasoComision; }
+  if(chk) ui.modal.traspasoEleccion = {originalId: val('f-traspaso-orig'), marcado: chk.checked, monto: Number(val('f-traspaso-monto'))||0};
+  const prev = Object.assign({}, ui.modal.data||{});
+  const e = ui.modal.traspasoEleccion;
+  if(e){
+    if(e.marcado){ prev.traspasoComision = {originalId: e.originalId, monto: e.monto}; delete prev.sinTraspasoComision; }
     else { delete prev.traspasoComision; prev.sinTraspasoComision = true; }
   }
   box.innerHTML = traspasoGarantiaInnerHtml(cand, prev);
@@ -10179,7 +10183,7 @@ function saveScheduleFromForm(){
 // de inicio, y autocompletado de cliente mientras se escribe — delegados en
 // document para que sigan funcionando después de cada render() del modal.
 document.addEventListener('change', e=>{
-  if(e.target && ['f-specialist','f-client','f-date','f-start'].includes(e.target.id)) actualizarTraspasoGarantia();
+  if(e.target && ['f-specialist','f-client','f-date','f-start','f-traspaso','f-traspaso-monto'].includes(e.target.id)) actualizarTraspasoGarantia();
   if(e.target && e.target.id==='f-start'){
     const endInput = document.getElementById('f-end');
     if(endInput && e.target.value){

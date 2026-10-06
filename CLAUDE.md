@@ -851,7 +851,8 @@ para servir también a **Copiapó**, de la siguiente forma:
   fechaOriginal}); desmarcada → `a.sinTraspasoComision`. No cuenta si la
   garantía queda Cancelada/NoShow (`traspasoDeGarantia`). No cambia el
   total de comisiones del mes. Probado contra el emulador (Firestore +
-  Auth) con la agenda real: 38 + 3 pruebas.
+  Auth) con la agenda real: 38 + 3 + 13 pruebas (incluye garantía nueva
+  desde el formulario, textos con trampa, Buenos Aires con dólar).
 - **"Mis ganancias"** (OCULTA por ahora, ver arriba): en modo Especialista, la pestaña de Finanzas muestra
   esto en vez del panel completo de Admin — cada especialista elige su
   nombre una vez (se recuerda por dispositivo, `STAFF_IDENTITY_KEY`) y ve

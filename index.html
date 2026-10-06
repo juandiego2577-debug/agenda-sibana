@@ -5130,6 +5130,10 @@ function render(){
   // varias filas una por una.
   const prevModal = root.querySelector('.modal');
   const prevScrollTop = prevModal ? prevModal.scrollTop : null;
+  // Lo mismo de lado: las tablas anchas dentro de un modal (Retoques
+  // pendientes) se deslizan a la derecha en el teléfono, y al marcar
+  // "Avisada hoy" volvían solas a la izquierda.
+  const prevScrollLeft = prevModal ? Array.from(prevModal.querySelectorAll('.table-scroll')).map(el=>el.scrollLeft) : [];
 
   if(ui.section==='finanzas' && ui.mode!=='admin' && !MIS_GANANCIAS_VISIBLE) ui.section = 'agenda';
   const html = `
@@ -5171,6 +5175,10 @@ function render(){
   if(prevScrollTop!=null){
     const newModal = root.querySelector('.modal');
     if(newModal) newModal.scrollTop = prevScrollTop;
+  }
+  if(prevScrollLeft.some(x=>x>0)){
+    const newModal = root.querySelector('.modal');
+    if(newModal) newModal.querySelectorAll('.table-scroll').forEach((el,k)=>{ if(prevScrollLeft[k]) el.scrollLeft = prevScrollLeft[k]; });
   }
 }
 

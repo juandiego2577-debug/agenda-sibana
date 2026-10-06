@@ -193,7 +193,13 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     `sibana.cl+buenosaires@gmail.com` BORRADAS de Firebase Auth (comprobado:
     ya no entran; dueños y `sistema` siguen). `CUENTAS` en la agenda y
     `CUENTAS_PERMITIDAS` del script todavía las nombran, pero ya no existen
-    (y no están en las reglas): no hace falta tocarlos.
+    (y no están en las reglas). **ERROR corregido el 06/10/2026:** en el
+    SCRIPT sí hacía falta: el registro de cuentas está abierto, así que
+    cualquiera podía volver a crear `sibana.cl+equipo@gmail.com` y el script
+    de respaldo la aceptaba (podía borrar/inventar filas y eventos). Ahora
+    `CUENTAS_PERMITIDAS` = solo dueños. Regla: un correo borrado de Firebase
+    Auth no debe quedar en NINGUNA lista de permitidos (reglas, scripts). En
+    `CUENTAS` de la agenda no importa (las reglas no la aceptan).
     **Falta (con el usuario):** dar usuarios a las especialistas reales; y
     al final apagar las cuentas compartidas (primero sacarlas de las reglas,
     de `CUENTAS_PERMITIDAS` del script y de `CUENTAS`, después borrarlas).
@@ -530,6 +536,33 @@ para servir también a **Copiapó**, de la siguiente forma:
   Authenticator); no quiso guardar los códigos alternativos de Google. Ojo: el "modo
   Especialista" es solo visual — la cuenta del equipo puede escribir todo
   el documento de su sede; por eso importan tanto los respaldos protegidos.
+  **Segunda revisión (06/10/2026, pedido del usuario: "lo más seguro
+  posible"):** (a) programa escondido en `id` y en el color de una
+  especialista: los textos ya iban con `escapeHtml`, pero los `data-id` y
+  `style="...${color}"` no — una especialista con acceso (que puede escribir
+  todo el documento) podía hacer correr un programa en el teléfono del
+  dueño y quedarse con sus permisos. Ahora `data-id="${escapeHtml(x.id)}"` y
+  `colorSeguro()` (solo `#rrggbb`). Prueba `fuzz-xss.mjs`: 131 campos con
+  trampa (citas, bloqueos, cursos, vales, gastos, stock, clientes,
+  servicios, pedidos de acceso, usuarios, fichas) y ~36 pantallas como
+  dueño: antes se ejecutaban 9, ahora 0. Pedidos de acceso y fichas (lo que
+  puede escribir alguien de afuera) ya estaban bien. Un campo NUEVO que se
+  muestre en pantalla va siempre con `escapeHtml` (también ids y colores).
+  (b) Script de respaldo aceptaba la cuenta borrada del equipo (ver arriba).
+  (c) Reglas: una ficha de consentimiento firmada ya no se puede MODIFICAR
+  (nadie lo hacía; solo leer y borrar). (d) Revisado y bien: protección
+  contra averiguar qué correos tienen cuenta (activada en Firebase), Panel
+  Sibana escapa todo, `showDialog` escapa. Firebase acepta contraseñas de
+  6 caracteres (la agenda pide 8 al crear la cuenta, pero el enlace de
+  "olvidé mi contraseña" permite 6): subirlo en Firebase Console →
+  Authentication → Configuración → Política de contraseñas. No se pudo
+  agregar "integrity" (SRI) a los `<script>` de cdnjs: el entorno de
+  pruebas no llega a cdnjs y un hash mal puesto deja la agenda en blanco.
+  Pendiente/decisión del usuario: aprobar a alguien en Equipo solo después
+  de confirmar con ella por WhatsApp que el pedido es suyo (cualquiera
+  puede crear una cuenta con cualquier nombre y correo, Firebase no exige
+  confirmar el correo); y "subir de nivel" el alojamiento (repo privado +
+  Firebase Hosting/Cloudflare/Netlify, ver conversación).
 
 ## Lecciones aprendidas (importante no repetir)
 1. **Nunca auto-guardar cuando Firestore reporta que el documento "no

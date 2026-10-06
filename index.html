@@ -3554,7 +3554,13 @@ function findCoveringBlock(date, start, end, specialist){
 function specialistColor(name){
   if(name===ALL_SPECIALISTS_VALUE) return '#B23A2E';
   const sp = state.specialists.find(s=>normalizeName(s.name)===normalizeName(name));
-  return sp ? sp.color : '#6B6152';
+  return sp ? colorSeguro(sp.color) : '#6B6152';
+}
+// Un color de especialista va dentro de style="..." en muchos lugares: solo se
+// acepta un color "#rrggbb" de verdad (lo que da el selector de colores). Así
+// nadie con acceso a la agenda puede esconder un programa en ese campo.
+function colorSeguro(c){
+  return /^#[0-9a-fA-F]{3,8}$/.test(String(c||'').trim()) ? String(c).trim() : '#6B6152';
 }
 function filterBySpecialist(list){
   if(ui.specialistFilter==='all') return list;
@@ -5220,7 +5226,7 @@ function toolbarHtml(){
       <button class="${ui.specialistFilter==='all'?'active':''}" data-act="filter-specialist" data-spec="all">Todas</button>
       ${state.specialists.map(s=>`
         <button class="${ui.specialistFilter===s.name?'active':''}" data-act="filter-specialist" data-spec="${escapeHtml(s.name)}">
-          <span class="dot" style="background:${s.color}"></span>${escapeHtml(s.name)}
+          <span class="dot" style="background:${colorSeguro(s.color)}"></span>${escapeHtml(s.name)}
         </button>`).join('')}
     </div>`;
 
@@ -5360,7 +5366,7 @@ function dayViewHtml(){
     const who = `🚫 ${escapeHtml(blockSpecialistLabel(b.specialist))}`;
     const isCompact = height < COMPACT_HEIGHT_PX;
     specialistBlocks += `
-      <div class="appt st-Cancelada block-appt${isCompact?' compact':''}" style="top:${top}px;height:${height}px;${pos}border-left-color:${col};" data-act="edit-block" data-id="${b.id}">
+      <div class="appt st-Cancelada block-appt${isCompact?' compact':''}" style="top:${top}px;height:${height}px;${pos}border-left-color:${col};" data-act="edit-block" data-id="${escapeHtml(b.id)}">
         ${isCompact
           ? `<div class="t-time">${b.start}–${b.end}</div><div class="t-name-compact">${who}${b.reason?' · '+escapeHtml(b.reason):''}</div>`
           : `<div class="t-time">${b.start}–${b.end}</div>
@@ -5369,7 +5375,7 @@ function dayViewHtml(){
       </div>`;
   });
   const fullDayBanners = dayBlocks.filter(b=>b.fullDay).map(b=>`
-    <div class="day-banner" style="border-left-color:${specialistColor(b.specialist)}" data-act="edit-block" data-id="${b.id}">
+    <div class="day-banner" style="border-left-color:${specialistColor(b.specialist)}" data-act="edit-block" data-id="${escapeHtml(b.id)}">
       <span class="db-who">🚫 ${escapeHtml(blockSpecialistLabel(b.specialist))} no disponible</span>
       <span class="db-when">${escapeHtml(blockWhenLabel(b))}${b.reason?' · '+escapeHtml(b.reason):''}</span>
     </div>`).join('');
@@ -5399,7 +5405,7 @@ function dayViewHtml(){
       : `<div class="t-name">${escapeHtml(a.client||'Sin nombre')}${personasBadge}</div>
         <div class="t-service">${escapeHtml(apptServiciosTexto(a))}</div>`;
     apptBlocks += `
-      <div class="appt ${stClass}${isCompact?' compact':''}" style="top:${top}px;height:${height}px;${specBorder}${sidePos(apptCols[ai])}" data-act="edit-appt" data-id="${a.id}">
+      <div class="appt ${stClass}${isCompact?' compact':''}" style="top:${top}px;height:${height}px;${specBorder}${sidePos(apptCols[ai])}" data-act="edit-appt" data-id="${escapeHtml(a.id)}">
         <div class="t-time">${a.start}–${a.end}${a.specialist?`<span class="spec-dot" style="background:${dotColor}"></span>`:''}${!isCompact?noAbonoBadge:''}</div>
         ${nameServiceHtml}
       </div>`;
@@ -5416,7 +5422,7 @@ function dayViewHtml(){
     const label = `📚 ${escapeHtml(c.nombre||'Curso')}`;
     const sub = `${count} inscrito${count===1?'':'s'}${c.specialist?' · '+escapeHtml(c.specialist):''}`;
     courseBlocks += `
-      <div class="appt curso-block${isCompact?' compact':''}" style="top:${top}px;height:${height}px;" data-act="open-curso" data-id="${c.id}">
+      <div class="appt curso-block${isCompact?' compact':''}" style="top:${top}px;height:${height}px;" data-act="open-curso" data-id="${escapeHtml(c.id)}">
         <div class="t-time">${c.start}–${c.end}</div>
         ${isCompact
           ? `<div class="t-name-compact">${label} · ${sub}</div>`
@@ -5691,7 +5697,7 @@ function blockModalHtml(){
       </div>
       <div class="field"><label>Motivo (opcional)</label><input type="text" id="f-block-reason" placeholder="Ej: hora médica, viaje" value="${escapeHtml(d.reason||'')}"></div>
       <div class="modal-actions">
-        <div>${isEdit ? `<button class="btn btn-ghost" data-act="delete-block" data-id="${d.id}">Quitar bloqueo</button>` : ''}</div>
+        <div>${isEdit ? `<button class="btn btn-ghost" data-act="delete-block" data-id="${escapeHtml(d.id)}">Quitar bloqueo</button>` : ''}</div>
         <div class="right">
           <button class="btn btn-ghost" data-act="close-modal">Cancelar</button>
           <button class="btn btn-primary" data-act="save-block">Guardar</button>
@@ -6019,7 +6025,7 @@ function apptModalHtml(){
       <div class="field"><label>Notas</label><textarea id="f-notas" rows="2">${escapeHtml(d.notas)}</textarea></div>
 
       <div class="modal-actions">
-        <div>${isEdit ? `<button class="btn" style="background:rgba(217,106,106,0.15);color:var(--danger)" data-act="delete-appt" data-id="${d.id}">Eliminar</button>` : ''}</div>
+        <div>${isEdit ? `<button class="btn" style="background:rgba(217,106,106,0.15);color:var(--danger)" data-act="delete-appt" data-id="${escapeHtml(d.id)}">Eliminar</button>` : ''}</div>
         <div class="right">
           <button class="btn btn-ghost" data-act="close-modal">Cancelar</button>
           <button class="btn btn-primary" data-act="save-appt">Guardar</button>
@@ -6040,7 +6046,7 @@ function coursesListModalHtml(){
   const rows = list.map(c=>{
     const count = courseAttendees(c.id).length;
     return `
-      <div class="curso-row" data-act="open-curso" data-id="${c.id}">
+      <div class="curso-row" data-act="open-curso" data-id="${escapeHtml(c.id)}">
         <div>
           <div class="cr-name">${c.date < today ? '' : '📚 '}${escapeHtml(c.nombre||'Curso')}</div>
           <div class="cr-rut">${courseDateLabel(c.date)} · ${c.start}–${c.end}${c.specialist?' · '+escapeHtml(c.specialist):''}</div>
@@ -6092,7 +6098,7 @@ function courseEditModalHtml(){
       <div class="modal-actions">
         <div></div>
         <div class="right">
-          <button class="btn btn-ghost" data-act="${isEdit ? 'open-curso' : 'close-modal'}" data-id="${d.id}">Cancelar</button>
+          <button class="btn btn-ghost" data-act="${isEdit ? 'open-curso' : 'close-modal'}" data-id="${escapeHtml(d.id)}">Cancelar</button>
           <button class="btn btn-primary" data-act="save-course">Guardar</button>
         </div>
       </div>
@@ -6107,7 +6113,7 @@ function cursoModalHtml(){
   const attendees = courseAttendees(c.id);
   const totalRevenue = attendees.reduce((s,a)=>s+apptRevenue(a),0);
   const rows = attendees.map(a=>`
-    <div class="curso-row" ${isAdmin?`data-act="curso-edit-attendee" data-id="${a.id}"`:''}>
+    <div class="curso-row" ${isAdmin?`data-act="curso-edit-attendee" data-id="${escapeHtml(a.id)}"`:''}>
       <div>
         <div class="cr-name">${escapeHtml(a.client||'Sin nombre')}</div>
         <div class="cr-rut">${a.rut?escapeHtml(a.rut):''}${a.rut&&a.email?' · ':''}${a.email?escapeHtml(a.email):''}${a.estado?' · '+escapeHtml(a.estado):''}</div>
@@ -6122,11 +6128,11 @@ function cursoModalHtml(){
       <div class="hint" style="margin-top:-6px;">${attendees.length} inscrito${attendees.length===1?'':'s'} · ingreso total ${fmtCLP(totalRevenue)}</div>
       ${c.notas ? `<div style="white-space:pre-wrap;font-size:12.5px;color:var(--ink-soft);background:rgba(255,255,255,0.04);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:8px;">${escapeHtml(c.notas)}</div>` : ''}
       <div style="margin-top:10px;">${rows || `<div class="empty-msg">Todavía no hay nadie inscrito.</div>`}</div>
-      ${isAdmin ? `<button type="button" class="btn btn-ghost" style="margin-top:10px;" data-act="curso-add-attendee" data-id="${c.id}">+ Agregar inscrito</button>` : ''}
+      ${isAdmin ? `<button type="button" class="btn btn-ghost" style="margin-top:10px;" data-act="curso-add-attendee" data-id="${escapeHtml(c.id)}">+ Agregar inscrito</button>` : ''}
       <div class="modal-actions">
-        <div>${isAdmin ? `<button class="btn" style="background:rgba(217,106,106,0.15);color:var(--danger)" data-act="delete-course" data-id="${c.id}">Eliminar curso</button>` : ''}</div>
+        <div>${isAdmin ? `<button class="btn" style="background:rgba(217,106,106,0.15);color:var(--danger)" data-act="delete-course" data-id="${escapeHtml(c.id)}">Eliminar curso</button>` : ''}</div>
         <div class="right">
-          ${isAdmin ? `<button class="btn btn-ghost" data-act="edit-course" data-id="${c.id}">Editar curso</button>` : ''}
+          ${isAdmin ? `<button class="btn btn-ghost" data-act="edit-course" data-id="${escapeHtml(c.id)}">Editar curso</button>` : ''}
           <button class="btn btn-ghost" data-act="close-modal">Cerrar</button>
         </div>
       </div>
@@ -6164,9 +6170,9 @@ function cursoAttendeeModalHtml(){
       </div>
       <div class="field"><label>Notas</label><textarea id="f-cur-notas" rows="2">${escapeHtml(d.notas||'')}</textarea></div>
       <div class="modal-actions">
-        <div>${isEdit ? `<button class="btn" style="background:rgba(217,106,106,0.15);color:var(--danger)" data-act="delete-curso-attendee" data-id="${d.id}">Eliminar</button>` : ''}</div>
+        <div>${isEdit ? `<button class="btn" style="background:rgba(217,106,106,0.15);color:var(--danger)" data-act="delete-curso-attendee" data-id="${escapeHtml(d.id)}">Eliminar</button>` : ''}</div>
         <div class="right">
-          <button class="btn btn-ghost" data-act="open-curso" data-id="${d.cursoId}">Cancelar</button>
+          <button class="btn btn-ghost" data-act="open-curso" data-id="${escapeHtml(d.cursoId)}">Cancelar</button>
           <button class="btn btn-primary" data-act="save-curso-attendee">Guardar</button>
         </div>
       </div>
@@ -6212,7 +6218,7 @@ function specialistsModalHtml(){
   const rows = state.specialists.map((s,i)=>`
     <div class="spec-row">
       <input type="text" value="${escapeHtml(s.name)}" data-spec-name="${i}" placeholder="Nombre de la especialista">
-      <input type="color" value="${s.color}" data-spec-color="${i}" title="Color en la agenda">
+      <input type="color" value="${colorSeguro(s.color)}" data-spec-color="${i}" title="Color en la agenda">
       <button class="iconbtn" data-act="remove-specialist" data-idx="${i}">✕</button>
     </div>`).join('');
   return `
@@ -6421,7 +6427,7 @@ function renderApptSearchResults(query){
     const dateLabel = `${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)} ${d.getFullYear()}`;
     return `
       <div class="client-row">
-        <div class="client-row-main" data-goto-appt="${a.id}">
+        <div class="client-row-main" data-goto-appt="${escapeHtml(a.id)}">
           <div>
             <div class="client-name">${escapeHtml(a.client||'(sin nombre)')}</div>
             <div class="client-meta">${dateLabel} · ${a.start} · ${escapeHtml(apptServiciosTexto(a)) || '—'} · ${estadoLabels[a.estado]||a.estado}</div>
@@ -6522,7 +6528,7 @@ function valesModalHtml(){
               ${isAdmin?`<td>${escapeHtml(v.specialist||'—')}</td>`:''}
               <td>${fmtCLP(v.monto)}</td>
               <td>${escapeHtml(v.notas||'')}</td>
-              ${isAdmin?`<td><button type="button" class="iconbtn" data-act="delete-vale" data-id="${v.id}">✕</button></td>`:''}
+              ${isAdmin?`<td><button type="button" class="iconbtn" data-act="delete-vale" data-id="${escapeHtml(v.id)}">✕</button></td>`:''}
             </tr>`).join('')}
         </tbody>
       </table></div>`}
@@ -7940,7 +7946,7 @@ function blocksListModalHtml(){
       <div class="hint">Todos los bloqueos de hora desde hoy en adelante, ordenados por fecha. Toca uno para editarlo o quitarlo.</div>
       ${list.length===0 ? `<div class="empty-msg">No hay ningún bloqueo agendado desde hoy en adelante.</div>` : `
       <div>${list.map(b=>`
-        <div class="curso-row" data-act="edit-block" data-id="${b.id}">
+        <div class="curso-row" data-act="edit-block" data-id="${escapeHtml(b.id)}">
           <div>
             <div class="cr-name">${escapeHtml(blockSpecialistLabel(b.specialist))}</div>
             <div class="cr-rut">${escapeHtml(blockWhenWithDate(b))}${b.reason?' — '+escapeHtml(b.reason):''}</div>
@@ -7987,7 +7993,7 @@ function touchupsModalHtml(){
                   : sinceAviso>=TOUCHUP_FOLLOWUP_DAYS
                   ? `<div style="margin:0 0 4px;font-size:12px;font-weight:600;color:var(--warn);">⏰ Hace ${sinceAviso} días — insistir</div>`
                   : `<div class="hint" style="margin:0 0 4px;">Avisada hace ${sinceAviso} día${sinceAviso===1?'':'s'}</div>`}
-                <button type="button" class="btn btn-ghost" style="font-size:11px;padding:3px 8px;" data-act="mark-touchup-avisado" data-id="${a.id}">📨 Avisada hoy</button>
+                <button type="button" class="btn btn-ghost" style="font-size:11px;padding:3px 8px;" data-act="mark-touchup-avisado" data-id="${escapeHtml(a.id)}">📨 Avisada hoy</button>
               </td>
             </tr>`;}).join('')}
         </tbody>
@@ -8078,7 +8084,7 @@ function reviewsModalHtml(){
                 ${a.phone ? `<a class="btn btn-ghost" target="_blank" rel="noopener" href="${waLink(a.phone, genericCheckinMsg())}">WhatsApp</a>` : ''}
               </td>
               <td style="text-align:center;">
-                <input type="checkbox" data-act="toggle-review-avisado" data-id="${a.id}" ${a.reviewAvisada?'checked':''} style="width:18px;height:18px;accent-color:var(--wine);cursor:pointer;">
+                <input type="checkbox" data-act="toggle-review-avisado" data-id="${escapeHtml(a.id)}" ${a.reviewAvisada?'checked':''} style="width:18px;height:18px;accent-color:var(--wine);cursor:pointer;">
               </td>
             </tr>`).join('')}
         </tbody>

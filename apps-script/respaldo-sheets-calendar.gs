@@ -54,9 +54,13 @@ var COLOR_GRIS = '8'; // citas canceladas o en que la clienta no llegó
 // inventar filas de la Hoja y eventos del Calendar. Ahora la agenda manda su
 // "token" de Firebase (una prueba de que entró con contraseña, que vence en
 // una hora) y el script le pregunta a Firebase de qué cuenta es: si no es una
-// de estas, el aviso se ignora. Para la copia de Buenos Aires de este
-// script, cambiar la primera por 'sibana.cl+buenosaires@gmail.com'.
-var CUENTAS_PERMITIDAS = ['sibana.cl+equipo@gmail.com', 'juandiego2577+duenos@gmail.com'];
+// de estas, el aviso se ignora. Desde el 06/10/2026 queda SOLO la de dueños:
+// las cuentas compartidas del equipo (sibana.cl+equipo@gmail.com y
+// sibana.cl+buenosaires@gmail.com) se borraron de Firebase, y como cualquiera
+// puede crear una cuenta nueva con un correo que ya no existe, dejarlas aquí
+// le daba entrada a quien las volviera a crear. Nunca agregar aquí un correo
+// de una cuenta borrada.
+var CUENTAS_PERMITIDAS = ['juandiego2577+duenos@gmail.com'];
 // Además se aceptan los usuarios personales activos (cada especialista con
 // su usuario, ver "Equipo" en la agenda) de ESTA sede, y los dueños: el
 // script lee su perfil en Firebase (sibana-usuarios) con el mismo token.

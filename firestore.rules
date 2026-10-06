@@ -19,8 +19,9 @@ rules_version = '2';
 //   futuros con datos falsos. El índice ("<sede>_indice") sí se actualiza.
 // - Fichas de consentimiento: cualquiera puede FIRMAR (crear) con la sesión
 //   anónima invisible, pero solo el equipo de esa sede (y los dueños) puede
-//   leerlas, editarlas o borrarlas. La firma tiene que ser una imagen PNG de
-//   verdad (antes se aceptaba cualquier texto, y un texto armado a propósito
+//   leerlas o borrarlas (nadie puede modificar una ficha ya firmada). La
+//   firma tiene que ser una imagen PNG de verdad (antes se aceptaba
+//   cualquier texto, y un texto armado a propósito
 //   podía meter un programa en la agenda al mostrar la ficha) y la ficha de
 //   Santiago solo puede traer los campos que usa el formulario, con textos
 //   de largo razonable.
@@ -216,7 +217,10 @@ service cloud.firestore {
 
     match /sibana-consentimientos/{ficha} {
       allow create: if request.auth != null && fichaSantiagoValida(request.resource.data);
-      allow read, update, delete: if puedeSede('santiago');
+      // Una ficha firmada NO se puede modificar (06/10/2026): nada de la agenda
+      // ni del Panel la edita, y así nadie puede cambiar lo que la clienta
+      // firmó. Si firmó mal, se firma de nuevo y se borra la mala.
+      allow read, delete: if puedeSede('santiago');
     }
 
     // El formulario de Buenos Aires todavía no existe (va a tener DNI y quizás
@@ -224,7 +228,7 @@ service cloud.firestore {
     match /sibana-consentimientos-buenosaires/{ficha} {
       allow create: if request.auth != null && firmaValida(request.resource.data)
         && request.resource.data.size() <= 60;
-      allow read, update, delete: if puedeSede('buenosaires');
+      allow read, delete: if puedeSede('buenosaires');
     }
   }
 }

@@ -1031,6 +1031,24 @@ para servir también a **Copiapó**, de la siguiente forma:
   dentro de la cita, no un `DOC_KEYS`). El Calendar mueve el evento pero su
   descripción no dice "reprogramada" (el script no se tocó). Probado contra
   el emulador (Firestore + Auth) con la agenda real: 37 pruebas.
+- **Formulario de la cita más corto (06/10/2026, pedido de Juan Diego: "se
+  ve muy largo para lo poco que se llena"):** mismos campos y mismo orden,
+  sin esconder nada (personas y "abono ya pagado" siguen a la vista, ver
+  "Personas por cita"). Cambios: secciones con título chico (📅 Cuándo, 👤
+  Clienta, 💆 Tratamiento, 💵 Pago, 📝 Notas: `.appt-sec`), textos más
+  cortos ("Correo", "Tratamientos", "Personas atendidas", "Método del
+  abono/saldo", casilla del abono en una línea), Teléfono y Correo lado a
+  lado, y en teléfono los pares (fecha/estado, horas, precio/abono) siguen
+  de a dos (antes `.row2` pasaba a una columna ≤720px; ≤374px sí vuelve a
+  una). Desde 760px: dos columnas (`.appt-cols`/`.appt-col`; izquierda
+  Cuándo+Clienta+Notas, derecha Tratamiento+Pago; en teléfono las columnas
+  son `display:contents` y `order` deja Notas al final). Pantalla de 1517px:
+  de 1329px de alto a 941 (cabe casi sin bajar); teléfono 390px: de 1683 a
+  1498. Arreglado de paso: con pago en dos métodos, el monto y "Quitar" se
+  salían por el borde en teléfono (`min-width:0`), y el ejemplo de teléfono
+  decía "+56" también en Buenos Aires (`SEDE.telPais`). Medido en 320–1920px
+  (nueva y editar, con reprogramar abierto y pagos en dos métodos): nada
+  fuera del borde.
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos

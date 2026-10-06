@@ -489,6 +489,31 @@
   .split-fields select option{background:var(--panel-2);color:var(--ink);}
   .split-fields input::placeholder{color:#6B6152;}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  /* Formulario de la cita: secciones con título chico (mismos campos, mismo
+     orden). En pantallas anchas va en dos columnas para no tener que bajar. */
+  .appt-sec{margin-bottom:6px;}
+  .appt-sec-t{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--gold-soft);margin-bottom:10px;}
+  .label-hint{font-weight:400;opacity:.75;}
+  /* Teléfono: las columnas no existen (display:contents) y las secciones
+     siguen el orden de siempre, con Notas al final. */
+  .appt-cols{display:flex;flex-direction:column;}
+  .appt-col{display:contents;}
+  .sec-cuando{order:1;} .sec-clienta{order:2;} .sec-trat{order:3;} .sec-pago{order:4;} .sec-notas{order:5;}
+  .appt-sec{border-top:1px solid var(--line);padding-top:12px;}
+  .appt-sec.sec-cuando{border-top:none;padding-top:0;}
+  .svc-chips:empty{display:none;}
+  /* Nada se sale por el borde en pantallas angostas (ej. pago con dos métodos). */
+  .appt-modal .row2{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+  .appt-modal input,.appt-modal select{min-width:0;}
+  .appt-modal .split-fields > *{min-width:0;}
+  .appt-modal .split-fields .linklike{flex-shrink:0;}
+  @media (max-width:374px){ .appt-modal .row2{grid-template-columns:1fr !important;} }
+  @media (min-width:760px){
+    .modal.appt-modal{max-width:880px;}
+    .appt-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:28px;align-items:start;}
+    .appt-col{display:block;}
+    .appt-col > .appt-sec:first-child{border-top:none;padding-top:0;}
+  }
   .modal-actions{display:flex;justify-content:space-between;margin-top:18px;gap:8px;}
   .modal-actions .right{display:flex;gap:8px;}
   .hint{font-size:11px;color:var(--ink-soft);margin-top:-6px;margin-bottom:10px;}
@@ -705,6 +730,7 @@
     .timecol .slot span{right:6px;}
     .weekgrid{grid-template-columns:repeat(7,minmax(90px,1fr));overflow-x:auto;}
     .row2{grid-template-columns:1fr;}
+    .appt-modal .row2{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
     footer.summary{gap:16px;padding:10px 14px;}
     footer.summary .stat .val{font-size:16px;}
     .modal{padding:18px 16px;}
@@ -3734,7 +3760,7 @@ function renderClientSuggestions(query){
 
 // ---------------- Selección de varios servicios (combos) ----------------
 function renderServiceChipsMarkup(entries){
-  if(!entries.length) return '<span class="svc-chips-empty">Ningún servicio elegido todavía</span>';
+  if(!entries.length) return '';
   return entries.map(({idx, qty})=>{
     const svc = state.services[idx];
     if(!svc) return '';
@@ -3742,7 +3768,7 @@ function renderServiceChipsMarkup(entries){
   }).join('');
 }
 function serviceSummaryHtml(count, totalDuration, totalPrice){
-  if(!count) return '<span class="svc-summary-empty">Elige uno o más servicios de la lista</span>';
+  if(!count) return '<span class="svc-summary-empty">Ningún tratamiento elegido todavía</span>';
   return `
     <span class="svc-summary-badge">${count} tratamiento${count===1?'':'s'}</span>
     <span class="svc-summary-badge">⏱ ${totalDuration} min</span>
@@ -6073,8 +6099,12 @@ function apptModalHtml(){
 
   return `
   <div class="overlay" data-act="overlay-close">
-    <div class="modal" data-stop="1">
+    <div class="modal appt-modal" data-stop="1">
       <h2 class="serif">${isEdit?'Editar cita':'Nueva cita'}</h2>
+      <div class="appt-cols">
+      <div class="appt-col">
+      <div class="appt-sec sec-cuando">
+      <div class="appt-sec-t">📅 Cuándo</div>
       <div class="row2">
         <div class="field"><label>Fecha</label><input type="date" id="f-date" value="${d.date}"></div>
         <div class="field"><label>Estado</label>
@@ -6088,17 +6118,30 @@ function apptModalHtml(){
       </div>
       ${isEdit ? reprogramacionesHtml(d, 'margin:-4px 0 12px;') : ''}
       ${isEdit ? reprogramarPanelHtml(d) : ''}
+      </div>
+      <div class="appt-sec sec-clienta">
+      <div class="appt-sec-t">👤 Clienta</div>
       <div class="field">
-        <label>Cliente</label>
+        <label>Nombre</label>
         <input type="text" id="f-client" value="${escapeHtml(d.client)}" placeholder="Nombre del cliente" autocomplete="off">
         <div id="client-ac" class="ac-list" style="display:none"></div>
       </div>
       ${d.client && d.client.trim() ? `<button type="button" class="btn btn-ghost" style="margin:-4px 0 14px;font-size:12.5px;" data-act="view-consent" data-client="${escapeHtml(d.client)}" data-appt-id="${escapeHtml(d.id||'')}" data-consent-id="${escapeHtml(d.consentId||'')}">${d.consentId ? 'Ver consentimiento firmado ✓' : 'Ver consentimiento firmado'}</button>` : ''}
-      <div class="field"><label>Teléfono</label><input type="text" id="f-phone" value="${escapeHtml(d.phone)}" placeholder="+56 9…"></div>
-      <div class="field"><label>Correo electrónico <span class="hint" style="margin:0;">(para mandarle los cuidados post-tratamiento)</span></label><input type="email" id="f-email" value="${escapeHtml(d.email||'')}" placeholder="correo@ejemplo.com" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+      <div class="row2">
+      <div class="field"><label>Teléfono</label><input type="text" id="f-phone" value="${escapeHtml(d.phone)}" placeholder="+${SEDE.telPais} 9…"></div>
+      <div class="field"><label>Correo</label><input type="email" id="f-email" value="${escapeHtml(d.email||'')}" placeholder="correo@ejemplo.com" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+      </div>
       ${ui.modal.mode==='edit' ? postcareStatusHtml(d, 'margin:-6px 0 14px;') : ''}
+      </div>
+      <div class="appt-sec sec-notas">
+      <div class="field"><label>📝 Notas</label><textarea id="f-notas" rows="2">${escapeHtml(d.notas)}</textarea></div>
+      </div>
+      </div>
+      <div class="appt-col">
+      <div class="appt-sec sec-trat">
+      <div class="appt-sec-t">💆 Tratamiento</div>
       <div class="field">
-        <label>Servicios (puedes elegir más de uno — ej. combo)</label>
+        <label>Tratamientos <span class="label-hint">(se puede elegir más de uno)</span></label>
         <div class="svc-picker" id="svc-picker">${svcRows}</div>
         <div class="svc-chips" id="svc-chips">${renderServiceChipsMarkup(initialEntries)}</div>
         <div class="svc-summary" id="svc-summary">${serviceSummaryHtml(initialTotalCount, initialTotalDuration, initialTotalPrice)}</div>
@@ -6119,7 +6162,7 @@ function apptModalHtml(){
       </div>`;
       })()}
       <div class="field">
-        <label>¿Cuántas personas se atienden en esta cita?</label>
+        <label>Personas atendidas</label>
         <div style="display:flex;align-items:center;gap:10px;">
           <span class="svc-qty">
             <button type="button" class="svc-qty-btn" data-personas-dec="1" ${apptPersonas(d)<=1?'disabled':''} aria-label="Una persona menos">−</button>
@@ -6127,7 +6170,7 @@ function apptModalHtml(){
             <button type="button" class="svc-qty-btn" data-personas-inc="1" aria-label="Una persona más">+</button>
           </span>
           <input type="hidden" id="f-personas" value="${apptPersonas(d)}">
-          <span class="hint" style="margin:0;flex:1;">Ej.: viene con una amiga y se atienden las dos → pon 2</span>
+          <span class="hint" style="margin:0;flex:1;">Ej.: viene con una amiga → 2</span>
         </div>
       </div>
       <div id="crema-incluida-note" class="field" style="${cremaIncluidaActive ? '' : 'display:none;'}">
@@ -6145,13 +6188,16 @@ function apptModalHtml(){
           ${specOptions}
         </select>
       </div>
+      </div>
+      <div class="appt-sec sec-pago">
+      <div class="appt-sec-t">💵 Pago</div>
       <div class="row2">
         <div class="field"><label>Precio total</label><input type="number" id="f-price" value="${d.price}"></div>
         <div class="field" id="field-abono-total"><label${d.montoAbono2>0?' style="opacity:.7"':''}>Abono${d.montoAbono2>0?' (suma automática)':''}</label><input type="number" id="f-abono" value="${d.abono}" ${d.montoAbono2>0?'readonly style="opacity:.7"':''}></div>
       </div>
       <label style="display:flex;align-items:center;gap:8px;margin:-4px 0 12px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;">
         <input type="checkbox" id="f-abonoPrevio" ${d.abonoPrevio?'checked':''} style="width:15px;height:15px;accent-color:var(--wine);flex-shrink:0;">
-        Este abono ya se pagó en una cita anterior que se canceló/reagendó (no es plata nueva, no se suma a los ingresos)
+        El abono ya se pagó en una cita anterior (no se suma como ingreso)
       </label>
       <label id="field-abono-devuelto" style="display:${(d.estado==='Cancelada'||d.estado==='NoShow')?'flex':'none'};align-items:center;gap:8px;margin:-4px 0 12px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;">
         <input type="checkbox" id="f-abonoDevuelto" ${d.abonoDevuelto?'checked':''} style="width:15px;height:15px;accent-color:var(--wine);flex-shrink:0;">
@@ -6159,7 +6205,7 @@ function apptModalHtml(){
       </label>
       <div id="field-metodo-abono" style="display:${d.abonoPrevio?'none':'block'};">
         <div class="field">
-          <label>Método pago abono</label>
+          <label>Método del abono</label>
           <div style="display:flex;gap:6px;">
             <select id="f-metodoAbono" style="flex:1;">${paymentSelectOptions(d.metodoAbono)}</select>
             <input type="number" id="f-montoAbono1" value="${d.montoAbono2>0 ? Math.max(d.abono-d.montoAbono2,0) : ''}" placeholder="Monto" style="flex:1;display:${d.montoAbono2>0?'block':'none'};">
@@ -6174,7 +6220,7 @@ function apptModalHtml(){
       </div>
       <div class="field" id="field-saldo-total"><label${d.montoSaldo2>0?' style="opacity:.7"':''}>Saldo${d.montoSaldo2>0?' (suma automática)':''}</label><input type="number" id="f-saldo" value="${d.saldo}" ${d.montoSaldo2>0?'readonly style="opacity:.7"':''}></div>
       <div class="field">
-        <label>Método pago saldo</label>
+        <label>Método del saldo</label>
         <div style="display:flex;gap:6px;">
           <select id="f-metodoSaldo" style="flex:1;">${paymentSelectOptions(d.metodoSaldo)}</select>
           <input type="number" id="f-montoSaldo1" value="${d.montoSaldo2>0 ? Math.max(d.saldo-d.montoSaldo2,0) : ''}" placeholder="Monto" style="flex:1;display:${d.montoSaldo2>0?'block':'none'};">
@@ -6186,7 +6232,9 @@ function apptModalHtml(){
         <input type="number" id="f-montoSaldo2" value="${d.montoSaldo2}" placeholder="Monto" style="flex:1;">
         <button type="button" class="linklike" data-act="toggle-split" data-target="saldo" style="font-size:11px;white-space:nowrap;">Quitar</button>
       </div>
-      <div class="field"><label>Notas</label><textarea id="f-notas" rows="2">${escapeHtml(d.notas)}</textarea></div>
+      </div>
+      </div>
+      </div>
 
       <div class="modal-actions">
         <div>${isEdit ? `<button class="btn" style="background:rgba(217,106,106,0.15);color:var(--danger)" data-act="delete-appt" data-id="${escapeHtml(d.id)}">Eliminar</button>` : ''}</div>
@@ -6319,7 +6367,7 @@ function cursoAttendeeModalHtml(){
         <div class="field"><label>${SEDE.docIdentidad}</label><input type="text" id="f-cur-rut" value="${escapeHtml(d.rut||'')}" placeholder="${SEDE.docPlaceholder}"></div>
         <div class="field"><label>Correo electrónico</label><input type="text" id="f-cur-email" value="${escapeHtml(d.email||'')}" placeholder="correo@ejemplo.com"></div>
       </div>
-      <div class="field"><label>Teléfono (opcional)</label><input type="text" id="f-cur-phone" value="${escapeHtml(d.phone||'')}" placeholder="+56 9…"></div>
+      <div class="field"><label>Teléfono (opcional)</label><input type="text" id="f-cur-phone" value="${escapeHtml(d.phone||'')}" placeholder="+${SEDE.telPais} 9…"></div>
       <div class="field"><label>Estado</label>
         <select id="f-cur-estado">${estados.map(e=>`<option value="${e}" ${d.estado===e?'selected':''}>${estadoLabels[e]}</option>`).join('')}</select>
       </div>

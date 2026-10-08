@@ -220,6 +220,12 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     el historial de git (commit 5c2e8d4), pero OJO: hay que subirle
     `APP_VERSION` a 5 o más, porque la base ya quedó marcada con 4 y una
     versión con 3 se negaría a guardar.
+- **Nombre de la pestaña / app (08/10/2026, pedido del usuario):** antes de
+  entrar dice solo "Agenda Sibana" (sin sede: antes decía "Agenda Sibana
+  Santiago" aunque no se hubiera entrado); al entrar, `aplicarCuenta` pone
+  "Agenda Sibana · Santiago" o "Agenda Sibana · Buenos Aires" (también el
+  nombre largo de la app instalada). El proyecto de Firebase se llama
+  `sibana-santiago` y NO se puede renombrar (solo su "Nombre público").
 - **Todo lo que cambia por país vive en `SEDES`** (zona horaria, código de
   teléfono +54 con su formato de WhatsApp `waPhoneDigitsArgentina`,
   RUT/DNI, colección de consentimientos, URL del script de respaldo, link de

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Agenda Sibana Santiago</title>
+<title>Agenda Sibana</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.14.1/firebase-app-compat.min.js" crossorigin="anonymous"></script>
@@ -21,7 +21,7 @@
   // imagen otra vez en el archivo.
   var iconHref = document.querySelector('link[rel="icon"]').href;
   var manifest = {
-    name: "Sibana Santiago - Agenda",
+    name: "Agenda Sibana",
     short_name: "Agenda Sibana",
     start_url: ".",
     display: "standalone",
@@ -1054,8 +1054,10 @@ function aplicarCuenta(user, perfil){
   else if(!puedeCambiarModo()){ ui.mode = 'staff'; safeRemoveLocal(ADMIN_TRUST_KEY); }
   // (si puede cambiar de modo, ui.mode queda como ya venía: recordado por dispositivo)
   aplicarTemaSede();
-  document.title = 'Agenda Sibana ' + SEDE.nombre;
-  if(window.__setManifestName) window.__setManifestName('Sibana ' + SEDE.nombre + ' - Agenda');
+  // Antes de entrar no se sabe la sede: el título dice solo "Agenda Sibana"
+  // (en el <head>); al entrar se le agrega la sede.
+  document.title = 'Agenda Sibana · ' + SEDE.nombre;
+  if(window.__setManifestName) window.__setManifestName('Agenda Sibana · ' + SEDE.nombre);
 }
 // Cambia los colores de toda la agenda a los de la sede (si tiene propios).
 // Se busca la hoja de estilos de la agenda por su contenido (no "la primera

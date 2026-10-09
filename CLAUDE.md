@@ -1068,8 +1068,9 @@ para servir también a **Copiapó**, de la siguiente forma:
   `noHace`/`duraciones` (se guardan por nombre, ver lección 6). Campos dentro
   de cada especialista: no exigió subir `APP_VERSION`. Probado contra el
   emulador: e2e (35).
-- **Finanzas → ⭐ Garantías (09/10/2026, en vez del "sistema de puntos" que
-  pensó Juan Diego; solo dueños, pestaña al final de Finanzas):** % de
+- **Más → ⭐ Garantías por especialista (09/10/2026, en vez del "sistema de
+  puntos" que pensó Juan Diego; solo dueños, último botón de Más — primero
+  estuvo como pestaña de Finanzas y él no le vio sentido ahí):** % de
   tratamientos de cada especialista que volvieron por garantía, en general y
   por tratamiento, con barras del color de cada una. La garantía se le cuenta
   a quien hizo el tratamiento ORIGINAL (`tratamientoOriginalDeGarantia`).
@@ -1078,13 +1079,15 @@ para servir también a **Copiapó**, de la siguiente forma:
   miden los tratamientos que llevan retoque + cualquiera que haya tenido una
   garantía, desde `GARANTIAS_DESDE` ('2026-09-01', inicio de la agenda,
   decidido por él). Un tratamiento de los últimos `GARANTIAS_MADURACION_DIAS`
-  (45) todavía no cuenta en el % ("+ N recientes, todavía no cuentan") —
-  OJO: por eso hasta mediados de octubre 2026 todo sale como "reciente".
+  (30: según él, una clienta insatisfecha vuelve a la semana, a las dos o a
+  las tres; casi nunca después del retoque) todavía no cuenta en el % ("+ N
+  recientes, todavía no cuentan"). Abrir una cita desde ahí y cerrarla o
+  guardarla vuelve a Garantías (`ui.modal.volver`).
   Menos de `GARANTIAS_MIN_DATOS` (10): "Pocos datos", sin ⭐. ⭐ = menor %
   entre las que tienen datos suficientes. Garantías viejas sin "¿de qué
   tratamiento?": si la clienta tuvo un solo tratamiento antes, se deduce; si
   no (combo), lista "sin tratamiento anotado" para abrirla y elegirlo.
-  Solo lee: no guarda nada ni toca plata. Probado: e2e (17).
+  Solo lee: no guarda nada ni toca plata. Probado: e2e (21).
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos

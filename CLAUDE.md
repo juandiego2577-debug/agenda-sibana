@@ -529,7 +529,17 @@ para servir también a **Copiapó**, de la siguiente forma:
      se anotan en hora de Chile y el registro de ejecución de Google muestra
      la zona del proyecto (Venezuela), así que difieren 1 h en verano.
   **Pendiente (el usuario lo dejó para después):** (4) los dos repos son
-  públicos y `HISTORICAL_IMPORT` tiene nombres/teléfonos de clientas;
+  públicos y `HISTORICAL_IMPORT` (y `SABADO_12_SEPT_IMPORT`,
+  `SEPT_5_11_IMPORT`, `JULIO_2026_IMPORT`) tienen nombres/teléfonos de
+  clientas. No se puede "esconder" (lo que está en la página lo descarga
+  cualquiera). Borrarlas del código es seguro (ya están en Firebase, en los
+  respaldos y en la Hoja; las cargas solo corren si falta su marca en
+  `settings`, y `runPriceCorrectionsIfNeeded` también usa
+  `HISTORICAL_IMPORT`), pero quedan en el historial público de GitHub. Para
+  borrarlas del todo: repo privado (Pages privado exige GitHub Pro, ~US$4/mes:
+  el 09/10/2026 Juan Diego dijo que NO por ahora) o reescribir el historial
+  (no recomendado: GitHub guarda aparte las refs de los ~109 PR; solo su
+  soporte las borra). Pendiente que él decida si igual se borran del código;
   (6) contraseñas largas y cambiarlas cuando alguien se va. **(7) Hecho
   (04/10/2026):** verificación en dos pasos activada en el Gmail personal
   de Juan Diego y en sibana.cl (ya estaban) y en GitHub (la activó con app
@@ -1095,7 +1105,10 @@ para servir también a **Copiapó**, de la siguiente forma:
   y, con UN tratamiento, "⭐ menos garantías" junto a su nombre en la lista
   (`estrellaGarantias`). No reordena la lista ni elige sola. Solo dueños
   (`esDueno()`); las cuentas se hacen una vez por formulario abierto
-  (`ui.modal._garStats`, no enumerable). Probado: e2e (21 + 6).
+  (`ui.modal._garStats`, no enumerable). Probado: e2e (21 + 6). **Publicado el 09/10/2026
+  (PR #109, junto con "Quitar" de Retoques y el perfil de especialistas).**
+  Él sabe que suma algo más al formulario (que intenta mantener corto) y
+  decidió que vale la pena y que ese es el mejor lugar.
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos

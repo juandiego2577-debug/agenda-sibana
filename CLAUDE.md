@@ -1049,6 +1049,42 @@ para servir también a **Copiapó**, de la siguiente forma:
   decía "+56" también en Buenos Aires (`SEDE.telPais`). Medido en 320–1920px
   (nueva y editar, con reprogramar abierto y pagos en dos métodos): nada
   fuera del borde.
+- **Perfil de cada especialista (09/10/2026, pedido de Juan Diego; lo llena
+  él, no ellas):** Más → Especialistas → "💆 Tratamientos" debajo de cada una:
+  casilla por servicio (lo hace / no) y "Su tiempo" (minutos SOLO si se
+  demora distinto de lo normal; ej. Lucy hace el microblading en 1 h).
+  `s.noHace` = [servicios que NO hace] (nunca marcado = hace todo, así un
+  servicio nuevo lo puede hacer cualquiera) y `s.duraciones` =
+  {servicio: min}. Garantía y Evaluación no se listan (las hace cualquiera,
+  no filtran). En Nueva cita: con tratamientos elegidos, "Especialista"
+  muestra solo las que hacen TODOS (si ninguna, todas con "(no hace X)");
+  con una especialista elegida, lo que no hace queda en gris sin "+"
+  ("Lucy no lo hace") y cada tratamiento muestra su tiempo ("60 min con
+  Lucy (normal 120)"). En una cita NUEVA la hora de término sigue a la
+  especialista (`getTotalDuration` → `duracionServicioPara`, también la
+  garantía); al EDITAR, cambiar de especialista no mueve la hora, y una cita
+  vieja con una combinación "no permitida" conserva su especialista con el
+  aviso. Renombrar un servicio en Servicios y tarifario renombra también
+  `noHace`/`duraciones` (se guardan por nombre, ver lección 6). Campos dentro
+  de cada especialista: no exigió subir `APP_VERSION`. Probado contra el
+  emulador: e2e (35).
+- **Finanzas → ⭐ Garantías (09/10/2026, en vez del "sistema de puntos" que
+  pensó Juan Diego; solo dueños, pestaña al final de Finanzas):** % de
+  tratamientos de cada especialista que volvieron por garantía, en general y
+  por tratamiento, con barras del color de cada una. La garantía se le cuenta
+  a quien hizo el tratamiento ORIGINAL (`tratamientoOriginalDeGarantia`).
+  Retoques NO cuentan (son parte normal del proceso); "quedó bien, no
+  necesita retoque" tampoco (él lo descartó: muy difícil de filtrar). Se
+  miden los tratamientos que llevan retoque + cualquiera que haya tenido una
+  garantía, desde `GARANTIAS_DESDE` ('2026-09-01', inicio de la agenda,
+  decidido por él). Un tratamiento de los últimos `GARANTIAS_MADURACION_DIAS`
+  (45) todavía no cuenta en el % ("+ N recientes, todavía no cuentan") —
+  OJO: por eso hasta mediados de octubre 2026 todo sale como "reciente".
+  Menos de `GARANTIAS_MIN_DATOS` (10): "Pocos datos", sin ⭐. ⭐ = menor %
+  entre las que tienen datos suficientes. Garantías viejas sin "¿de qué
+  tratamiento?": si la clienta tuvo un solo tratamiento antes, se deduce; si
+  no (combo), lista "sin tratamiento anotado" para abrirla y elegirlo.
+  Solo lee: no guarda nada ni toca plata. Probado: e2e (17).
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos
@@ -1198,6 +1234,13 @@ para servir también a **Copiapó**, de la siguiente forma:
   mensaje "Paso 1" (preguntar cómo le fue, genérico, sin pedir nada) antes
   del "Paso 2" (pedir la reseña en Google) — a propósito, para no pedirle
   una reseña pública a alguien que podría tener un reclamo sin resolver.
+  **"🚫 Quitar" de Retoques pendientes (09/10/2026, pedido de Juan Diego):**
+  para clientas que no se hicieron de verdad el tratamiento (muchas vienen de
+  los datos de la agenda anterior), que no quieren el retoque o a las que ya
+  les quedó bien. Sin motivo (él no lo vio necesario), con confirmación.
+  Guarda `a.retoqueQuitado` = {en, por} en la cita más reciente de la clienta
+  (la que se muestra; así quitarla nunca hace aparecer otra más vieja). Al
+  final, "Quitadas de la lista (N)" con "↩️ Devolver". Probado: e2e (12).
   **Qué tratamientos llevan retoque (oct 2026, pedido de Juan Diego):** casilla
   "🔁 Lleva retoque" por servicio en Servicios y tarifario (`s.llevaRetoque`,
   `servicioLlevaRetoque`); una cita entra a Retoques pendientes solo si

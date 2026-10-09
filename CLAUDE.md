@@ -529,7 +529,18 @@ para servir también a **Copiapó**, de la siguiente forma:
      se anotan en hora de Chile y el registro de ejecución de Google muestra
      la zona del proyecto (Venezuela), así que difieren 1 h en verano.
   **Pendiente (el usuario lo dejó para después):** (4) los dos repos son
-  públicos y `HISTORICAL_IMPORT` tiene nombres/teléfonos de clientas;
+  públicos y `HISTORICAL_IMPORT` (y `SABADO_12_SEPT_IMPORT`,
+  `SEPT_5_11_IMPORT`, `JULIO_2026_IMPORT`) tienen nombres/teléfonos de
+  clientas. **BORRADAS del código el 09/10/2026** (a pedido de Juan Diego,
+  ~1.800 líneas: esas listas + sus funciones de carga y
+  `runPriceCorrectionsIfNeeded`). Las citas siguen en Firebase, en los
+  respaldos y en la Hoja; la agenda ya no las puede volver a cargar ni
+  aunque falte su marca en `settings` (probado: documento sin marcas +
+  migraciones activas → no aparece ninguna cita vieja). Siguen en el
+  historial público de GitHub: para borrarlas del todo hace falta repo
+  privado (Pages privado exige GitHub Pro, ~US$4/mes: él dijo que NO por
+  ahora) o reescribir el historial (no recomendado: GitHub guarda aparte las
+  refs de los ~109 PR; solo su soporte las borra);
   (6) contraseñas largas y cambiarlas cuando alguien se va. **(7) Hecho
   (04/10/2026):** verificación en dos pasos activada en el Gmail personal
   de Juan Diego y en sibana.cl (ya estaban) y en GitHub (la activó con app
@@ -1068,9 +1079,12 @@ para servir también a **Copiapó**, de la siguiente forma:
   `noHace`/`duraciones` (se guardan por nombre, ver lección 6). Campos dentro
   de cada especialista: no exigió subir `APP_VERSION`. Probado contra el
   emulador: e2e (35).
-- **Más → ⭐ Garantías por especialista (09/10/2026, en vez del "sistema de
-  puntos" que pensó Juan Diego; solo dueños, último botón de Más — primero
-  estuvo como pestaña de Finanzas y él no le vio sentido ahí):** % de
+- **⭐ Garantías por especialista (09/10/2026, en vez del "sistema de
+  puntos" que pensó Juan Diego; solo dueños — `puedeVerGarantias()`):
+  pestaña propia arriba, "⭐ Garantías", después de Stock (`ui.section =
+  'garantias'`). Primero estuvo como subpestaña de Finanzas (él no le vio
+  sentido ahí) y después en Más (le pareció "muy pequeño": pidió una sección
+  como Finanzas o Stock).** % de
   tratamientos de cada especialista que volvieron por garantía, en general y
   por tratamiento, con barras del color de cada una. La garantía se le cuenta
   a quien hizo el tratamiento ORIGINAL (`tratamientoOriginalDeGarantia`).
@@ -1081,8 +1095,13 @@ para servir también a **Copiapó**, de la siguiente forma:
   decidido por él). Un tratamiento de los últimos `GARANTIAS_MADURACION_DIAS`
   (30: según él, una clienta insatisfecha vuelve a la semana, a las dos o a
   las tres; casi nunca después del retoque) todavía no cuenta en el % ("+ N
-  recientes, todavía no cuentan"). Abrir una cita desde ahí y cerrarla o
-  guardarla vuelve a Garantías (`ui.modal.volver`).
+  recientes, todavía no cuentan"). Arriba, un resumen (tratamientos que ya
+  cuentan, recientes, garantías desde el 1/9 y qué pasó con cada una) y, si
+  todo da 0%, la explicación: 0% = ninguna garantía anotada, no un error (él
+  preguntó "¿por qué todo está en cero?"). Garantías cuyo tratamiento
+  original es de antes del 1/9 o no está en la agenda: "Garantías que no
+  cuentan" (desplegable). En pantalla ancha, los tratamientos en 2
+  columnas (`.gar-grid`).
   Menos de `GARANTIAS_MIN_DATOS` (10): "Pocos datos", sin ⭐. ⭐ = menor %
   entre las que tienen datos suficientes. Garantías viejas sin "¿de qué
   tratamiento?": si la clienta tuvo un solo tratamiento antes, se deduce; si
@@ -1095,7 +1114,10 @@ para servir también a **Copiapó**, de la siguiente forma:
   y, con UN tratamiento, "⭐ menos garantías" junto a su nombre en la lista
   (`estrellaGarantias`). No reordena la lista ni elige sola. Solo dueños
   (`esDueno()`); las cuentas se hacen una vez por formulario abierto
-  (`ui.modal._garStats`, no enumerable). Probado: e2e (21 + 6).
+  (`ui.modal._garStats`, no enumerable). Probado: e2e (21 + 6). **Publicado el 09/10/2026
+  (PR #109, junto con "Quitar" de Retoques y el perfil de especialistas).**
+  Él sabe que suma algo más al formulario (que intenta mantener corto) y
+  decidió que vale la pena y que ese es el mejor lugar.
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos

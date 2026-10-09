@@ -398,7 +398,9 @@
   .pago-fila .como{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
   .pago-fila .monto{white-space:nowrap;font-weight:600;}
   .pago-fila.click{cursor:pointer;}
-  /* Más → ⭐ Garantías por especialista */
+  /* ⭐ Garantías (pestaña de arriba, solo dueños) */
+  .gar-page{max-width:1000px;}
+  .gar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(380px,100%),1fr));gap:0 10px;}
   .gar-card{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;}
   .gar-titulo{font-weight:600;font-size:14.5px;margin-bottom:8px;}
   .gar-fila{display:grid;grid-template-columns:minmax(80px,140px) 1fr auto;gap:4px 10px;align-items:center;padding:6px 0;border-top:1px dashed var(--line);}
@@ -1179,1733 +1181,6 @@ const DEFAULT_SETTINGS = {
   misGananciasDesde: null, // 'YYYY-MM' — antes de este mes, las especialistas no ven "Mis ganancias" (útil mientras se revisan datos de meses de transición)
   cremaIncluida: false, // si está en true, las citas NUEVAS ya no ofrecen comprar crema aparte (va incluida gratis). Las citas YA agendadas nunca cambian: cada una guarda para siempre en a.cremaIncluidaPolitica si se creó con esto activado o no, así que prender/apagar esto después nunca reordena citas ya guardadas.
 };
-
-const HISTORICAL_IMPORT_KEY = 'importedAgostoSeptiembre2026';
-const HISTORICAL_IMPORT = [
-  {
-    "id": "hist2026080110006941",
-    "date": "2026-08-01",
-    "start": "10:00",
-    "end": "11:00",
-    "client": "es.ramos.ga (IG)",
-    "phone": "",
-    "services": [
-      "Retoque Técnica Mixta (RTM)"
-    ],
-    "price": 29990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 29990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260801110085731",
-    "date": "2026-08-01",
-    "start": "11:00",
-    "end": "12:00",
-    "client": "Yesica Valdes Catalan (FB)",
-    "phone": "",
-    "services": [
-      "Perfilado de Cejas (C)"
-    ],
-    "price": 9990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 9990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260801120026112",
-    "date": "2026-08-01",
-    "start": "12:00",
-    "end": "13:00",
-    "client": "Valeria Piña",
-    "phone": "",
-    "services": [
-      "Lifting de Pestañas (LP)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260801133021140",
-    "date": "2026-08-01",
-    "start": "13:30",
-    "end": "14:30",
-    "client": "Eva Maria Martinez Polanco",
-    "phone": "+56986486234",
-    "services": [
-      "Sombreado (SOMB)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260803170012290",
-    "date": "2026-08-03",
-    "start": "17:00",
-    "end": "18:00",
-    "client": "Diego Mesías",
-    "phone": "",
-    "services": [
-      "Retoque Microblading (RMB)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260803173026200",
-    "date": "2026-08-03",
-    "start": "17:30",
-    "end": "18:30",
-    "client": "Carolina Muñoz Aravena (IG)",
-    "phone": "",
-    "services": [
-      "Retoque Delineado de Ojos (RDO)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260803183091189",
-    "date": "2026-08-03",
-    "start": "18:30",
-    "end": "19:30",
-    "client": "Nayaa Vasquez P (IG)",
-    "phone": "",
-    "services": [
-      "Retoque Microblading (RMB)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260804133090090",
-    "date": "2026-08-04",
-    "start": "13:30",
-    "end": "15:00",
-    "client": "Jaqueline Pavaez",
-    "phone": "",
-    "services": [
-      "Delineado de Ojos (DO)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260804180039836",
-    "date": "2026-08-04",
-    "start": "18:00",
-    "end": "19:00",
-    "client": "Amanda Lagos",
-    "phone": "",
-    "services": [
-      "Lifting de Pestañas (LP)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260804183055615",
-    "date": "2026-08-04",
-    "start": "18:30",
-    "end": "19:30",
-    "client": "Nicole Vargas Lucero",
-    "phone": "",
-    "services": [
-      "Delineado de Ojos (DO)"
-    ],
-    "price": 49990,
-    "specialist": "Jeeymar",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": "No abonó"
-  },
-  {
-    "id": "hist20260804190049437",
-    "date": "2026-08-04",
-    "start": "19:00",
-    "end": "20:00",
-    "client": "Teresa Araya Mendez",
-    "phone": "",
-    "services": [
-      "Retoque Microblading (RMB)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": "NO ABONÓ"
-  },
-  {
-    "id": "hist20260805120067206",
-    "date": "2026-08-05",
-    "start": "12:00",
-    "end": "14:00",
-    "client": "Constanza Mery",
-    "phone": "",
-    "services": [
-      "Delineado de Ojos (DO)"
-    ],
-    "price": 70000,
-    "specialist": "Melissa",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 70000,
-    "metodoSaldo": "",
-    "notas": "Delineado doble con difuminado"
-  },
-  {
-    "id": "hist20260807110097276",
-    "date": "2026-08-07",
-    "start": "11:00",
-    "end": "12:00",
-    "client": "Luisana Leal",
-    "phone": "954308158",
-    "services": [
-      "Sombreado (SOMB)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260807170057141",
-    "date": "2026-08-07",
-    "start": "17:00",
-    "end": "20:00",
-    "client": "Jhonary Palomino y amiga",
-    "phone": "",
-    "services": [
-      "Microblading (MB)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": "Incluye a una amiga (2 personas)"
-  },
-  {
-    "id": "hist20260808100026112",
-    "date": "2026-08-08",
-    "start": "10:00",
-    "end": "11:00",
-    "client": "Valeria Piña",
-    "phone": "",
-    "services": [
-      "Retoque Delineado de Ojos (RDO)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260808113040118",
-    "date": "2026-08-08",
-    "start": "11:30",
-    "end": "13:30",
-    "client": "Pilar Zoccola",
-    "phone": "",
-    "services": [
-      "Delineado de Ojos (DO)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260808140068811",
-    "date": "2026-08-08",
-    "start": "14:00",
-    "end": "15:30",
-    "client": "Liliana Carrazco",
-    "phone": "+56999827489",
-    "services": [
-      "Microblading (MB)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260811100016474",
-    "date": "2026-08-11",
-    "start": "10:00",
-    "end": "11:00",
-    "client": "Rosa Carrasco",
-    "phone": "",
-    "services": [
-      "Microblading (MB)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260811170041403",
-    "date": "2026-08-11",
-    "start": "17:00",
-    "end": "18:00",
-    "client": "Yliana Urdaneta",
-    "phone": "",
-    "services": [
-      "Retoque Microblading (RMB)",
-      "Retoque Delineado de Ojos (RDO)"
-    ],
-    "price": 39980,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 39980,
-    "metodoSaldo": "",
-    "notas": "No abonó"
-  },
-  {
-    "id": "hist20260813160061310",
-    "date": "2026-08-13",
-    "start": "16:00",
-    "end": "17:00",
-    "client": "Esteban Olea",
-    "phone": "",
-    "services": [
-      "Microblading (MB)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260814113020685",
-    "date": "2026-08-14",
-    "start": "11:30",
-    "end": "13:00",
-    "client": "Emma Carrasco",
-    "phone": "",
-    "services": [
-      "Microblading (MB)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260814140095583",
-    "date": "2026-08-14",
-    "start": "14:00",
-    "end": "15:00",
-    "client": "Julianna Marin",
-    "phone": "",
-    "services": [
-      "Full Lips (FL)",
-      "Microblading (MB)"
-    ],
-    "price": 109000,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 109000,
-    "metodoSaldo": "",
-    "notas": "Combo FL + MB"
-  },
-  {
-    "id": "hist2026081416002582",
-    "date": "2026-08-14",
-    "start": "16:00",
-    "end": "17:00",
-    "client": "Thamara Elizabeth Gómez Troncoso",
-    "phone": "",
-    "services": [
-      "Microblading (MB)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist2026081417301890",
-    "date": "2026-08-14",
-    "start": "17:30",
-    "end": "18:30",
-    "client": "Mauro",
-    "phone": "",
-    "services": [
-      "Lifting de Pestañas (LP)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260814183048853",
-    "date": "2026-08-14",
-    "start": "18:30",
-    "end": "19:30",
-    "client": "Eduarda Soto",
-    "phone": "",
-    "services": [
-      "Microblading (MB)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260815113082160",
-    "date": "2026-08-15",
-    "start": "11:30",
-    "end": "13:30",
-    "client": "Hilda Benitez Fuentevilla",
-    "phone": "",
-    "services": [
-      "Retoque Delineado de Ojos (RDO)",
-      "Retoque de Full Lips"
-    ],
-    "price": 49980,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49980,
-    "metodoSaldo": "",
-    "notas": "Día 1/2"
-  },
-  {
-    "id": "hist20260815133050825",
-    "date": "2026-08-15",
-    "start": "13:30",
-    "end": "14:00",
-    "client": "Angélica González Esquivel",
-    "phone": "",
-    "services": [],
-    "price": 0,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 0,
-    "metodoSaldo": "",
-    "notas": "Servicio: 'retoque' (sin especificar cuál — revisar)"
-  },
-  {
-    "id": "hist20260816113082160",
-    "date": "2026-08-16",
-    "start": "11:30",
-    "end": "13:30",
-    "client": "Hilda Benitez Fuentevilla",
-    "phone": "",
-    "services": [
-      "Retoque Delineado de Ojos (RDO)",
-      "Retoque de Full Lips"
-    ],
-    "price": 49980,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49980,
-    "metodoSaldo": "",
-    "notas": "Día 2/2"
-  },
-  {
-    "id": "hist20260818100062418",
-    "date": "2026-08-18",
-    "start": "10:00",
-    "end": "12:00",
-    "client": "Maria Gemita Cerda",
-    "phone": "",
-    "services": [
-      "Microblading (MB)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260818113055566",
-    "date": "2026-08-18",
-    "start": "11:30",
-    "end": "12:30",
-    "client": "Martha Amaga",
-    "phone": "",
-    "services": [
-      "Sombreado (SOMB)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260818123014579",
-    "date": "2026-08-18",
-    "start": "12:30",
-    "end": "14:30",
-    "client": "Valeria Velásquez Hernández",
-    "phone": "",
-    "services": [
-      "Perfeccionamiento (PERF)"
-    ],
-    "price": 39990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 39990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260818130054587",
-    "date": "2026-08-18",
-    "start": "13:00",
-    "end": "15:00",
-    "client": "Pepita Pepona (IG)",
-    "phone": "",
-    "services": [
-      "Retoque Microblading (RMB)",
-      "Retoque Delineado de Ojos (RDO)"
-    ],
-    "price": 39980,
-    "specialist": "Melissa",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 39980,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260818173059660",
-    "date": "2026-08-18",
-    "start": "17:30",
-    "end": "18:00",
-    "client": "Stefany Arteaga",
-    "phone": "932418688",
-    "services": [
-      "Retoque de Sombreado"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist2026081818306562",
-    "date": "2026-08-18",
-    "start": "18:30",
-    "end": "19:30",
-    "client": "Camila Medel",
-    "phone": "+56920281168",
-    "services": [
-      "Delineado de Ojos (DO)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260819160028527",
-    "date": "2026-08-19",
-    "start": "16:00",
-    "end": "18:00",
-    "client": "Erika Yvonne Arbulu",
-    "phone": "",
-    "services": [
-      "Realce"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": "NO ABONO"
-  },
-  {
-    "id": "hist2026081918009304",
-    "date": "2026-08-19",
-    "start": "18:00",
-    "end": "20:00",
-    "client": "Zennith Llanos",
-    "phone": "",
-    "services": [
-      "Realce"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": "NO ABONO"
-  },
-  {
-    "id": "hist20260819180094171",
-    "date": "2026-08-19",
-    "start": "18:00",
-    "end": "19:00",
-    "client": "Maria Loreto Perez",
-    "phone": "",
-    "services": [
-      "Delineado de Ojos (DO)"
-    ],
-    "price": 70000,
-    "specialist": "Jeeymar",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 70000,
-    "metodoSaldo": "",
-    "notas": "Doble"
-  },
-  {
-    "id": "hist20260820100019526",
-    "date": "2026-08-20",
-    "start": "10:00",
-    "end": "11:00",
-    "client": "Andrea Estrada",
-    "phone": "",
-    "services": [
-      "Perfilado de Cejas (C)"
-    ],
-    "price": 12000,
-    "specialist": "Jeeymar",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 12000,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260820103014180",
-    "date": "2026-08-20",
-    "start": "10:30",
-    "end": "11:30",
-    "client": "Yaseli Perez",
-    "phone": "",
-    "services": [
-      "Perfilado de Cejas (C)"
-    ],
-    "price": 9990,
-    "specialist": "Jeeymar",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 9990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260820110033895",
-    "date": "2026-08-20",
-    "start": "11:00",
-    "end": "13:00",
-    "client": "Nathalia Alvarado",
-    "phone": "",
-    "services": [
-      "Microblading (MB)",
-      "Delineado de Ojos (DO)"
-    ],
-    "price": 89990,
-    "specialist": "Jeeymar",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 89990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260820120093677",
-    "date": "2026-08-20",
-    "start": "12:00",
-    "end": "14:00",
-    "client": "Nancy Contreras",
-    "phone": "+56987951521",
-    "services": [
-      "Delineado de Ojos (DO)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260820150024376",
-    "date": "2026-08-20",
-    "start": "15:00",
-    "end": "17:00",
-    "client": "Maria Farias",
-    "phone": "",
-    "services": [
-      "Full Lips (FL)"
-    ],
-    "price": 79990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 79990,
-    "metodoSaldo": "",
-    "notas": "Precio de agosto (en ese mes Full Lips costaba $79.990)"
-  },
-  {
-    "id": "hist20260820160083712",
-    "date": "2026-08-20",
-    "start": "16:00",
-    "end": "17:00",
-    "client": "Evelyn Fuentes",
-    "phone": "",
-    "services": [
-      "Delineado de Ojos (DO)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": "NO ABONÓ"
-  },
-  {
-    "id": "hist20260821130010879",
-    "date": "2026-08-21",
-    "start": "13:00",
-    "end": "14:00",
-    "client": "Alysson Parra",
-    "phone": "",
-    "services": [
-      "Lifting de Pestañas (LP)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260821133027403",
-    "date": "2026-08-21",
-    "start": "13:30",
-    "end": "14:30",
-    "client": "Violeta Salazar",
-    "phone": "",
-    "services": [
-      "Retoque Delineado de Ojos (RDO)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260821143014094",
-    "date": "2026-08-21",
-    "start": "14:30",
-    "end": "15:30",
-    "client": "Cristina Garcia",
-    "phone": "",
-    "services": [
-      "Retoque Microblading (RMB)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist202608211530706",
-    "date": "2026-08-21",
-    "start": "15:30",
-    "end": "16:30",
-    "client": "Kennya Seijas",
-    "phone": "",
-    "services": [
-      "Sombreado (SOMB)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": "NO ABONO"
-  },
-  {
-    "id": "hist20260821170040184",
-    "date": "2026-08-21",
-    "start": "17:00",
-    "end": "18:00",
-    "client": "Mabel Jara Ocares",
-    "phone": "",
-    "services": [
-      "Sombreado (SOMB)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": "(mamá)"
-  },
-  {
-    "id": "hist20260821173057028",
-    "date": "2026-08-21",
-    "start": "17:30",
-    "end": "18:30",
-    "client": "Eugenia Martínez Padilla",
-    "phone": "",
-    "services": [
-      "Microblading (MB)"
-    ],
-    "price": 49990,
-    "specialist": "Melissa",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260821183060587",
-    "date": "2026-08-21",
-    "start": "18:30",
-    "end": "19:30",
-    "client": "Nayaa Vasquez",
-    "phone": "",
-    "services": [
-      "Garantía de servicio"
-    ],
-    "price": 0,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 0,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260822100010306",
-    "date": "2026-08-22",
-    "start": "10:00",
-    "end": "12:00",
-    "client": "Marisol Suertudo",
-    "phone": "",
-    "services": [
-      "Sombreado (SOMB)"
-    ],
-    "price": 49990,
-    "specialist": "Jeeymar",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260822100025723",
-    "date": "2026-08-22",
-    "start": "10:00",
-    "end": "11:30",
-    "client": "Andrea Munizaga",
-    "phone": "",
-    "services": [
-      "Lifting de Pestañas (LP)",
-      "Laminado solo (LAM)"
-    ],
-    "price": 34980,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 34980,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260822113035285",
-    "date": "2026-08-22",
-    "start": "11:30",
-    "end": "12:30",
-    "client": "Mairelyn Zumztein",
-    "phone": "",
-    "services": [
-      "Retoque Microblading (RMB)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260822113030934",
-    "date": "2026-08-22",
-    "start": "11:30",
-    "end": "12:30",
-    "client": "Rosario De la Cruz",
-    "phone": "",
-    "services": [],
-    "price": 0,
-    "specialist": "Jeeymar",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 0,
-    "metodoSaldo": "",
-    "notas": "Servicio: Sombreado o Microblading (sin definir en el registro original — revisar). NO ABONÓ"
-  },
-  {
-    "id": "hist20260822130047724",
-    "date": "2026-08-22",
-    "start": "13:00",
-    "end": "15:00",
-    "client": "Viviana Vera",
-    "phone": "",
-    "services": [
-      "Retoque Delineado de Ojos (RDO)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260822160022122",
-    "date": "2026-08-22",
-    "start": "16:00",
-    "end": "19:00",
-    "client": "Andrea Fuentealba Somov",
-    "phone": "",
-    "services": [
-      "Delineado de Ojos (DO)",
-      "Full Lips (FL)"
-    ],
-    "price": 129980,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 129980,
-    "metodoSaldo": "",
-    "notas": "Combo DO + FL"
-  },
-  {
-    "id": "hist20260825100078611",
-    "date": "2026-08-25",
-    "start": "10:00",
-    "end": "11:00",
-    "client": "Sofía Zanni",
-    "phone": "",
-    "services": [
-      "Retoque Microblading (RMB)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260825103037241",
-    "date": "2026-08-25",
-    "start": "10:30",
-    "end": "11:30",
-    "client": "Nadia",
-    "phone": "",
-    "services": [
-      "Retoque Microblading (RMB)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260825103057227",
-    "date": "2026-08-25",
-    "start": "10:30",
-    "end": "11:30",
-    "client": "Osneira Ferrer",
-    "phone": "",
-    "services": [
-      "Evaluación"
-    ],
-    "price": 0,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 0,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260825120066836",
-    "date": "2026-08-25",
-    "start": "12:00",
-    "end": "13:00",
-    "client": "Jocelyn Faundes Huentenao",
-    "phone": "+56936328485",
-    "services": [
-      "Retoque Delineado de Ojos (RDO)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": "igual masoterapiconjocelyn"
-  },
-  {
-    "id": "hist20260826113010631",
-    "date": "2026-08-26",
-    "start": "11:30",
-    "end": "13:30",
-    "client": "Rosa Elena Sánchez",
-    "phone": "",
-    "services": [
-      "Lifting de Pestañas (LP)",
-      "Laminado solo (LAM)"
-    ],
-    "price": 30000,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 30000,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260826130090057",
-    "date": "2026-08-26",
-    "start": "13:00",
-    "end": "14:00",
-    "client": "Raquel López y mamá",
-    "phone": "",
-    "services": [
-      "Retoque Microblading (RMB)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": "Incluye a su mamá (2 personas)"
-  },
-  {
-    "id": "hist20260827140056379",
-    "date": "2026-08-27",
-    "start": "14:00",
-    "end": "16:00",
-    "client": "Viviana Agüero",
-    "phone": "",
-    "services": [
-      "Microblading (MB)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist2026082716008982",
-    "date": "2026-08-27",
-    "start": "16:00",
-    "end": "18:00",
-    "client": "Luz Bustamante",
-    "phone": "",
-    "services": [
-      "Microblading (MB)",
-      "Full Lips (FL)"
-    ],
-    "price": 109000,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 5000,
-    "metodoAbono": "Transferencia",
-    "saldo": 104000,
-    "metodoSaldo": "",
-    "notas": "Combo MB + FL"
-  },
-  {
-    "id": "hist20260828100020056",
-    "date": "2026-08-28",
-    "start": "10:00",
-    "end": "11:00",
-    "client": "Karin Jara",
-    "phone": "",
-    "services": [
-      "Lifting de Pestañas (LP)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260828153032989",
-    "date": "2026-08-28",
-    "start": "15:30",
-    "end": "16:30",
-    "client": "Paulina Velásquez Devia",
-    "phone": "",
-    "services": [
-      "Microblading (MB)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260828163029833",
-    "date": "2026-08-28",
-    "start": "16:30",
-    "end": "17:30",
-    "client": "Francisca Yanzon",
-    "phone": "+56995383541",
-    "services": [
-      "Retoque Microblading (RMB)",
-      "Retoque Delineado de Ojos (RDO)"
-    ],
-    "price": 39980,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 39980,
-    "metodoSaldo": "",
-    "notas": "IG: frann yazon"
-  },
-  {
-    "id": "hist20260829100031886",
-    "date": "2026-08-29",
-    "start": "10:00",
-    "end": "11:00",
-    "client": "Cecilia Robles Galaz",
-    "phone": "",
-    "services": [
-      "Retoque Microblading (RMB)"
-    ],
-    "price": 19990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": "Clienta nueva"
-  },
-  {
-    "id": "hist2026082910305124",
-    "date": "2026-08-29",
-    "start": "10:30",
-    "end": "11:30",
-    "client": "Diego Aguirre",
-    "phone": "",
-    "services": [
-      "Perfeccionamiento (PERF)"
-    ],
-    "price": 39990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 39990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist2026082911009643",
-    "date": "2026-08-29",
-    "start": "11:00",
-    "end": "13:30",
-    "client": "Irma Reyes",
-    "phone": "",
-    "services": [
-      "Delineado de Ojos (DO)",
-      "Microblading (MB)"
-    ],
-    "price": 99980,
-    "specialist": "Jeeymar",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 99980,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260829130098566",
-    "date": "2026-08-29",
-    "start": "13:00",
-    "end": "16:00",
-    "client": "Zoiree Morillo",
-    "phone": "",
-    "services": [
-      "Microblading (MB)",
-      "Delineado de Ojos (DO)",
-      "Limpieza"
-    ],
-    "price": 119970,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 119970,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260829160096979",
-    "date": "2026-08-29",
-    "start": "16:00",
-    "end": "18:00",
-    "client": "Eva Diaz Duarte",
-    "phone": "",
-    "services": [
-      "Delineado de Ojos (DO)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": "NO ABONO"
-  },
-  {
-    "id": "hist2026082918008048",
-    "date": "2026-08-29",
-    "start": "18:00",
-    "end": "19:00",
-    "client": "Leslie Valdivia",
-    "phone": "",
-    "services": [
-      "Delineado de Ojos (DO)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260831100098407",
-    "date": "2026-08-31",
-    "start": "10:00",
-    "end": "12:30",
-    "client": "Tatiana Muñoz Sanhueza",
-    "phone": "",
-    "services": [
-      "Retoque Delineado de Ojos (RDO)",
-      "Full Lips (FL)"
-    ],
-    "price": 69000,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 69000,
-    "metodoSaldo": "",
-    "notas": "Los $69.000 corresponden solo al Full Lips"
-  },
-  {
-    "id": "hist20260831113056601",
-    "date": "2026-08-31",
-    "start": "11:30",
-    "end": "13:30",
-    "client": "Nina Herrera",
-    "phone": "",
-    "services": [
-      "Delineado de Ojos (DO)"
-    ],
-    "price": 49990,
-    "specialist": "Salome",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260831150031116",
-    "date": "2026-08-31",
-    "start": "15:00",
-    "end": "16:30",
-    "client": "Daniela Fuentes",
-    "phone": "",
-    "services": [
-      "Delineado de Ojos (DO)"
-    ],
-    "price": 49990,
-    "specialist": "Melissa",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": "NO ABONÓ"
-  },
-  {
-    "id": "hist20260831163080844",
-    "date": "2026-08-31",
-    "start": "16:30",
-    "end": "17:30",
-    "client": "Gabriela Rivera",
-    "phone": "",
-    "services": [
-      "Microblading (MB)"
-    ],
-    "price": 49990,
-    "specialist": "Melissa",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260902143046216",
-    "date": "2026-09-02",
-    "start": "14:30",
-    "end": "16:30",
-    "client": "Siul Graterol",
-    "phone": "",
-    "services": [
-      "Sombreado (SOMB)"
-    ],
-    "price": 49990,
-    "specialist": "",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist2026090216301359",
-    "date": "2026-09-02",
-    "start": "16:30",
-    "end": "19:30",
-    "client": "Raquel Barraza",
-    "phone": "",
-    "services": [
-      "Full Lips (FL)",
-      "Microblading (MB)"
-    ],
-    "price": 119980,
-    "specialist": "",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 119980,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260903093051192",
-    "date": "2026-09-03",
-    "start": "09:30",
-    "end": "10:30",
-    "client": "Katherine Arancibia",
-    "phone": "",
-    "services": [
-      "Microblading (MB)"
-    ],
-    "price": 49990,
-    "specialist": "",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist2026090310305510",
-    "date": "2026-09-03",
-    "start": "10:30",
-    "end": "12:30",
-    "client": "Isamary Jordan",
-    "phone": "",
-    "services": [
-      "Full Lips (FL)"
-    ],
-    "price": 69990,
-    "specialist": "",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 69990,
-    "metodoSaldo": "",
-    "notas": "Hora de fin no especificada en el registro original — se estimó según duración habitual"
-  },
-  {
-    "id": "hist20260903120067206",
-    "date": "2026-09-03",
-    "start": "12:00",
-    "end": "12:30",
-    "client": "Constanza Mery",
-    "phone": "",
-    "services": [
-      "Retoque Microblading (RMB)"
-    ],
-    "price": 19990,
-    "specialist": "",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260903173020056",
-    "date": "2026-09-03",
-    "start": "17:30",
-    "end": "18:30",
-    "client": "Karin Jara",
-    "phone": "",
-    "services": [
-      "Lifting de Pestañas (LP)"
-    ],
-    "price": 19990,
-    "specialist": "",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260903183092790",
-    "date": "2026-09-03",
-    "start": "18:30",
-    "end": "20:30",
-    "client": "Susan Romaní Sáez",
-    "phone": "",
-    "services": [
-      "Full Lips (FL)"
-    ],
-    "price": 69990,
-    "specialist": "",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 69990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260904093092321",
-    "date": "2026-09-04",
-    "start": "09:30",
-    "end": "11:00",
-    "client": "Yuly Galviz",
-    "phone": "",
-    "services": [
-      "Microblading (MB)"
-    ],
-    "price": 49990,
-    "specialist": "",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260904120092306",
-    "date": "2026-09-04",
-    "start": "12:00",
-    "end": "14:30",
-    "client": "Huth Steel y Carmita",
-    "phone": "",
-    "services": [
-      "Microblading (MB)"
-    ],
-    "price": 49990,
-    "specialist": "",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": "Dos personas: Huth Steel y Carmita"
-  },
-  {
-    "id": "hist20260904143095984",
-    "date": "2026-09-04",
-    "start": "14:30",
-    "end": "15:00",
-    "client": "Eva María Martinez Polanco",
-    "phone": "",
-    "services": [
-      "Retoque Microblading (RMB)"
-    ],
-    "price": 19990,
-    "specialist": "",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 19990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260904163057453",
-    "date": "2026-09-04",
-    "start": "16:30",
-    "end": "17:30",
-    "client": "Ana María León",
-    "phone": "",
-    "services": [
-      "Delineado de Ojos (DO)"
-    ],
-    "price": 49990,
-    "specialist": "",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 49990,
-    "metodoSaldo": "",
-    "notas": "NO ABONÓ"
-  },
-  {
-    "id": "hist20260904173035878",
-    "date": "2026-09-04",
-    "start": "17:30",
-    "end": "18:30",
-    "client": "Anais Godoy",
-    "phone": "",
-    "services": [
-      "Perfeccionamiento (PERF)"
-    ],
-    "price": 39990,
-    "specialist": "",
-    "estado": "Realizada",
-    "abono": 0,
-    "metodoAbono": "",
-    "saldo": 39990,
-    "metodoSaldo": "",
-    "notas": ""
-  },
-  {
-    "id": "hist20260904183045571",
-    "date": "2026-09-04",
-    "start": "18:30",
-    "end": "21:00",
-    "client": "Daniela Sepúlveda",
-    "phone": "",
-    "services": [
-      "MixBrows",
-      "Lifting de Pestañas (LP)"
-    ],
-    "price": 89980,
-    "specialist": "",
-    "estado": "Realizada",
-    "abono": 5000,
-    "metodoAbono": "Transferencia",
-    "saldo": 84980,
-    "metodoSaldo": "",
-    "notas": ""
-  }
-];
 
 const HOUR_START = 8;
 const HOUR_END = 21;
@@ -4002,184 +2277,13 @@ function applyRemoteData(data){
   if(state.appointments.length > lastKnownGoodCount) lastKnownGoodCount = state.appointments.length;
 }
 
-function runHistoricalImportIfNeeded(){
-  if(state.settings[HISTORICAL_IMPORT_KEY]) return false;
-  state.appointments = state.appointments.concat(HISTORICAL_IMPORT);
-  HISTORICAL_IMPORT.forEach(a=>{
-    if(a.client) upsertClient(a.client, a.phone, summarizeServices(a.services||[]));
-  });
-  state.settings[HISTORICAL_IMPORT_KEY] = true;
-  return true;
-}
-
-// ---------------- Carga de citas del sábado 12 de septiembre 2026 ----------------
-// Los horarios de fin se leyeron directamente de las líneas divisorias entre
-// citas en la captura de pantalla del usuario. La especialista se asignó como
-// "Jeeymar" porque su color en la agenda (amarillo, #FFEA32) coincide con el
-// amarillo de todos los bloques de esa captura.
-const SABADO_12_SEPT_KEY = 'importSabado12Sept2026';
-const SABADO_12_SEPT_IMPORT = [
-  { id: uid(), date:'2026-09-12', start:'09:00', end:'10:00', client:'Mariela Figueroa', phone:'', services:['Full Lips (FL)'], specialist:'Jeeymar', estado:'Confirmada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'' },
-  { id: uid(), date:'2026-09-12', start:'10:00', end:'11:30', client:'María Angélica Gutiérrez', phone:'+569 91883459', services:['Microblading (MB)'], specialist:'Jeeymar', estado:'Confirmada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'' },
-  { id: uid(), date:'2026-09-12', start:'11:30', end:'13:00', client:'Yliana Urdaneta', phone:'', services:['Perfeccionamiento (PERF)'], specialist:'Jeeymar', estado:'Confirmada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'' },
-  { id: uid(), date:'2026-09-12', start:'13:00', end:'14:30', client:'Naireli Nieves', phone:'+56896741897', services:['Sombreado (SOMB)'], specialist:'Jeeymar', estado:'Confirmada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Efecto polvo' },
-  { id: uid(), date:'2026-09-12', start:'14:30', end:'16:00', client:'Stella Vega', phone:'982694930', services:['Delineado de Ojos (DO)'], specialist:'Jeeymar', estado:'Confirmada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'' },
-  { id: uid(), date:'2026-09-12', start:'16:30', end:'18:00', client:'Isabel Ibaceta', phone:'', services:['Microblading (MB)'], specialist:'Jeeymar', estado:'Confirmada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'' },
-  { id: uid(), date:'2026-09-12', start:'18:00', end:'19:30', client:'Maryne Granado', phone:'', services:['Microblading (MB)'], specialist:'Jeeymar', estado:'Confirmada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'' },
-];
-function runSabado12ImportIfNeeded(){
-  if(state.settings[SABADO_12_SEPT_KEY]) return false;
-  state.appointments = state.appointments.concat(SABADO_12_SEPT_IMPORT);
-  SABADO_12_SEPT_IMPORT.forEach(a=>{
-    if(a.client) upsertClient(a.client, a.phone, summarizeServices(a.services||[]));
-  });
-  state.settings[SABADO_12_SEPT_KEY] = true;
-  return true;
-}
-
-// ---------------- Carga de citas del 5 al 11 de septiembre 2026 (faltaban en la agenda) ----------------
-// Pasadas por Juan Diego a mano desde su calendario viejo. Precios = los actuales
-// del catálogo (confirmó que son los mismos). Abono = $5.000 estándar salvo que
-// diga "NO ABONÓ" explícito. Especialista: Salome atendió todo el rango, excepto
-// Lina Murillo (10 sept) y Andri Estévez (11 sept), que las atendió Melissa. El
-// caso de la hija de Sandra Lopeda (8 sept) quedó sin precio: no se recuerda con
-// certeza qué servicio se hizo. Lo de "DOD" en la cita de Lina Murillo tampoco se
-// pudo identificar, pero sí se sabe el precio final ($125.000, combo con descuento).
-const SEPT_5_11_KEY = 'importSept5a11_2026';
-const SEPT_5_11_IMPORT = [
-  { id: uid(), date:'2026-09-05', start:'10:00', end:'11:30', client:'Yolimar Rey', phone:'+56965010172', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'' },
-  { id: uid(), date:'2026-09-05', start:'11:30', end:'13:00', client:'Nancy Contreras', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'' },
-  { id: uid(), date:'2026-09-05', start:'13:00', end:'14:00', client:'María Elena Urbina', phone:'', services:['Sombreado (SOMB)'], specialist:'Salome', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'' },
-  { id: uid(), date:'2026-09-05', start:'14:00', end:'16:00', client:'Meliandi Ochoa', phone:'', services:['Sombreado (SOMB)'], specialist:'Salome', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'"Efecto polvo" en el registro original — es Sombreado.' },
-  { id: uid(), date:'2026-09-05', start:'16:00', end:'17:30', client:'Pamela Rojas Zeballos', phone:'', services:['Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'' },
-  { id: uid(), date:'2026-09-05', start:'17:30', end:'19:00', client:'Maria Soledad Arevalo', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'' },
-
-  { id: uid(), date:'2026-09-07', start:'09:30', end:'11:00', client:'Romina', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'' },
-  { id: uid(), date:'2026-09-07', start:'11:30', end:'13:00', client:'Mariapaz Saez', phone:'', services:['Lifting de Pestañas (LP)'], specialist:'Salome', estado:'Realizada', price:19990, abono:5000, metodoAbono:'', saldo:14990, metodoSaldo:'', notas:'' },
-  { id: uid(), date:'2026-09-07', start:'13:30', end:'14:00', client:'Evelyn Fuentes', phone:'', services:['Garantía de servicio'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'' },
-  { id: uid(), date:'2026-09-07', start:'15:30', end:'17:00', client:'Cristina Navarrete Saez', phone:'', services:['Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:49990, abono:0, metodoAbono:'', saldo:49990, metodoSaldo:'', notas:'' },
-  { id: uid(), date:'2026-09-07', start:'17:00', end:'20:00', client:'Marcia Perez Castro', phone:'', services:['Full Lips (FL)','Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:119980, abono:5000, metodoAbono:'', saldo:114980, metodoSaldo:'', notas:'' },
-
-  { id: uid(), date:'2026-09-08', start:'10:00', end:'10:30', client:'Sofía Zanni', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:19990, abono:5000, metodoAbono:'', saldo:14990, metodoSaldo:'', notas:'' },
-  { id: uid(), date:'2026-09-08', start:'10:30', end:'12:00', client:'Becerra Suarez', phone:'', services:['Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:49990, abono:0, metodoAbono:'', saldo:49990, metodoSaldo:'', notas:'' },
-  { id: uid(), date:'2026-09-08', start:'12:00', end:'14:00', client:'Jessica Herrera', phone:'', services:['Full Lips (FL)'], specialist:'Salome', estado:'Realizada', price:69990, abono:5000, metodoAbono:'', saldo:64990, metodoSaldo:'', notas:'' },
-  { id: uid(), date:'2026-09-08', start:'15:30', end:'18:00', client:'Sandra Lopeda', phone:'', services:['MixBrows'], specialist:'Salome', estado:'Realizada', price:69990, abono:0, metodoAbono:'', saldo:69990, metodoSaldo:'', notas:'"Técnica mixta" en el registro original — es MixBrows.' },
-  { id: uid(), date:'2026-09-08', start:'15:30', end:'18:00', client:'Hija de Sandra Lopeda', phone:'', services:['Henna (sin confirmar)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — no se recuerda con certeza qué servicio se hizo (posiblemente Henna, no está en la lista de Servicios); sin precio registrado.' },
-  { id: uid(), date:'2026-09-08', start:'17:30', end:'20:00', client:'Elisa Coviello', phone:'', services:['Full Lips (FL)','Lifting de Pestañas (LP)'], specialist:'Salome', estado:'Realizada', price:89980, abono:5000, metodoAbono:'', saldo:84980, metodoSaldo:'', notas:'' },
-
-  { id: uid(), date:'2026-09-09', start:'10:00', end:'13:00', client:'Camila Ahumada', phone:'', services:['Microblading (MB)','Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:99980, abono:5000, metodoAbono:'', saldo:94980, metodoSaldo:'', notas:'' },
-  { id: uid(), date:'2026-09-09', start:'16:00', end:'17:30', client:'Ruth Lugo', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'' },
-
-  { id: uid(), date:'2026-09-10', start:'15:30', end:'18:00', client:'Lina Murillo', phone:'', services:['Full Lips (FL)','DOD (código sin identificar)'], specialist:'Melissa', estado:'Realizada', price:125000, abono:5000, metodoAbono:'', saldo:120000, metodoSaldo:'', cremaComprada:true, notas:'Dato importado — código "DOD" del registro original sin identificar. Precio total $125.000 acordado como combo con descuento (incluye crema).' },
-
-  { id: uid(), date:'2026-09-11', start:'18:30', end:'19:30', client:'Andri Estévez', phone:'', services:['Microblading (MB)'], specialist:'Melissa', estado:'Realizada', price:49990, abono:5000, metodoAbono:'', saldo:44990, metodoSaldo:'', notas:'' },
-];
-function runSept5a11ImportIfNeeded(){
-  if(state.settings[SEPT_5_11_KEY]) return false;
-  state.appointments = state.appointments.concat(SEPT_5_11_IMPORT);
-  SEPT_5_11_IMPORT.forEach(a=>{
-    if(a.client) upsertClient(a.client, a.phone, summarizeServices(a.services||[]));
-  });
-  state.settings[SEPT_5_11_KEY] = true;
-  return true;
-}
-
-// ---------------- Carga de citas de julio 2026 (agenda vieja) ----------------
-// Pasadas por Juan Diego a mano desde su agenda anterior. Sin datos reales de
-// especialista al momento de anotarlas, salvo las excepciones que confirmó de
-// memoria (el resto lo atendió Salome). TODAS quedan con precio/abono/saldo en
-// $0 — aunque dos citas (Edith Tua y Yormaly Ochoa) sí traían un monto real
-// anotado, se decidió no cargarlo, para que los reportes de Finanzas de julio
-// no mezclen un par de cifras reales con el resto sin verificar (mejor $0 en
-// todas y consistente, que verificar caso por caso). Los códigos o notas del
-// registro original que no se pudieron identificar (ej. "lf", "pod", "nerly te
-// cop") se dejaron sin adivinar, anotados tal cual en "notas". No se cargaron
-// tareas personales (ej. "Comprar pasaje", "Ir a URBE") ni los feriados que
-// aparecían en el registro original (Día de la Independencia, Día de la Virgen
-// del Carmen, Natalicio de Simón Bolívar) — no son citas de clientas.
-const JULIO_2026_KEY = 'importJulio2026';
-const JULIO_2026_IMPORT = [
-  { id: uid(), date:'2026-07-01', start:'10:00', end:'11:00', client:'Katherine Torres', phone:'', services:['Lifting de Pestañas (LP)','Lifting de Pestañas (LP)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'El registro original también mencionaba "lf" (no identificado) y que llegó por Instagram. Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-01', start:'11:30', end:'12:30', client:'Tatiana Muñoz Sanhueza', phone:'', services:['Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-03', start:'10:00', end:'12:00', client:'Niuska Jimenez', phone:'', services:['Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'El registro original también mencionaba "pod", no se pudo identificar qué servicio es. Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-03', start:'11:30', end:'13:00', client:'Lorena Arriagada Contreras', phone:'', services:['Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-03', start:'15:30', end:'17:00', client:'Carolina Novoa', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-03', start:'16:00', end:'17:00', client:'Silvana', phone:'', services:['Garantía de servicio'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-03', start:'17:00', end:'18:00', client:'Gladys (mamá de Yaseli Perez)', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-04', start:'10:00', end:'11:00', client:'Yarilett Ariagada', phone:'', services:['Lifting de Pestañas (LP)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-04', start:'11:00', end:'12:00', client:'Jennifer Thompson', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-04', start:'12:30', end:'13:30', client:'Catalina Gonzalez Marchant', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-06', start:'11:00', end:'12:00', client:'Rooskarent Lascano', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-06', start:'12:30', end:'13:30', client:'Gladys (mamá de Yaseli Perez)', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-06', start:'13:30', end:'14:30', client:'Lauren Tatiana Morales', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-06', start:'14:00', end:'17:00', client:'Glenda', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'No abonó (dato original). Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-06', start:'14:00', end:'17:00', client:'Gloria', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'No abonó (dato original). Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-06', start:'14:00', end:'17:00', client:'Sammy', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'No abonó (dato original). Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-07', start:'10:00', end:'13:00', client:'Yanneri Rondón', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Llegó acompañada de una amiga (sin datos registrados de esa persona). Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-08', start:'10:00', end:'11:30', client:'Marisol Rocha', phone:'', services:['Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-08', start:'11:30', end:'13:00', client:'Hermana de Marisol Rocha', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Nombre no especificado en el registro original (hermana de Marisol Rocha). Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-08', start:'15:00', end:'16:00', client:'Nicole Stephanie Escudero Flores', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-08', start:'16:30', end:'18:00', client:'Stefany Arteaga', phone:'', services:['Sombreado (SOMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-09', start:'10:00', end:'12:00', client:'Edith Tua', phone:'', services:['MixBrows'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'"tm" en el registro original — es MixBrows. En su momento se anotó un precio de $70.000, pero no se cargó como precio real (todas las citas de julio quedaron en $0, para no mezclar meses con datos reales y meses sin verificar). Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-09', start:'11:30', end:'13:00', client:'Sofia Zanni', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-09', start:'13:30', end:'15:30', client:'Mairelyn Zumztein', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-09', start:'17:00', end:'18:00', client:'Karyelis Parra', phone:'', services:['Full Lips (FL)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-10', start:'11:30', end:'13:30', client:'Paola Puyol', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'El registro original no traía hora de fin; se calculó según la duración habitual del servicio. Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-10', start:'13:00', end:'14:30', client:'Soledad Galvez Petit', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-10', start:'14:30', end:'16:30', client:'Yormaly Ochoa', phone:'', services:['Retoque Microblading (RMB)','Retoque de Full Lips'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'En su momento se anotó un precio de $40.000 (combo), pero no se cargó como precio real (todas las citas de julio quedaron en $0, para no mezclar meses con datos reales y meses sin verificar). Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-10', start:'17:00', end:'18:00', client:'Karyelis Parra', phone:'', services:['Full Lips (FL)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-10', start:'18:30', end:'19:30', client:'Paula Valdivieso', phone:'', services:['Retoque Delineado de Ojos (RDO)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-11', start:'10:00', end:'11:00', client:'Rocio Melendez Gomez', phone:'', services:['Perfeccionamiento (PERF)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-11', start:'12:00', end:'13:00', client:'Valeria Piña', phone:'', services:['Lifting de Pestañas (LP)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-11', start:'13:30', end:'14:30', client:'Carmen Guiñez', phone:'', services:['Delineado de Ojos (DO)'], specialist:'Melissa', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'No abonó (dato original). Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-11', start:'15:00', end:'16:00', client:'Maria Salazar', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Melissa', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-11', start:'15:30', end:'16:30', client:'Dayana Cala', phone:'', services:['Microblading (MB)'], specialist:'Melissa', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'No abonó (dato original). Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-11', start:'17:30', end:'18:30', client:'Karyelis Parra', phone:'', services:['Full Lips (FL)'], specialist:'Melissa', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-14', start:'13:00', end:'15:30', client:'Maria Angelica Soto', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-14', start:'13:00', end:'15:30', client:'Hermana de Maria Angelica Soto', phone:'', services:['Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Nombre no especificado en el registro original (hermana de Maria Angelica Soto). Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-14', start:'17:00', end:'18:00', client:'Claudia Faudez', phone:'', services:['Delineado de Ojos (DO)','Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-15', start:'12:00', end:'16:00', client:'Virginia Diaz', phone:'', services:['Full Lips (FL)','Delineado de Ojos (DO)'], specialist:'Melissa', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-15', start:'12:30', end:'14:00', client:'Teresa Araya Mendez', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-15', start:'14:00', end:'15:00', client:'Maria Cabezas Monroy', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-15', start:'15:30', end:'16:30', client:'Melania Pincheira', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-17', start:'13:00', end:'14:00', client:'Eukat', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Llegó acompañada de una amiga (sin datos registrados de esa persona). Nombre de Instagram: Eukat. Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-17', start:'14:30', end:'15:30', client:'Pia Hernández', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-18', start:'13:00', end:'14:00', client:'Eukat', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Llegó acompañada de una amiga (sin datos registrados de esa persona). Nombre de Instagram: Eukat. Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-18', start:'14:00', end:'15:30', client:'Viviana Elena Vera Cancino', phone:'', services:['Delineado de Ojos (DO)'], specialist:'Melissa', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-18', start:'14:00', end:'15:00', client:'Nadia Rivas', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Nombre de Instagram en el registro original. Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-18', start:'15:30', end:'17:00', client:'Angélica Gonzalez Esquivel', phone:'', services:['Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-18', start:'17:00', end:'17:30', client:'Mari Higuera', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-18', start:'17:30', end:'19:30', client:'Maytte Tapia', phone:'', services:['Sombreado (SOMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-20', start:'13:00', end:'14:00', client:'Claudia', phone:'', services:['Retoque Delineado de Ojos (RDO)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Instagram: clauu_diia. Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-20', start:'13:30', end:'14:30', client:'Brenda Alfaro', phone:'93179 5024', services:['Microblading (MB)'], specialist:'Melissa', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-20', start:'14:00', end:'15:00', client:'Raquel López', phone:'945451081', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-20', start:'15:30', end:'16:30', client:'Valentina Tapia', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'"r mb" en el registro original. Instagram (usuario no especificado). Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-21', start:'10:00', end:'12:00', client:'Jacqueline Peña', phone:'+56989144214', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-22', start:'10:00', end:'11:00', client:'Betzabeth Pérez', phone:'+56937394442', services:['Retoque Delineado de Ojos (RDO)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Facebook: Betzi. Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-22', start:'11:00', end:'13:00', client:'Rosa Huentecol', phone:'+5695034911', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Llegó por Facebook. Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-22', start:'13:30', end:'15:30', client:'Jocelyn Faundes Huentenao', phone:'+569 36328485', services:['Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Instagram: masoterapiconjocelyn. Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-22', start:'14:30', end:'15:30', client:'Viviana Perez Rojas', phone:'', services:['Retoque Delineado de Ojos (RDO)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-22', start:'17:00', end:'18:00', client:'Porfiria Araujo', phone:'+56954457710', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-24', start:'15:30', end:'16:30', client:'Angela Espinoza', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Instagram: "e c". Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-24', start:'16:00', end:'19:00', client:'Francisca Yanzon', phone:'+56995383541', services:['Microblading (MB)','Delineado de Ojos (DO)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Instagram: frann_yazon. Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-25', start:'10:00', end:'12:00', client:'Cecilia Robles Galaz', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Clienta nueva (anotado como "new" en el registro original). Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-25', start:'11:30', end:'12:30', client:'Carmen Zarraga', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'El registro original decía además "nerly te cop" — no se pudo identificar qué significa. Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-25', start:'13:00', end:'14:00', client:'Karito Parada', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Instagram (usuario no especificado). Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-25', start:'13:30', end:'15:00', client:'Claudia Barria Aravena', phone:'', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-31', start:'10:30', end:'11:30', client:'fabianambp (IG)', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-31', start:'15:30', end:'16:30', client:'Mizar Ormeño', phone:'+56990191991', services:['Microblading (MB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-31', start:'17:30', end:'18:30', client:'Jhonangelis Acosta', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Instagram: Jhona Elena Acosta. Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-  { id: uid(), date:'2026-07-31', start:'18:30', end:'19:30', client:'Thayling Sanchez', phone:'', services:['Retoque Microblading (RMB)'], specialist:'Salome', estado:'Realizada', price:0, abono:0, metodoAbono:'', saldo:0, metodoSaldo:'', notas:'Dato importado — sin información real de precio/pago (no se registró en su momento).' },
-];
-function runJulio2026ImportIfNeeded(){
-  if(state.settings[JULIO_2026_KEY]) return false;
-  state.appointments = state.appointments.concat(JULIO_2026_IMPORT);
-  JULIO_2026_IMPORT.forEach(a=>{
-    if(a.client) upsertClient(a.client, a.phone, summarizeServices(a.services||[]));
-  });
-  state.settings[JULIO_2026_KEY] = true;
-  return true;
-}
+// Las citas de la agenda anterior (julio, agosto y septiembre 2026) se
+// cargaron UNA vez desde listas escritas aquí mismo (runHistoricalImport…,
+// runSabado12Import…, runSept5a11Import…, runJulio2026Import… y
+// runPriceCorrections…). El 09/10/2026, a pedido de Juan Diego, se borraron
+// del código (tenían nombres y teléfonos de clientas, y el repositorio es
+// público): esas citas ya viven en Firebase, en los respaldos y en la Hoja,
+// y la agenda no las vuelve a cargar nunca (tampoco si faltara su marca).
 
 // ---------------- Gastos fijos recurrentes (del Excel de control financiero) ----------------
 // Se pagan todos los meses el día 5, según confirmó el usuario. Se cargan una
@@ -4231,22 +2335,6 @@ function runCorrectionsIfNeeded(){
   return true;
 }
 
-const PRICE_FIX_KEY = 'preciosHistoricos20260909';
-function runPriceCorrectionsIfNeeded(){
-  if(state.settings[PRICE_FIX_KEY]) return false;
-  const byId = {};
-  HISTORICAL_IMPORT.forEach(h=>{ byId[h.id] = h; });
-  state.appointments.forEach(a=>{
-    const h = byId[a.id];
-    if(h && (!a.price || a.price===0) && h.price>0){
-      a.price = h.price;
-      a.saldo = h.saldo;
-    }
-  });
-  state.settings[PRICE_FIX_KEY] = true;
-  return true;
-}
-
 const PASSWORD_INIT_KEY = 'passwordInicial20260910';
 function runPasswordInitIfNeeded(){
   if(state.settings[PASSWORD_INIT_KEY]) return false;
@@ -4266,7 +2354,7 @@ const SPECIALIST_AGOSTO_OVERRIDES = {
   'hist20260820110033895': 'Jeeymar',
   'hist20260821173057028': 'Melissa',
   'hist20260822100010306': 'Jeeymar',
-  'hist20260822113030934': 'Jeeymar', // Rosario De la Cruz
+  'hist20260822113030934': 'Jeeymar',
   'hist2026082911009643': 'Jeeymar',
   'hist20260831150031116': 'Melissa',
   'hist20260831163080844': 'Melissa',
@@ -4295,9 +2383,9 @@ function runSpecialistAgostoIfNeeded(){
   return true;
 }
 
-// Corrección puntual: la cita de Mairelyn Zumztein (22 ago, 11:30–12:30) había
-// quedado marcada como Jeeymar por error (era la de Rosario De la Cruz en el
-// mismo horario, cuando existían dos box). Esto la corrige aunque la corrección
+// Corrección puntual: una cita del 22 ago, 11:30–12:30 había quedado marcada
+// como Jeeymar por error (era la de otra clienta en el mismo horario, cuando
+// existían dos box). Esto la corrige aunque la corrección
 // de arriba ya se haya ejecutado antes con el dato equivocado.
 const MAIRELYN_FIX_KEY = 'fixMairelyn20260910';
 function runMairelynFixIfNeeded(){
@@ -4822,14 +2910,9 @@ function runMicropigmentacionFlagsIfNeeded(){
 // Todas las cargas/correcciones automáticas de datos (corren una sola vez
 // cada una, marcadas en settings). Devuelve true si alguna cambió algo.
 function runSantiagoMigrations(){
-  const imported = runHistoricalImportIfNeeded();
-  const sabado12 = runSabado12ImportIfNeeded();
-  const sept5a11 = runSept5a11ImportIfNeeded();
-  const julio2026 = runJulio2026ImportIfNeeded();
   const gastosFijos = runRecurringExpensesImportIfNeeded();
   const ingresoBox = runRecurringIncomeImportIfNeeded();
   const corrected = runCorrectionsIfNeeded();
-  const priceFixed = runPriceCorrectionsIfNeeded();
   const passwordInit = runPasswordInitIfNeeded();
   const specialistAgosto = runSpecialistAgostoIfNeeded();
   const mairelynFix = runMairelynFixIfNeeded();
@@ -4843,7 +2926,7 @@ function runSantiagoMigrations(){
   const cursoMicropigmentacion = runCursoMicropigmentacion20261025IfNeeded();
   const cursoHuerfanoRepair = runCursoHuerfanoRepairIfNeeded();
   const microFlags = runMicropigmentacionFlagsIfNeeded();
-  return !!(microFlags || imported || sabado12 || sept5a11 || julio2026 || gastosFijos || ingresoBox || corrected || priceFixed || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas || cursoMicropigmentacion || cursoHuerfanoRepair);
+  return !!(microFlags || gastosFijos || ingresoBox || corrected || passwordInit || specialistAgosto || mairelynFix || saldoFix || paymentNormalize || noLunch || stockSeed || salomeRename || gananciasCutoff || personasNotas || cursoMicropigmentacion || cursoHuerfanoRepair);
 }
 
 function startFirestoreSync(){
@@ -5313,6 +3396,7 @@ function render(){
   const prevScrollLeft = prevModal ? Array.from(prevModal.querySelectorAll('.table-scroll')).map(el=>el.scrollLeft) : [];
 
   if(ui.section==='finanzas' && ui.mode!=='admin' && !MIS_GANANCIAS_VISIBLE) ui.section = 'agenda';
+  if(ui.section==='garantias' && !puedeVerGarantias()) ui.section = 'agenda';
   const html = `
     <header class="topbar">
       <div class="brand">
@@ -5330,6 +3414,8 @@ function render(){
       <main class="fin-main">${ui.mode==='admin' ? finanzasPageHtml() : MIS_GANANCIAS_VISIBLE ? misGananciasPageHtml() : ''}</main>
     ` : ui.section==='stock' ? `
       <main class="fin-main">${stockPageHtml()}</main>
+    ` : ui.section==='garantias' ? `
+      <main class="fin-main">${garantiasSeccionHtml()}</main>
     ` : `
       ${toolbarHtml()}
       ${statusLegendHtml()}
@@ -5363,9 +3449,10 @@ function sectionTabsHtml(){
   const isAdmin = ui.mode==='admin';
   return `
     <div class="section-tabs">
-      <button class="${ui.section!=='finanzas'&&ui.section!=='stock'?'active':''}" data-act="goto-section" data-section="agenda">📅 Agenda</button>
+      <button class="${!['finanzas','stock','garantias'].includes(ui.section)?'active':''}" data-act="goto-section" data-section="agenda">📅 Agenda</button>
       ${(isAdmin || MIS_GANANCIAS_VISIBLE) ? `<button class="${ui.section==='finanzas'?'active':''}" data-act="goto-section" data-section="finanzas">${isAdmin ? '📊 Finanzas' : '📊 Mis ganancias'}</button>` : ''}
       <button class="${ui.section==='stock'?'active':''}" data-act="goto-section" data-section="stock">📦 Stock</button>
+      ${puedeVerGarantias() ? `<button class="${ui.section==='garantias'?'active':''}" data-act="goto-section" data-section="garantias">⭐ Garantías</button>` : ''}
     </div>`;
 }
 
@@ -5448,7 +3535,6 @@ function toolbarHtml(){
             ${(SEDE.descuentoMicro||{}).tipo==='dolar' ? `<button data-act="open-valores-sede">💱 Valor del dólar</button>` : ''}
             <button data-act="cambiar-cuenta">🔑 Entrar con otra contraseña</button>
             ${esDueno() ? `<button data-act="open-equipo">👥 Equipo (usuarios)</button>` : ''}
-            ${esDueno() ? `<button data-act="open-garantias">⭐ Garantías por especialista</button>` : ''}
           </div>` : ''}
       </div>` : ''}
       ${specChips}
@@ -5823,7 +3909,6 @@ function modalHtml(){
   if(ui.modal.type==='block') return blockModalHtml();
   if(ui.modal.type==='blocks-list') return blocksListModalHtml();
   if(ui.modal.type==='touchups') return touchupsModalHtml();
-  if(ui.modal.type==='garantias') return garantiasModalHtml();
   if(ui.modal.type==='reviews') return reviewsModalHtml();
   if(ui.modal.type==='search') return searchModalHtml();
   if(ui.modal.type==='autobackups') return autoBackupsModalHtml();
@@ -7879,12 +5964,13 @@ function desmarcarPagado(name){
   });
 }
 
-// ---------------- Más → ⭐ Garantías por especialista (calidad) ----------------
+// ---------------- ⭐ Garantías por especialista (calidad) ----------------
 // Pedido de Juan Diego (oct 2026): saber quién hace mejor cada tratamiento.
 // Se mide con las GARANTÍAS (trabajo que hubo que rehacer gratis), contadas a
 // quien hizo el tratamiento ORIGINAL (no a quien hizo la garantía). Los
-// retoques no cuentan: son parte normal del proceso. Solo dueños (Más, que
-// solo existe en modo Admin; él no quiso que estuviera en Finanzas).
+// retoques no cuentan: son parte normal del proceso. Solo dueños: pestaña
+// "⭐ Garantías" arriba, al lado de Stock (él pidió que fuera una sección como
+// Finanzas o Stock; primero estuvo en Finanzas y después en Más).
 // - Desde GARANTIAS_DESDE (inicio de esta agenda).
 // - Un tratamiento de los últimos GARANTIAS_MADURACION_DIAS días todavía no
 //   cuenta en el % (aún puede volver por garantía); se muestra aparte.
@@ -7939,17 +6025,24 @@ function garantiasStats(){
       if(a.date<=corte) c.n++; else c.nRec++;
     });
   });
-  const sinAnotar = [];
+  const sinAnotar = [], fuera = [];
   garantias.forEach(g=>{
     const r = originalDeGarantiaParaStats(g, rastreados);
-    if(!r){ if(!g.garantiaDe) sinAnotar.push(g); return; }
+    if(!r){ (g.garantiaDe ? fuera : sinAnotar).push(g); return; }
     const {orig, tratamiento} = r;
-    if(!orig.specialist || orig.date<GARANTIAS_DESDE) return; // de antes de esta agenda
+    // Tratamiento original de antes de esta agenda (o sin especialista):
+    // no se puede comparar con nada, no cuenta.
+    if(!orig.specialist || orig.date<GARANTIAS_DESDE){ fuera.push(g); return; }
     const c = celda(tratamiento, orig.specialist);
     if(orig.date<=corte) c.g++; else c.gRec++;
     c.citas.push({g, orig, adivinado: !!r.adivinado});
   });
-  return {celdas, sinAnotar, corte};
+  // Totales para el resumen de arriba ("¿por qué todo está en 0%?").
+  const resumen = {n:0, nRec:0, g:0, gRec:0, garantias: garantias.length, sinAnotar: sinAnotar.length, fuera: fuera.length};
+  Object.values(celdas).forEach(porEsp=>Object.values(porEsp).forEach(c=>{
+    resumen.n += c.n; resumen.nRec += c.nRec; resumen.g += c.g; resumen.gRec += c.gRec;
+  }));
+  return {celdas, sinAnotar, fuera, corte, resumen};
 }
 function garantiaBarraHtml(esp, c, escala, mejor){
   const pocos = c.n < GARANTIAS_MIN_DATOS;
@@ -8029,7 +6122,16 @@ function garantiaBloqueHtml(titulo, porEsp){
     </div>`;
 }
 function garantiasPageHtml(){
-  const {celdas, sinAnotar, corte} = garantiasStats();
+  const {celdas, sinAnotar, fuera, corte, resumen:r} = garantiasStats();
+  const desdeTxt = `${parseKey(GARANTIAS_DESDE).getDate()} de ${MONTHS[parseKey(GARANTIAS_DESDE).getMonth()]}`;
+  const corteTxt = `${parseKey(corte).getDate()} de ${MONTHS[parseKey(corte).getMonth()]}`;
+  const resumenHtml = `
+    <div class="fin-cards">
+      <div class="fin-card"><div class="lbl">Tratamientos que ya cuentan</div><div class="val">${r.n}</div><div class="hint" style="margin:2px 0 0;">hechos entre el ${desdeTxt} y el ${corteTxt}</div></div>
+      <div class="fin-card"><div class="lbl">Recientes (aún no cuentan)</div><div class="val">${r.nRec}</div><div class="hint" style="margin:2px 0 0;">de los últimos ${GARANTIAS_MADURACION_DIAS} días</div></div>
+      <div class="fin-card highlight"><div class="lbl">Garantías desde el ${desdeTxt}</div><div class="val">${r.garantias}</div><div class="hint" style="margin:2px 0 0;">${r.g} cuenta${r.g===1?'':'n'} en el %${r.gRec ? ` · ${r.gRec} de recientes` : ''}${r.sinAnotar ? ` · ${r.sinAnotar} sin tratamiento anotado` : ''}${r.fuera ? ` · ${r.fuera} de antes de la agenda` : ''}</div></div>
+    </div>
+    ${r.g===0 && r.n>0 ? `<div class="hint" style="margin:-6px 0 14px;">💡 Si todo sale en <b>0%</b> es porque ningún tratamiento que ya cuenta tiene una garantía anotada: 0% es lo mejor posible, no un error. Los números se van llenando solos a medida que pasan los días y se agendan garantías (marcando "Garantía de servicio" y eligiendo de qué tratamiento es).</div>` : ''}`;
   const general = {};
   Object.values(celdas).forEach(porEsp=>Object.keys(porEsp).forEach(e=>{
     const c = porEsp[e], gq = general[e] = general[e] || {n:0, g:0, nRec:0, gRec:0};
@@ -8045,8 +6147,9 @@ function garantiasPageHtml(){
   Object.keys(celdas).forEach(t=>Object.keys(celdas[t]).forEach(e=>celdas[t][e].citas.forEach(x=>lista.push({...x, t}))));
   lista.sort((x,y)=>y.g.date.localeCompare(x.g.date));
   return `
+    ${resumenHtml}
     ${Object.keys(general).length ? garantiaBloqueHtml('En general (todos los tratamientos)', general) : `<div class="empty-msg">Todavía no hay tratamientos para medir.</div>`}
-    ${bloques ? `<div class="fin-sub">Por tratamiento</div>${bloques}` : ''}
+    ${bloques ? `<div class="fin-sub">Por tratamiento</div><div class="gar-grid">${bloques}</div>` : ''}
     ${sinAnotar.length ? `
     <div class="pago-aviso">⚠️ <b>${sinAnotar.length} garantía${sinAnotar.length===1?'':'s'} sin tratamiento anotado</b> (no se sabe de qué tratamiento fue${sinAnotar.length===1?'':'ron'}, así que no cuenta${sinAnotar.length===1?'':'n'}). Ábrela y elige "¿Garantía de qué tratamiento?":
       <ul>${sinAnotar.map(a=>`<li><button type="button" class="linklike" data-act="edit-appt" data-id="${escapeHtml(a.id)}">${diaCorto(a.date)} · ${escapeHtml(a.client||'(sin nombre)')}${a.specialist?` · la hizo ${escapeHtml(a.specialist)}`:''}</button></li>`).join('')}</ul></div>` : ''}
@@ -8060,22 +6163,25 @@ function garantiasPageHtml(){
         </div>
       </div>`).join('')}
     </details>` : ''}
+    ${fuera.length ? `
+    <details class="gar-detalle">
+      <summary class="fin-sub" style="cursor:pointer;">Garantías que no cuentan (${fuera.length})</summary>
+      <div class="hint" style="margin:0 0 6px;">El tratamiento original es de antes del ${desdeTxt} (o no está en la agenda), así que no hay con qué compararlo.</div>
+      ${fuera.map(g=>`
+      <div class="pago-fila click" data-act="edit-appt" data-id="${escapeHtml(g.id)}">
+        <div>${diaCorto(g.date)} · ${escapeHtml(g.client||'(sin nombre)')}<div class="como">${escapeHtml(apptServiciosTexto(g))}${g.specialist ? ` · la hizo ${escapeHtml(g.specialist)}` : ''}</div></div>
+      </div>`).join('')}
+    </details>` : ''}
     <div class="hint" style="margin-top:16px;">Cómo se calcula: tratamientos que llevan retoque (y cualquier otro que haya tenido una garantía) hechos desde el ${parseKey(GARANTIAS_DESDE).getDate()} de ${MONTHS[parseKey(GARANTIAS_DESDE).getMonth()]} (sin contar los cancelados ni los que no llegaron), y cuántos volvieron por garantía. La garantía se le cuenta a quien hizo el tratamiento, aunque la garantía la haya hecho otra. Los de los últimos ${GARANTIAS_MADURACION_DIAS} días (desde el ${diaCorto(toKey(addDays(parseKey(corte),1)))}) todavía no cuentan en el %, porque la clienta aún puede volver. ⭐ = la que menos garantías tiene, solo cuando hay al menos ${GARANTIAS_MIN_DATOS} tratamientos para comparar. Los retoques no cuentan (son parte normal del proceso).</div>`;
 }
 
-function garantiasModalHtml(){
+function puedeVerGarantias(){ return ui.mode==='admin' && esDueno(); }
+function garantiasSeccionHtml(){
   return `
-  <div class="overlay" data-act="overlay-close">
-    <div class="modal" data-stop="1">
-      <h2 class="serif">⭐ Garantías por especialista</h2>
-      <div class="hint">Cuántos tratamientos de cada especialista volvieron por <b>garantía</b> (algo que hubo que rehacer gratis). Menos es mejor. Solo lo ven los dueños.</div>
+    <div class="fin-page gar-page">
+      <div class="hint" style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:14px;color:var(--ink);">⭐ Cuántos tratamientos de cada especialista volvieron por <b>garantía</b> (algo que hubo que rehacer gratis). Menos es mejor. Solo lo ven los dueños. Al agendar, la ⭐ también aparece junto a la especialista.</div>
       ${garantiasPageHtml()}
-      <div class="modal-actions">
-        <div></div>
-        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
-      </div>
-    </div>
-  </div>`;
+    </div>`;
 }
 
 function finanzasPageHtml(){
@@ -9760,7 +7866,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-specialists','add-specialist','remove-specialist','save-specialists',
   'open-schedule','toggle-day-closed','save-schedule',
   'open-clients','toggle-client','delete-client',
-  'open-noshows','open-autobackups','download-autobackup','restore-autobackup','sync-all-backup','open-security','save-security','forget-device','open-blocks-list','open-touchups','open-garantias',
+  'open-noshows','open-autobackups','download-autobackup','restore-autobackup','sync-all-backup','open-security','save-security','forget-device','open-blocks-list','open-touchups',
   'copy-touchup-msg','mark-touchup-avisado','quitar-touchup','devolver-touchup',
   'open-reviews','copy-checkin-msg','copy-review-msg','toggle-review-avisado',
   'finance-tab','save-comision-pct','save-mis-ganancias-desde',
@@ -9980,9 +8086,7 @@ function onAction(e){
         const data = Object.assign({}, found);
         if(!Array.isArray(data.services)) data.services = data.service ? [data.service] : [];
         // Foto de cómo estaba la cita al abrirla — ver mergeConcurrentApptChanges.
-        // Abierta desde ⭐ Garantías: al cerrarla o guardarla se vuelve ahí.
-        const volver = ui.modal && ui.modal.type==='garantias' ? {type:'garantias'} : null;
-        ui.modal = {type:'appt', mode:'edit', data, original: JSON.parse(JSON.stringify(found)), volver};
+        ui.modal = {type:'appt', mode:'edit', data, original: JSON.parse(JSON.stringify(found))};
         render();
       }
       break;
@@ -10117,8 +8221,6 @@ function onAction(e){
     }
     case 'open-touchups':
       ui.modal = {type:'touchups'}; ui.menuOpen = false; render(); break;
-    case 'open-garantias':
-      ui.modal = {type:'garantias'}; ui.menuOpen = false; render(); break;
     case 'copy-touchup-msg': {
       const box = document.getElementById('touchup-generic-msg');
       const text = box ? box.value : genericTouchupMsg();
@@ -10337,7 +8439,7 @@ function onAction(e){
       // no"), se revisa si también había tratamientos nuevos para avisar —
       // ese chequeo se saltó mientras este modal estaba abierto.
       const wasIdentity = ui.modal && ui.modal.type==='staff-identity';
-      ui.modal = (ui.modal && ui.modal.volver) || null; render();
+      ui.modal = null; render();
       if(wasIdentity) checkNewServicesIfNeeded();
       break;
     }
@@ -10557,7 +8659,7 @@ function saveApptFromForm(){
     if(idx>=0 && original) mergeConcurrentApptChanges(original, updated, state.appointments[idx]);
     if(idx>=0) state.appointments[idx] = updated; else state.appointments.push(updated);
     upsertClient(updated.client, updated.phone, summarizeServices(updated.services));
-    ui.modal = (ui.modal && ui.modal.volver) || null;
+    ui.modal = null;
     render();
     saveData();
     syncToBackupWebhook('save', updated);

@@ -6144,7 +6144,7 @@ function opcionesEspecialistaHtml(servicios, actual){
   })() : '';
   return `<option value="">— Sin asignar —</option>${extra}` + lista.map(s=>{
     const falta = aptas.length ? [] : noHaceDe(s.name, servicios);
-    return `<option value="${escapeHtml(s.name)}" ${actual===s.name?'selected':''}>${escapeHtml(s.name)}${falta.length ? ` (no hace ${escapeHtml(summarizeServices(falta))})` : ''}</option>`;
+    return `<option value="${escapeHtml(s.name)}" ${actual===s.name?'selected':''}>${escapeHtml(s.name)}${estrellaGarantias(servicios, s.name) ? ' ⭐ menos garantías' : ''}${falta.length ? ` (no hace ${escapeHtml(summarizeServices(falta))})` : ''}</option>`;
   }).join('');
 }
 function filtroEspecialistaHint(servicios, actual){
@@ -6170,6 +6170,8 @@ function actualizarPerfilEnForm(){
   sel.value = actual;
   const hint = document.getElementById('spec-filtro-hint');
   if(hint) hint.innerHTML = filtroEspecialistaHint(servicios, actual);
+  const gar = document.getElementById('spec-garantias');
+  if(gar){ const g = garantiasEnFormHtml(servicios); if(gar.innerHTML !== g) gar.innerHTML = g; }
   // Lo que ella no hace queda en gris y no se puede sumar (sí quitar).
   document.querySelectorAll('[data-svc-row]').forEach(row=>{
     const sv = state.services[Number(row.dataset.svcRow)];
@@ -6311,6 +6313,7 @@ function apptModalHtml(){
       <div class="field"><label>Especialista</label>
         <select id="f-specialist">${opcionesEspecialistaHtml(selectedServices, d.specialist||'')}</select>
         <div class="hint" id="spec-filtro-hint" style="margin:4px 0 0;">${filtroEspecialistaHint(selectedServices, d.specialist||'')}</div>
+        <div class="hint" id="spec-garantias" style="margin:4px 0 0;">${garantiasEnFormHtml(selectedServices)}</div>
       </div>
       </div>
       <div class="appt-sec sec-pago">
@@ -7962,18 +7965,62 @@ function garantiaBarraHtml(esp, c, escala, mejor){
       ${recientes}
     </div>`;
 }
+// Las que menos garantías tienen (⭐): solo si al menos dos tienen datos
+// suficientes y no están todas empatadas.
+function mejoresEnGarantias(porEsp){
+  const pctDe = e=> porEsp[e].n ? porEsp[e].g/porEsp[e].n : 0;
+  const conDatos = Object.keys(porEsp).filter(e=>porEsp[e].n>=GARANTIAS_MIN_DATOS);
+  if(conDatos.length<2) return new Set();
+  const min = Math.min(...conDatos.map(pctDe));
+  const max = Math.max(...conDatos.map(pctDe));
+  return min<max ? new Set(conDatos.filter(e=>pctDe(e)===min)) : new Set();
+}
+// ---- Garantías mientras se agenda (pedido de Juan Diego: ver quién es la
+// más indicada para el tratamiento al momento de agendar) ----
+// Solo dueños (el formulario completo de la cita ya es solo Admin). Las
+// cuentas se hacen una vez por cada vez que se abre el formulario.
+function garantiasStatsDelForm(){
+  if(!(ui.mode==='admin' && esDueno())) return null;
+  if(!ui.modal || ui.modal.type!=='appt') return garantiasStats();
+  if(!ui.modal._garStats) Object.defineProperty(ui.modal, '_garStats', {value: garantiasStats(), enumerable:false, writable:true});
+  return ui.modal._garStats;
+}
+function celdaGarantias(st, servicio, esp){
+  const porEsp = st && st.celdas[servicio];
+  if(!porEsp) return null;
+  const k = Object.keys(porEsp).find(e=>normalizeName(e)===normalizeName(esp));
+  return k ? {c: porEsp[k], mejor: mejoresEnGarantias(porEsp).has(k)} : null;
+}
+// ⭐ en la lista de especialistas: con UN tratamiento elegido, la que menos
+// garantías tiene en ese tratamiento.
+function estrellaGarantias(servicios, esp){
+  const sv = serviciosParaFiltro(servicios);
+  if(sv.length!==1) return false;
+  const x = celdaGarantias(garantiasStatsDelForm(), sv[0], esp);
+  return !!(x && x.mejor);
+}
+function garantiasEnFormHtml(servicios){
+  const st = garantiasStatsDelForm();
+  if(!st) return '';
+  const lineas = serviciosParaFiltro(servicios).map(t=>{
+    const partes = state.specialists.filter(sp=>especialistaHace(sp.name, t)).map(sp=>{
+      const x = celdaGarantias(st, t, sp.name);
+      if(!x || !x.c.n) return null;
+      const pct = Math.round(x.c.g*100/x.c.n);
+      return x.c.n < GARANTIAS_MIN_DATOS
+        ? `${escapeHtml(sp.name)} <span style="opacity:.7">(pocos datos: ${x.c.g} de ${x.c.n})</span>`
+        : `${x.mejor?'⭐ ':''}<b>${escapeHtml(sp.name)} ${pct}%</b> <span style="opacity:.7">(${x.c.g} de ${x.c.n})</span>`;
+    }).filter(Boolean);
+    return partes.length ? `<div>Garantías en ${escapeHtml(t)}: ${partes.join(' · ')}</div>` : '';
+  }).filter(Boolean);
+  return lineas.length ? lineas.join('') + `<div style="opacity:.7">Menos es mejor. Detalle en Más → ⭐ Garantías.</div>` : '';
+}
 function garantiaBloqueHtml(titulo, porEsp){
   const esps = Object.keys(porEsp).filter(e=>porEsp[e].n || porEsp[e].nRec)
     .sort((a,b)=>(porEsp[b].n - porEsp[a].n) || a.localeCompare(b));
   if(!esps.length) return '';
   const pctDe = e=> porEsp[e].n ? porEsp[e].g/porEsp[e].n : 0;
-  const conDatos = esps.filter(e=>porEsp[e].n>=GARANTIAS_MIN_DATOS);
-  let mejores = new Set();
-  if(conDatos.length>=2){
-    const min = Math.min(...conDatos.map(pctDe));
-    const max = Math.max(...conDatos.map(pctDe));
-    if(min<max) mejores = new Set(conDatos.filter(e=>pctDe(e)===min));
-  }
+  const mejores = mejoresEnGarantias(porEsp);
   const escala = Math.max(30, ...esps.map(e=>Math.round(pctDe(e)*100)));
   return `
     <div class="gar-card">

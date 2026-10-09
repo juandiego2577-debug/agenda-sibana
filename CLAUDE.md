@@ -1087,7 +1087,15 @@ para servir también a **Copiapó**, de la siguiente forma:
   entre las que tienen datos suficientes. Garantías viejas sin "¿de qué
   tratamiento?": si la clienta tuvo un solo tratamiento antes, se deduce; si
   no (combo), lista "sin tratamiento anotado" para abrirla y elegirlo.
-  Solo lee: no guarda nada ni toca plata. Probado: e2e (21).
+  Solo lee: no guarda nada ni toca plata. **También al agendar** (pedido de
+  Juan Diego: "ver quién es la especialista más óptima mientras agendo"):
+  debajo de "Especialista" en el formulario de la cita, una línea por
+  tratamiento elegido ("Garantías en Microblading: ⭐ Salomé 6% (1 de 16) ·
+  Lucy 31% …", solo las que lo hacen según su perfil; `garantiasEnFormHtml`)
+  y, con UN tratamiento, "⭐ menos garantías" junto a su nombre en la lista
+  (`estrellaGarantias`). No reordena la lista ni elige sola. Solo dueños
+  (`esDueno()`); las cuentas se hacen una vez por formulario abierto
+  (`ui.modal._garStats`, no enumerable). Probado: e2e (21 + 6).
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos

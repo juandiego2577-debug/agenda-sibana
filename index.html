@@ -398,6 +398,19 @@
   .pago-fila .como{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
   .pago-fila .monto{white-space:nowrap;font-weight:600;}
   .pago-fila.click{cursor:pointer;}
+  /* Más → ⭐ Garantías por especialista */
+  .gar-card{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;}
+  .gar-titulo{font-weight:600;font-size:14.5px;margin-bottom:8px;}
+  .gar-fila{display:grid;grid-template-columns:minmax(80px,140px) 1fr auto;gap:4px 10px;align-items:center;padding:6px 0;border-top:1px dashed var(--line);}
+  .gar-titulo + .gar-fila{border-top:none;}
+  .gar-quien{font-size:13.5px;display:flex;align-items:center;gap:6px;min-width:0;overflow-wrap:anywhere;}
+  .gar-quien .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .gar-barra{height:10px;border-radius:5px;background:var(--line);overflow:hidden;}
+  .gar-barra span{display:block;height:100%;border-radius:5px;}
+  .gar-num{font-size:13px;white-space:nowrap;text-align:right;}
+  .gar-num span{color:var(--ink-soft);font-size:11.5px;margin-left:4px;}
+  .gar-rec{grid-column:1/-1;font-size:11px;color:var(--ink-soft);margin-top:-2px;}
+  .gar-fila.pocos .gar-barra,.gar-fila.pocos .gar-num b{opacity:.5;}
   .pago-fila.click:hover{background:rgba(201,162,39,0.06);}
   .pago-suma{margin-top:12px;font-size:13px;}
   .pago-suma div{display:flex;justify-content:space-between;padding:3px 0;}
@@ -556,6 +569,7 @@
   .svc-qty-btn:disabled{opacity:.35;cursor:not-allowed;}
   .svc-qty-num{min-width:14px;text-align:center;font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums;}
   .svc-picker-row.checked .svc-qty-num{color:var(--gold);font-weight:700;}
+  .svc-picker-row.no-hace:not(.checked){opacity:.45;}
   .svc-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;min-height:20px;}
   .svc-chips-empty{font-size:11.5px;color:var(--ink-soft);font-style:italic;}
   .svc-chip-tag{
@@ -585,7 +599,17 @@
     color:var(--ink-soft);font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;
     font-family:'Inter',sans-serif;
   }
-  .spec-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+  .spec-row{display:flex;gap:8px;align-items:center;margin-bottom:6px;}
+  .spec-item{margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--line);}
+  .spec-perfil summary{cursor:pointer;font-size:12.5px;color:var(--ink);padding:2px 0;}
+  .spec-perfil-head,.spec-perfil-row{display:grid;grid-template-columns:1fr 74px;gap:8px;align-items:center;}
+  .spec-perfil-head{font-size:11px;color:var(--ink-soft);margin:0 0 4px;}
+  .spec-perfil-head span:last-child{text-align:center;}
+  .spec-perfil-row{padding:3px 0;border-top:1px solid var(--line);}
+  .spec-perfil-row label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);cursor:pointer;min-width:0;}
+  .spec-perfil-row label span{min-width:0;overflow-wrap:anywhere;}
+  .spec-perfil-row input[type=checkbox]{width:16px;height:16px;flex-shrink:0;accent-color:var(--wine);}
+  .spec-perfil-row input[type=number]{width:100%;padding:5px 6px;border:1px solid var(--line);border-radius:6px;font-size:12.5px;background:var(--panel-2);color:var(--ink);text-align:center;}
   .spec-row input[type=text]{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;background:var(--panel-2);color:var(--ink);font-family:'Inter',sans-serif;}
   .spec-row select{width:auto;flex-shrink:0;padding:7px 6px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--panel-2);color:var(--ink);font-family:'Inter',sans-serif;}
   .spec-row input[type=color]{width:38px;height:34px;padding:2px;border:1px solid var(--line);border-radius:6px;background:var(--panel-2);cursor:pointer;flex-shrink:0;}
@@ -3671,6 +3695,35 @@ function specialistColor(name){
 function colorSeguro(c){
   return /^#[0-9a-fA-F]{3,8}$/.test(String(c||'').trim()) ? String(c).trim() : '#6B6152';
 }
+// Perfil de cada especialista (pedido de Juan Diego, oct 2026), lo llenan
+// los dueños en Más → Especialistas:
+// - s.noHace = [nombres de servicios que ella NO hace]. Si nunca se marcó
+//   nada, hace todo (así un servicio nuevo lo puede hacer cualquiera hasta
+//   que se diga lo contrario). En "Nueva cita" solo aparecen las que hacen
+//   todos los tratamientos elegidos, y con una especialista elegida lo que
+//   ella no hace se ve en gris.
+// - s.duraciones = {servicio: minutos} solo donde ella se demora distinto de
+//   la duración general (ej. Lucy hace el microblading en 1 h). La cita
+//   nueva dura eso. Lo vacío usa la duración de Servicios y tarifario.
+// Son campos dentro de cada especialista: no exigió subir APP_VERSION.
+function especialistaPorNombre(nombre){
+  const key = normalizeName(nombre);
+  return key ? state.specialists.find(x=>normalizeName(x.name)===key) || null : null;
+}
+function especialistaHace(nombreEsp, servicio){
+  const s = especialistaPorNombre(nombreEsp);
+  if(!s || !Array.isArray(s.noHace) || !servicio) return true;
+  return !s.noHace.includes(servicio);
+}
+function duracionPropia(nombreEsp, servicio){
+  const s = especialistaPorNombre(nombreEsp);
+  const m = s && s.duraciones ? Number(s.duraciones[servicio]) : 0;
+  return m>0 ? m : null;
+}
+function duracionServicioPara(svc, nombreEsp){
+  if(!svc) return 0;
+  return duracionPropia(nombreEsp, svc.name) || (Number(svc.duration)||0);
+}
 function filterBySpecialist(list){
   if(ui.specialistFilter==='all') return list;
   return list.filter(a=>normalizeName(a.specialist)===normalizeName(ui.specialistFilter));
@@ -3781,14 +3834,20 @@ function getServiceQuantities(){
     qty: Number(row.dataset.qty)||0
   })).filter(x=>x.qty>0);
 }
+function especialistaDelForm(){
+  const sel = document.getElementById('f-specialist');
+  return sel ? sel.value : '';
+}
 function getTotalDuration(){
   const q = getServiceQuantities();
   const durGarantia = duracionGarantiaElegida();
+  const esp = especialistaDelForm();
   const total = q.reduce((sum,{idx,qty})=>{
     const svc = state.services[idx];
     if(!svc) return sum;
-    // Una garantía dura lo que el tratamiento del que es garantía.
-    const dur = esServicioGarantia(svc.name) && durGarantia!=null ? durGarantia : (Number(svc.duration)||0);
+    // Una garantía dura lo que el tratamiento del que es garantía. Si la
+    // especialista elegida se demora distinto en algo, cuenta lo suyo.
+    const dur = esServicioGarantia(svc.name) && durGarantia!=null ? durGarantia : duracionServicioPara(svc, esp);
     return sum + dur*qty;
   }, 0);
   return total || 60;
@@ -3807,6 +3866,7 @@ function setServiceQty(idx, qty){
 }
 function recomputeServiceFields(){
   actualizarCampoGarantia();
+  actualizarPerfilEnForm();
   const q = getServiceQuantities();
   const isNew = ui.modal && ui.modal.mode === 'new';
   const cremaEl = document.getElementById('f-crema');
@@ -5388,6 +5448,7 @@ function toolbarHtml(){
             ${(SEDE.descuentoMicro||{}).tipo==='dolar' ? `<button data-act="open-valores-sede">💱 Valor del dólar</button>` : ''}
             <button data-act="cambiar-cuenta">🔑 Entrar con otra contraseña</button>
             ${esDueno() ? `<button data-act="open-equipo">👥 Equipo (usuarios)</button>` : ''}
+            ${esDueno() ? `<button data-act="open-garantias">⭐ Garantías por especialista</button>` : ''}
           </div>` : ''}
       </div>` : ''}
       ${specChips}
@@ -5762,6 +5823,7 @@ function modalHtml(){
   if(ui.modal.type==='block') return blockModalHtml();
   if(ui.modal.type==='blocks-list') return blocksListModalHtml();
   if(ui.modal.type==='touchups') return touchupsModalHtml();
+  if(ui.modal.type==='garantias') return garantiasModalHtml();
   if(ui.modal.type==='reviews') return reviewsModalHtml();
   if(ui.modal.type==='search') return searchModalHtml();
   if(ui.modal.type==='autobackups') return autoBackupsModalHtml();
@@ -6056,6 +6118,75 @@ function apptViewOnlyHtml(d){
   </div>`;
 }
 
+// ---- Perfil de la especialista dentro del formulario de la cita ----
+function pickerDuracionTexto(svc, esp){
+  const propia = duracionPropia(esp, svc.name);
+  return propia && propia!==(Number(svc.duration)||0)
+    ? `${propia} min con ${escapeHtml(esp)} <span style="opacity:.7">(normal ${Number(svc.duration)||0})</span>`
+    : `${Number(svc.duration)||0} min`;
+}
+// Servicios que importan para elegir especialista: los elegidos, menos la
+// garantía y la evaluación (las puede hacer cualquiera).
+function serviciosParaFiltro(servicios){
+  return Array.from(new Set((servicios||[]).filter(n=>n && !esServicioGarantia(n) && !/evaluaci[oó]n/i.test(n))));
+}
+function noHaceDe(esp, servicios){
+  return serviciosParaFiltro(servicios).filter(n=>!especialistaHace(esp, n));
+}
+function opcionesEspecialistaHtml(servicios, actual){
+  const aptas = state.specialists.filter(s=>noHaceDe(s.name, servicios).length===0);
+  // Si nadie hace todo lo elegido junto, se muestran todas (con el aviso).
+  const lista = aptas.length ? aptas : state.specialists;
+  const enLista = actual && lista.some(s=>s.name===actual);
+  const extra = actual && !enLista ? (()=>{
+    const falta = noHaceDe(actual, servicios);
+    return `<option value="${escapeHtml(actual)}" selected>${escapeHtml(actual)}${falta.length ? ` (no hace ${escapeHtml(summarizeServices(falta))})` : ''}</option>`;
+  })() : '';
+  return `<option value="">— Sin asignar —</option>${extra}` + lista.map(s=>{
+    const falta = aptas.length ? [] : noHaceDe(s.name, servicios);
+    return `<option value="${escapeHtml(s.name)}" ${actual===s.name?'selected':''}>${escapeHtml(s.name)}${estrellaGarantias(servicios, s.name) ? ' ⭐ menos garantías' : ''}${falta.length ? ` (no hace ${escapeHtml(summarizeServices(falta))})` : ''}</option>`;
+  }).join('');
+}
+function filtroEspecialistaHint(servicios, actual){
+  const sv = serviciosParaFiltro(servicios);
+  const algunaConPerfil = state.specialists.some(s=>Array.isArray(s.noHace) && s.noHace.length);
+  if(!sv.length || !algunaConPerfil) return '';
+  const aptas = state.specialists.filter(s=>noHaceDe(s.name, servicios).length===0);
+  if(!aptas.length) return `⚠️ Ninguna especialista hace todos estos tratamientos juntos.`;
+  const falta = actual ? noHaceDe(actual, servicios) : [];
+  if(falta.length) return `⚠️ ${escapeHtml(actual)} no hace ${escapeHtml(summarizeServices(falta))} (según Más → Especialistas).`;
+  if(aptas.length < state.specialists.length) return `Solo aparecen las que hacen ${sv.length===1 ? 'este tratamiento' : 'estos tratamientos'}.`;
+  return '';
+}
+// Se llama cada vez que cambian los tratamientos o la especialista.
+function actualizarPerfilEnForm(){
+  const sel = document.getElementById('f-specialist');
+  if(!sel) return;
+  const servicios = [];
+  getServiceQuantities().forEach(({idx})=>{ const sv = state.services[idx]; if(sv) servicios.push(sv.name); });
+  const actual = sel.value;
+  const nuevo = opcionesEspecialistaHtml(servicios, actual);
+  if(sel.innerHTML !== nuevo) sel.innerHTML = nuevo;
+  sel.value = actual;
+  const hint = document.getElementById('spec-filtro-hint');
+  if(hint) hint.innerHTML = filtroEspecialistaHint(servicios, actual);
+  const gar = document.getElementById('spec-garantias');
+  if(gar){ const g = garantiasEnFormHtml(servicios); if(gar.innerHTML !== g) gar.innerHTML = g; }
+  // Lo que ella no hace queda en gris y no se puede sumar (sí quitar).
+  document.querySelectorAll('[data-svc-row]').forEach(row=>{
+    const sv = state.services[Number(row.dataset.svcRow)];
+    if(!sv) return;
+    const no = !!actual && !especialistaHace(actual, sv.name) && !esServicioGarantia(sv.name);
+    row.classList.toggle('no-hace', no);
+    const inc = row.querySelector('[data-svc-inc]');
+    if(inc) inc.disabled = no;
+    const dur = row.querySelector('.svc-picker-duration');
+    if(dur){
+      const txt = no ? `${escapeHtml(actual)} no lo hace` : pickerDuracionTexto(sv, actual);
+      if(dur.innerHTML !== txt) dur.innerHTML = txt;
+    }
+  });
+}
 function apptModalHtml(){
   const m = ui.modal;
   const d = m.data;
@@ -6072,7 +6203,7 @@ function apptModalHtml(){
     <div class="svc-picker-row${qty>0?' checked':''}" data-svc-row="${i}" data-qty="${qty}">
       <span class="svc-picker-info">
         <span class="svc-picker-name">${escapeHtml(s.name)}</span>
-        <span class="svc-picker-duration">${Number(s.duration)||0} min</span>
+        <span class="svc-picker-duration">${pickerDuracionTexto(s, d.specialist)}</span>
       </span>
       <span class="svc-picker-price">${fmtCLP(s.price)}</span>
       <span class="svc-qty">
@@ -6084,7 +6215,7 @@ function apptModalHtml(){
   }).join('');
   const initialEntries = Object.keys(initialQtyByIdx).map(k=>({idx:Number(k), qty:initialQtyByIdx[k]}));
   const initialTotalCount = initialEntries.reduce((s,e)=>s+e.qty,0);
-  const initialTotalDuration = initialEntries.reduce((s,e)=>s+(Number(state.services[e.idx]?.duration)||0)*e.qty,0);
+  const initialTotalDuration = initialEntries.reduce((s,e)=>s+duracionServicioPara(state.services[e.idx], d.specialist)*e.qty,0);
   const initialTotalPrice = initialEntries.reduce((s,e)=>s+(Number(state.services[e.idx]?.price)||0)*e.qty,0);
   // Un retoque nunca lleva la crema incluida gratis (se puede comprar
   // aparte si corresponde, pero no se regala) — solo aplica a una cita
@@ -6094,8 +6225,6 @@ function apptModalHtml(){
   const cremaIncluidaActive = isEdit ? d.cremaIncluidaPolitica : (state.settings.cremaIncluida && !initialIsRetoque);
   const estados = ['Pendiente','Confirmada','Realizada','Cancelada','NoShow'];
   const estadoLabels = {Pendiente:'Pendiente',Confirmada:'Confirmada',Realizada:'Realizada',Cancelada:'Cancelada',NoShow:'No se presentó'};
-  const specialistHasLegacyValue = d.specialist && !state.specialists.some(s=>s.name===d.specialist);
-  const specOptions = state.specialists.map(s=>`<option value="${escapeHtml(s.name)}" ${d.specialist===s.name?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
 
   return `
   <div class="overlay" data-act="overlay-close">
@@ -6182,11 +6311,9 @@ function apptModalHtml(){
       </div>
       ${isEdit ? `<button type="button" class="linklike" id="toggle-crema-policy-btn" style="font-size:11px;margin:-6px 0 12px;display:block;">${d.cremaIncluidaPolitica ? 'Esta cita en realidad debía cobrar la crema aparte — cambiar a la condición anterior' : 'Esta cita en realidad debía tener la crema incluida — cambiar a la condición nueva'}</button>` : ''}
       <div class="field"><label>Especialista</label>
-        <select id="f-specialist">
-          <option value="">— Sin asignar —</option>
-          ${specialistHasLegacyValue ? `<option value="${escapeHtml(d.specialist)}" selected>${escapeHtml(d.specialist)}</option>` : ''}
-          ${specOptions}
-        </select>
+        <select id="f-specialist">${opcionesEspecialistaHtml(selectedServices, d.specialist||'')}</select>
+        <div class="hint" id="spec-filtro-hint" style="margin:4px 0 0;">${filtroEspecialistaHint(selectedServices, d.specialist||'')}</div>
+        <div class="hint" id="spec-garantias" style="margin:4px 0 0;">${garantiasEnFormHtml(selectedServices)}</div>
       </div>
       </div>
       <div class="appt-sec sec-pago">
@@ -6426,8 +6553,32 @@ function servicesModalHtml(){
   </div>`;
 }
 
+// "💆 Tratamientos" de cada especialista: casilla = lo hace; minutos = solo
+// si se demora distinto de lo normal (vacío = la duración general).
+function perfilEspecialistaHtml(s, i){
+  const noHace = Array.isArray(s.noHace) ? s.noHace : [];
+  // La garantía y la evaluación las hace cualquiera (no filtran): no se listan.
+  const enPerfil = sv=>sv && sv.name && !esServicioGarantia(sv.name) && !/evaluaci[oó]n/i.test(sv.name);
+  const servicios = state.services.filter(enPerfil);
+  const cuantosNo = servicios.filter(sv=>noHace.includes(sv.name)).length;
+  const propias = servicios.filter(sv=>duracionPropia(s.name, sv.name)).length;
+  const resumen = (cuantosNo ? `hace ${servicios.length-cuantosNo} de ${servicios.length}` : 'hace todos')
+    + (propias ? ` · ${propias} con su propio tiempo` : '');
+  return `
+    <details class="spec-perfil">
+      <summary>💆 Tratamientos: <span class="hint" style="margin:0;">${resumen}</span></summary>
+      <div class="hint" style="margin:6px 0 8px;">Marca lo que hace. En "Su tiempo" pon los minutos solo si se demora distinto de lo normal (vacío = lo de Servicios y tarifario).</div>
+      <div class="spec-perfil-head"><span>Tratamiento</span><span>Su tiempo</span></div>
+      ${state.services.map((sv,j)=>!enPerfil(sv) ? '' : `
+      <div class="spec-perfil-row">
+        <label><input type="checkbox" data-spec-hace="${i}:${j}" ${noHace.includes(sv.name)?'':'checked'}> <span>${escapeHtml(sv.name)}</span></label>
+        <input type="number" min="5" step="5" inputmode="numeric" data-spec-dur="${i}:${j}" value="${duracionPropia(s.name, sv.name)||''}" placeholder="${Number(sv.duration)||0}" title="Minutos (normal: ${Number(sv.duration)||0})">
+      </div>`).join('')}
+    </details>`;
+}
 function specialistsModalHtml(){
   const rows = state.specialists.map((s,i)=>`
+    <div class="spec-item">
     <div class="spec-row">
       <input type="text" value="${escapeHtml(s.name)}" data-spec-name="${i}" placeholder="Nombre de la especialista">
       <input type="color" value="${colorSeguro(s.color)}" data-spec-color="${i}" title="Color en la agenda">
@@ -6435,12 +6586,14 @@ function specialistsModalHtml(){
         ${[[1,'Box 1'],[2,'Box 2'],['libre','Sin box']].map(([v,l])=>`<option value="${v}" ${String(boxDeEspecialista(s.name)||'libre')===String(v)?'selected':''}>${l}</option>`).join('')}
       </select>
       <button class="iconbtn" data-act="remove-specialist" data-idx="${i}">✕</button>
+    </div>
+    ${perfilEspecialistaHtml(s, i)}
     </div>`).join('');
   return `
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
       <h2 class="serif">Especialistas</h2>
-      <div class="hint">El color distingue las citas de cada especialista en la agenda y se usa en el filtro. El box decide dónde se ven sus citas en la vista Día cuando hay varias a la misma hora: Box 1 a la izquierda, Box 2 a la derecha.</div>
+      <div class="hint">El color distingue las citas de cada especialista en la agenda y se usa en el filtro. El box decide dónde se ven sus citas en la vista Día cuando hay varias a la misma hora: Box 1 a la izquierda, Box 2 a la derecha. En "💆 Tratamientos" se marca qué hace cada una (en Nueva cita solo aparecen las que hacen lo elegido) y cuánto se demora si es distinto de lo normal.</div>
       <div id="spec-list">${rows}</div>
       <button class="btn btn-ghost" style="margin-top:6px" data-act="add-specialist">+ Agregar especialista</button>
       <div class="modal-actions">
@@ -7726,6 +7879,205 @@ function desmarcarPagado(name){
   });
 }
 
+// ---------------- Más → ⭐ Garantías por especialista (calidad) ----------------
+// Pedido de Juan Diego (oct 2026): saber quién hace mejor cada tratamiento.
+// Se mide con las GARANTÍAS (trabajo que hubo que rehacer gratis), contadas a
+// quien hizo el tratamiento ORIGINAL (no a quien hizo la garantía). Los
+// retoques no cuentan: son parte normal del proceso. Solo dueños (Más, que
+// solo existe en modo Admin; él no quiso que estuviera en Finanzas).
+// - Desde GARANTIAS_DESDE (inicio de esta agenda).
+// - Un tratamiento de los últimos GARANTIAS_MADURACION_DIAS días todavía no
+//   cuenta en el % (aún puede volver por garantía); se muestra aparte.
+// - Con menos de GARANTIAS_MIN_DATOS tratamientos: "pocos datos", sin ⭐.
+// - Garantía sin "¿de qué tratamiento?" (las de antes de que existiera esa
+//   pregunta): si la clienta tuvo un solo tratamiento antes, es ese; si no,
+//   queda en "sin tratamiento anotado" para elegirlo a mano en la cita.
+const GARANTIAS_DESDE = '2026-09-01';
+// Juan Diego (09/10/2026): una clienta insatisfecha vuelve casi siempre a
+// la semana, a las dos o a las tres; muy rara vez después del retoque.
+const GARANTIAS_MADURACION_DIAS = 30;
+const GARANTIAS_MIN_DATOS = 10;
+function originalDeGarantiaParaStats(g, rastreados){
+  if(g.garantiaDe){
+    const orig = tratamientoOriginalDeGarantia(g);
+    return orig ? {orig, tratamiento: g.garantiaDe} : null;
+  }
+  const n = normalizeName(g.client||'');
+  if(!n) return null;
+  const limite = (g.date||'') + (g.start||'');
+  const prev = state.appointments
+    .filter(x=>x.id!==g.id && normalizeName(x.client||'')===n && !isGarantiaAppt(x) && !x.cursoId
+      && x.estado!=='Cancelada' && x.estado!=='NoShow'
+      && (x.services||[]).some(sv=>rastreados.has(sv))
+      && (x.date+(x.start||'')) <= limite)
+    .sort((x,y)=>(y.date+(y.start||'')).localeCompare(x.date+(x.start||'')))[0];
+  if(!prev) return null;
+  const trats = Array.from(new Set((prev.services||[]).filter(sv=>rastreados.has(sv))));
+  return trats.length===1 ? {orig: prev, tratamiento: trats[0], adivinado: true} : null;
+}
+function garantiasStats(){
+  const hoy = toKey(new Date());
+  const corte = toKey(addDays(parseKey(hoy), -GARANTIAS_MADURACION_DIAS));
+  const garantias = state.appointments.filter(a=>isGarantiaAppt(a) && !a.cursoId && a.date>=GARANTIAS_DESDE && a.date<=hoy
+    && a.estado!=='Cancelada' && a.estado!=='NoShow');
+  // Qué tratamientos se miden: los que llevan retoque (micropigmentación) y
+  // cualquiera que haya tenido una garantía.
+  const rastreados = new Set(state.services.map(s=>s.name).filter(servicioLlevaRetoque));
+  garantias.forEach(g=>{ if(g.garantiaDe) rastreados.add(g.garantiaDe); });
+  const celdas = {}; // tratamiento -> especialista -> {n, g, nRec, gRec}
+  const celda = (t, esp)=>{
+    celdas[t] = celdas[t] || {};
+    return celdas[t][esp] = celdas[t][esp] || {n:0, g:0, nRec:0, gRec:0, citas:[]};
+  };
+  state.appointments.forEach(a=>{
+    if(a.cursoId || isGarantiaAppt(a) || !a.specialist) return;
+    if(a.estado==='Cancelada' || a.estado==='NoShow') return;
+    if(a.date<GARANTIAS_DESDE || a.date>hoy) return;
+    (a.services||[]).forEach(sv=>{
+      if(!rastreados.has(sv)) return;
+      const c = celda(sv, a.specialist);
+      if(a.date<=corte) c.n++; else c.nRec++;
+    });
+  });
+  const sinAnotar = [];
+  garantias.forEach(g=>{
+    const r = originalDeGarantiaParaStats(g, rastreados);
+    if(!r){ if(!g.garantiaDe) sinAnotar.push(g); return; }
+    const {orig, tratamiento} = r;
+    if(!orig.specialist || orig.date<GARANTIAS_DESDE) return; // de antes de esta agenda
+    const c = celda(tratamiento, orig.specialist);
+    if(orig.date<=corte) c.g++; else c.gRec++;
+    c.citas.push({g, orig, adivinado: !!r.adivinado});
+  });
+  return {celdas, sinAnotar, corte};
+}
+function garantiaBarraHtml(esp, c, escala, mejor){
+  const pocos = c.n < GARANTIAS_MIN_DATOS;
+  const pct = c.n ? Math.round(c.g*100/c.n) : 0;
+  const ancho = c.n ? Math.max(2, Math.round(Math.min(pct, escala)*100/escala)) : 0;
+  const recientes = c.nRec ? `<div class="gar-rec">+ ${c.nRec} reciente${c.nRec===1?'':'s'}${c.gRec ? `, ${c.gRec} ya con garantía` : ''} (todavía no cuenta${c.nRec===1?'':'n'})</div>` : '';
+  return `
+    <div class="gar-fila${pocos?' pocos':''}">
+      <div class="gar-quien"><span class="dot" style="background:${colorSeguro(specialistColor(esp))}"></span>${escapeHtml(esp)}${mejor?' <span title="La que menos garantías tiene">⭐</span>':''}</div>
+      <div class="gar-barra"><span style="width:${ancho}%;background:${colorSeguro(specialistColor(esp))}"></span></div>
+      <div class="gar-num">${c.n ? `<b>${pct}%</b> <span>${c.g} de ${c.n}</span>` : '<span>—</span>'}</div>
+      ${pocos && c.n ? `<div class="gar-rec">Pocos datos todavía (menos de ${GARANTIAS_MIN_DATOS})</div>` : ''}
+      ${recientes}
+    </div>`;
+}
+// Las que menos garantías tienen (⭐): solo si al menos dos tienen datos
+// suficientes y no están todas empatadas.
+function mejoresEnGarantias(porEsp){
+  const pctDe = e=> porEsp[e].n ? porEsp[e].g/porEsp[e].n : 0;
+  const conDatos = Object.keys(porEsp).filter(e=>porEsp[e].n>=GARANTIAS_MIN_DATOS);
+  if(conDatos.length<2) return new Set();
+  const min = Math.min(...conDatos.map(pctDe));
+  const max = Math.max(...conDatos.map(pctDe));
+  return min<max ? new Set(conDatos.filter(e=>pctDe(e)===min)) : new Set();
+}
+// ---- Garantías mientras se agenda (pedido de Juan Diego: ver quién es la
+// más indicada para el tratamiento al momento de agendar) ----
+// Solo dueños (el formulario completo de la cita ya es solo Admin). Las
+// cuentas se hacen una vez por cada vez que se abre el formulario.
+function garantiasStatsDelForm(){
+  if(!(ui.mode==='admin' && esDueno())) return null;
+  if(!ui.modal || ui.modal.type!=='appt') return garantiasStats();
+  if(!ui.modal._garStats) Object.defineProperty(ui.modal, '_garStats', {value: garantiasStats(), enumerable:false, writable:true});
+  return ui.modal._garStats;
+}
+function celdaGarantias(st, servicio, esp){
+  const porEsp = st && st.celdas[servicio];
+  if(!porEsp) return null;
+  const k = Object.keys(porEsp).find(e=>normalizeName(e)===normalizeName(esp));
+  return k ? {c: porEsp[k], mejor: mejoresEnGarantias(porEsp).has(k)} : null;
+}
+// ⭐ en la lista de especialistas: con UN tratamiento elegido, la que menos
+// garantías tiene en ese tratamiento.
+function estrellaGarantias(servicios, esp){
+  const sv = serviciosParaFiltro(servicios);
+  if(sv.length!==1) return false;
+  const x = celdaGarantias(garantiasStatsDelForm(), sv[0], esp);
+  return !!(x && x.mejor);
+}
+function garantiasEnFormHtml(servicios){
+  const st = garantiasStatsDelForm();
+  if(!st) return '';
+  const lineas = serviciosParaFiltro(servicios).map(t=>{
+    const partes = state.specialists.filter(sp=>especialistaHace(sp.name, t)).map(sp=>{
+      const x = celdaGarantias(st, t, sp.name);
+      if(!x || !x.c.n) return null;
+      const pct = Math.round(x.c.g*100/x.c.n);
+      return x.c.n < GARANTIAS_MIN_DATOS
+        ? `${escapeHtml(sp.name)} <span style="opacity:.7">(pocos datos: ${x.c.g} de ${x.c.n})</span>`
+        : `${x.mejor?'⭐ ':''}<b>${escapeHtml(sp.name)} ${pct}%</b> <span style="opacity:.7">(${x.c.g} de ${x.c.n})</span>`;
+    }).filter(Boolean);
+    return partes.length ? `<div>Garantías en ${escapeHtml(t)}: ${partes.join(' · ')}</div>` : '';
+  }).filter(Boolean);
+  return lineas.length ? lineas.join('') + `<div style="opacity:.7">Menos es mejor. Detalle en Más → ⭐ Garantías.</div>` : '';
+}
+function garantiaBloqueHtml(titulo, porEsp){
+  const esps = Object.keys(porEsp).filter(e=>porEsp[e].n || porEsp[e].nRec)
+    .sort((a,b)=>(porEsp[b].n - porEsp[a].n) || a.localeCompare(b));
+  if(!esps.length) return '';
+  const pctDe = e=> porEsp[e].n ? porEsp[e].g/porEsp[e].n : 0;
+  const mejores = mejoresEnGarantias(porEsp);
+  const escala = Math.max(30, ...esps.map(e=>Math.round(pctDe(e)*100)));
+  return `
+    <div class="gar-card">
+      <div class="gar-titulo">${titulo}</div>
+      ${esps.map(e=>garantiaBarraHtml(e, porEsp[e], escala, mejores.has(e))).join('')}
+    </div>`;
+}
+function garantiasPageHtml(){
+  const {celdas, sinAnotar, corte} = garantiasStats();
+  const general = {};
+  Object.values(celdas).forEach(porEsp=>Object.keys(porEsp).forEach(e=>{
+    const c = porEsp[e], gq = general[e] = general[e] || {n:0, g:0, nRec:0, gRec:0};
+    gq.n += c.n; gq.g += c.g; gq.nRec += c.nRec; gq.gRec += c.gRec;
+  }));
+  const orden = state.services.map(s=>s.name);
+  const trats = Object.keys(celdas).sort((a,b)=>{
+    const ia = orden.indexOf(a), ib = orden.indexOf(b);
+    return (ia<0?999:ia) - (ib<0?999:ib) || a.localeCompare(b);
+  });
+  const bloques = trats.map(t=>garantiaBloqueHtml(escapeHtml(t), celdas[t])).join('');
+  const lista = [];
+  Object.keys(celdas).forEach(t=>Object.keys(celdas[t]).forEach(e=>celdas[t][e].citas.forEach(x=>lista.push({...x, t}))));
+  lista.sort((x,y)=>y.g.date.localeCompare(x.g.date));
+  return `
+    ${Object.keys(general).length ? garantiaBloqueHtml('En general (todos los tratamientos)', general) : `<div class="empty-msg">Todavía no hay tratamientos para medir.</div>`}
+    ${bloques ? `<div class="fin-sub">Por tratamiento</div>${bloques}` : ''}
+    ${sinAnotar.length ? `
+    <div class="pago-aviso">⚠️ <b>${sinAnotar.length} garantía${sinAnotar.length===1?'':'s'} sin tratamiento anotado</b> (no se sabe de qué tratamiento fue${sinAnotar.length===1?'':'ron'}, así que no cuenta${sinAnotar.length===1?'':'n'}). Ábrela y elige "¿Garantía de qué tratamiento?":
+      <ul>${sinAnotar.map(a=>`<li><button type="button" class="linklike" data-act="edit-appt" data-id="${escapeHtml(a.id)}">${diaCorto(a.date)} · ${escapeHtml(a.client||'(sin nombre)')}${a.specialist?` · la hizo ${escapeHtml(a.specialist)}`:''}</button></li>`).join('')}</ul></div>` : ''}
+    ${lista.length ? `
+    <details class="gar-detalle">
+      <summary class="fin-sub" style="cursor:pointer;">Las garantías, una por una (${lista.length})</summary>
+      ${lista.map(({g, orig, adivinado, t})=>`
+      <div class="pago-fila click" data-act="edit-appt" data-id="${escapeHtml(g.id)}">
+        <div>${diaCorto(g.date)} · ${escapeHtml(g.client||'(sin nombre)')}
+          <div class="como">Garantía de ${escapeHtml(t)} hecho por <b>${escapeHtml(orig.specialist)}</b> el ${diaCorto(orig.date)}${g.specialist && normalizeName(g.specialist)!==normalizeName(orig.specialist) ? ` · la garantía la hizo ${escapeHtml(g.specialist)}` : ''}${adivinado ? ' · (tratamiento deducido: era el único que se había hecho)' : ''}</div>
+        </div>
+      </div>`).join('')}
+    </details>` : ''}
+    <div class="hint" style="margin-top:16px;">Cómo se calcula: tratamientos que llevan retoque (y cualquier otro que haya tenido una garantía) hechos desde el ${parseKey(GARANTIAS_DESDE).getDate()} de ${MONTHS[parseKey(GARANTIAS_DESDE).getMonth()]} (sin contar los cancelados ni los que no llegaron), y cuántos volvieron por garantía. La garantía se le cuenta a quien hizo el tratamiento, aunque la garantía la haya hecho otra. Los de los últimos ${GARANTIAS_MADURACION_DIAS} días (desde el ${diaCorto(toKey(addDays(parseKey(corte),1)))}) todavía no cuentan en el %, porque la clienta aún puede volver. ⭐ = la que menos garantías tiene, solo cuando hay al menos ${GARANTIAS_MIN_DATOS} tratamientos para comparar. Los retoques no cuentan (son parte normal del proceso).</div>`;
+}
+
+function garantiasModalHtml(){
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">⭐ Garantías por especialista</h2>
+      <div class="hint">Cuántos tratamientos de cada especialista volvieron por <b>garantía</b> (algo que hubo que rehacer gratis). Menos es mejor. Solo lo ven los dueños.</div>
+      ${garantiasPageHtml()}
+      <div class="modal-actions">
+        <div></div>
+        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function finanzasPageHtml(){
   if(!ui.reportsDate) ui.reportsDate = new Date();
   if(!ui.financeTab) ui.financeTab = 'resumen';
@@ -8249,7 +8601,7 @@ function ultimoTratamientoDe(cliente){
 function duracionGarantiaElegida(){
   const sel = document.getElementById('f-garantia-de');
   const svc = sel && sel.value ? state.services.find(x=>x.name===sel.value) : null;
-  return svc ? (Number(svc.duration)||0) : null;
+  return svc ? duracionServicioPara(svc, especialistaDelForm()) : null;
 }
 function hayGarantiaElegida(){
   return getServiceQuantities().some(({idx})=>esServicioGarantia(state.services[idx] && state.services[idx].name));
@@ -8371,7 +8723,7 @@ function servicioLlevaRetoque(nombre){
   if(svc) return svc.llevaRetoque!=null ? !!svc.llevaRetoque : !!svc.micropigmentacion;
   return /microblading|sombreado|delineado|mixbrows|t[eé]cnica mixta|full lips/i.test(nombre);
 }
-function touchupCandidates(){
+function touchupCandidates(opts){
   const today = new Date(); today.setHours(0,0,0,0);
   // A diferencia de "Reseñas pendientes" (que sí se pide una sola vez), acá
   // conviene poder seguir insistiéndole a la clienta más de una vez mientras
@@ -8408,8 +8760,13 @@ function touchupCandidates(){
       o.estado!=='Cancelada' && o.estado!=='NoShow' && o.date > a.date
     );
   };
+  // "🚫 Quitar" (a.retoqueQuitado = {en, por}, pedido de Juan Diego, oct
+  // 2026): clientas que no se hicieron de verdad el tratamiento (datos de la
+  // agenda anterior), que no quieren el retoque o a las que les quedó bien.
+  // Se mira en la cita más reciente de la clienta (la que se muestra), así
+  // quitarla nunca hace aparecer una cita más vieja suya en su lugar.
   return Array.from(byClient.values())
-    .filter(a=>!hasLaterAppt(a))
+    .filter(a=>!hasLaterAppt(a) && (opts && opts.quitadas ? !!a.retoqueQuitado : !a.retoqueQuitado))
     .map(a=>({appt:a, diffDays: Math.round((today - parseKey(a.date)) / 86400000)}))
     .sort((x,y)=>x.diffDays - y.diffDays);
 }
@@ -8708,6 +9065,7 @@ function blocksListModalHtml(){
 }
 function touchupsModalHtml(){
   const list = touchupCandidates();
+  const quitadas = touchupCandidates({quitadas:true});
   return `
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
@@ -8719,7 +9077,7 @@ function touchupsModalHtml(){
       </div>
       <button type="button" class="btn btn-ghost" style="margin:-8px 0 14px;" data-act="copy-touchup-msg">📋 Copiar mensaje</button>
       ${list.length===0 ? `<div class="empty-msg">No hay clientas en ese rango por ahora.</div>` : `
-      <div class="hint">${list.length} clienta${list.length===1?'':'s'} por contactar. A diferencia de "Reseñas pendientes", acá SÍ conviene insistir más de una vez — marcar "Avisada hoy" NO la saca de la lista; se queda hasta que agende o hasta que pasen los 50 días. Cuando ya pasaron ${TOUCHUP_FOLLOWUP_DAYS} días desde el último aviso sin que agende, se marca en dorado para que sepas a quién insistirle de nuevo.</div>
+      <div class="hint">${list.length} clienta${list.length===1?'':'s'} por contactar. A diferencia de "Reseñas pendientes", acá SÍ conviene insistir más de una vez — marcar "Avisada hoy" NO la saca de la lista; se queda hasta que agende, hasta que pasen los 50 días o hasta que la quites con "🚫 Quitar" (si no se hizo el tratamiento, no quiere el retoque o ya le quedó bien). Cuando ya pasaron ${TOUCHUP_FOLLOWUP_DAYS} días desde el último aviso sin que agende, se marca en dorado para que sepas a quién insistirle de nuevo.</div>
       <div class="table-scroll"><table class="reminders-table">
         <thead><tr><th>Se atendió</th><th>Días</th><th>Clienta</th><th>Servicio</th><th></th><th>Último aviso</th></tr></thead>
         <tbody>
@@ -8741,10 +9099,27 @@ function touchupsModalHtml(){
                   ? `<div style="margin:0 0 4px;font-size:12px;font-weight:600;color:var(--warn);">⏰ Hace ${sinceAviso} días — insistir</div>`
                   : `<div class="hint" style="margin:0 0 4px;">Avisada hace ${sinceAviso} día${sinceAviso===1?'':'s'}</div>`}
                 <button type="button" class="btn btn-ghost" style="font-size:11px;padding:3px 8px;" data-act="mark-touchup-avisado" data-id="${escapeHtml(a.id)}">📨 Avisada hoy</button>
+                <button type="button" class="btn btn-ghost" style="font-size:11px;padding:3px 8px;margin:4px auto 0;display:block;" data-act="quitar-touchup" data-id="${escapeHtml(a.id)}" title="No se hizo el tratamiento, no quiere el retoque o ya le quedó bien">🚫 Quitar</button>
               </td>
             </tr>`;}).join('')}
         </tbody>
       </table></div>`}
+      ${quitadas.length ? `
+      <details class="touchup-quitadas" style="margin-top:10px;">
+        <summary class="hint" style="cursor:pointer;margin:0;">Quitadas de la lista (${quitadas.length}) — por si quieres devolver a alguna</summary>
+        <div class="table-scroll"><table class="reminders-table">
+          <tbody>
+            ${quitadas.map(({appt:a})=>`
+            <tr>
+              <td>${a.date}</td>
+              <td>${escapeHtml(a.client||'Sin nombre')}</td>
+              <td>${escapeHtml(apptServiciosTexto(a))}</td>
+              <td class="hint">${a.retoqueQuitado.en && !isNaN(new Date(a.retoqueQuitado.en)) ? 'Quitada el '+diaCorto(toKey(new Date(a.retoqueQuitado.en))) : 'Quitada'}</td>
+              <td><button type="button" class="btn btn-ghost" style="font-size:11px;padding:3px 8px;" data-act="devolver-touchup" data-id="${escapeHtml(a.id)}">↩️ Devolver</button></td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>
+      </details>` : ''}
       <div class="modal-actions">
         <div></div>
         <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
@@ -9162,6 +9537,7 @@ function attachEvents(){
   }
   const svcPicker = document.getElementById('svc-picker');
   if(svcPicker){
+    actualizarPerfilEnForm();
     svcPicker.addEventListener('click', e=>{
       const incBtn = e.target.closest('[data-svc-inc]');
       const decBtn = e.target.closest('[data-svc-dec]');
@@ -9384,8 +9760,8 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-specialists','add-specialist','remove-specialist','save-specialists',
   'open-schedule','toggle-day-closed','save-schedule',
   'open-clients','toggle-client','delete-client',
-  'open-noshows','open-autobackups','download-autobackup','restore-autobackup','sync-all-backup','open-security','save-security','forget-device','open-blocks-list','open-touchups',
-  'copy-touchup-msg','mark-touchup-avisado',
+  'open-noshows','open-autobackups','download-autobackup','restore-autobackup','sync-all-backup','open-security','save-security','forget-device','open-blocks-list','open-touchups','open-garantias',
+  'copy-touchup-msg','mark-touchup-avisado','quitar-touchup','devolver-touchup',
   'open-reviews','copy-checkin-msg','copy-review-msg','toggle-review-avisado',
   'finance-tab','save-comision-pct','save-mis-ganancias-desde',
   'add-expense','remove-expense','save-expenses',
@@ -9604,7 +9980,9 @@ function onAction(e){
         const data = Object.assign({}, found);
         if(!Array.isArray(data.services)) data.services = data.service ? [data.service] : [];
         // Foto de cómo estaba la cita al abrirla — ver mergeConcurrentApptChanges.
-        ui.modal = {type:'appt', mode:'edit', data, original: JSON.parse(JSON.stringify(found))};
+        // Abierta desde ⭐ Garantías: al cerrarla o guardarla se vuelve ahí.
+        const volver = ui.modal && ui.modal.type==='garantias' ? {type:'garantias'} : null;
+        ui.modal = {type:'appt', mode:'edit', data, original: JSON.parse(JSON.stringify(found)), volver};
         render();
       }
       break;
@@ -9739,6 +10117,8 @@ function onAction(e){
     }
     case 'open-touchups':
       ui.modal = {type:'touchups'}; ui.menuOpen = false; render(); break;
+    case 'open-garantias':
+      ui.modal = {type:'garantias'}; ui.menuOpen = false; render(); break;
     case 'copy-touchup-msg': {
       const box = document.getElementById('touchup-generic-msg');
       const text = box ? box.value : genericTouchupMsg();
@@ -9750,6 +10130,23 @@ function onAction(e){
       const appt = state.appointments.find(a=>a.id===id);
       if(appt){ appt.retoqueUltimoAviso = toKey(new Date()); saveData(); }
       render(); break;
+    }
+    case 'quitar-touchup': {
+      const id = e.currentTarget.dataset.id;
+      const appt = state.appointments.find(a=>a.id===id);
+      if(!appt) break;
+      showConfirmDialog(`¿Quitar a ${appt.client||'esta clienta'} de Retoques pendientes? Ya no va a aparecer en la lista (si te equivocas, la puedes devolver desde "Quitadas de la lista", al final).`, ()=>{
+        appt.retoqueQuitado = { en: new Date().toISOString(), por: ui.mode==='admin' ? 'Admin' : (staffIdentity() || '') };
+        render();
+        saveData();
+      });
+      break;
+    }
+    case 'devolver-touchup': {
+      const id = e.currentTarget.dataset.id;
+      const appt = state.appointments.find(a=>a.id===id);
+      if(appt){ delete appt.retoqueQuitado; render(); saveData(); }
+      break;
     }
     case 'open-reviews':
       ui.modal = {type:'reviews'}; ui.menuOpen = false; render(); break;
@@ -9940,7 +10337,7 @@ function onAction(e){
       // no"), se revisa si también había tratamientos nuevos para avisar —
       // ese chequeo se saltó mientras este modal estaba abierto.
       const wasIdentity = ui.modal && ui.modal.type==='staff-identity';
-      ui.modal = null; render();
+      ui.modal = (ui.modal && ui.modal.volver) || null; render();
       if(wasIdentity) checkNewServicesIfNeeded();
       break;
     }
@@ -10160,7 +10557,7 @@ function saveApptFromForm(){
     if(idx>=0 && original) mergeConcurrentApptChanges(original, updated, state.appointments[idx]);
     if(idx>=0) state.appointments[idx] = updated; else state.appointments.push(updated);
     upsertClient(updated.client, updated.phone, summarizeServices(updated.services));
-    ui.modal = null;
+    ui.modal = (ui.modal && ui.modal.volver) || null;
     render();
     saveData();
     syncToBackupWebhook('save', updated);
@@ -10322,7 +10719,17 @@ function saveCursoAttendeeFromForm(){
 function saveServicesFromForm(){
   document.querySelectorAll('[data-svc-name]').forEach(inp=>{
     const i = Number(inp.dataset.svcName);
-    if(state.services[i]) state.services[i].name = inp.value;
+    if(!state.services[i]) return;
+    const viejo = state.services[i].name;
+    state.services[i].name = inp.value;
+    // El perfil de las especialistas guarda el servicio por su nombre: si se
+    // renombra, se renombra también ahí (si no, quedaría "haciéndolo" todas).
+    if(viejo && viejo!==inp.value) state.specialists.forEach(sp=>{
+      if(Array.isArray(sp.noHace) && sp.noHace.includes(viejo)) sp.noHace = sp.noHace.map(n=>n===viejo ? inp.value : n);
+      if(sp.duraciones && sp.duraciones[viejo]!=null){
+        const d = {...sp.duraciones}; d[inp.value] = d[viejo]; delete d[viejo]; sp.duraciones = d;
+      }
+    });
   });
   document.querySelectorAll('[data-svc-price]').forEach(inp=>{
     const i = Number(inp.dataset.svcPrice);
@@ -10364,6 +10771,26 @@ function saveSpecialistsFromForm(){
     // nada si solo se tocó un nombre o un color).
     if((boxDeEspecialista(state.specialists[i].name)||'libre') !== v) state.specialists[i].box = v;
   });
+  // Perfil: qué hace y su propio tiempo. Solo se escribe si cambió.
+  state.specialists.forEach((sp,i)=>{
+    const cajas = document.querySelectorAll(`[data-spec-hace^="${i}:"]`);
+    if(!cajas.length) return;
+    const noHace = [];
+    cajas.forEach(cb=>{ const sv = state.services[Number(cb.dataset.specHace.split(':')[1])]; if(sv && !cb.checked) noHace.push(sv.name); });
+    const antes = Array.isArray(sp.noHace) ? sp.noHace : [];
+    // Lo que no está en la lista actual de servicios se conserva tal cual.
+    const otros = antes.filter(n=>!state.services.some(sv=>sv.name===n));
+    const nuevoNoHace = otros.concat(noHace);
+    if(JSON.stringify(nuevoNoHace.slice().sort()) !== JSON.stringify(antes.slice().sort())) sp.noHace = nuevoNoHace;
+    const durs = {};
+    Object.keys(sp.duraciones||{}).forEach(n=>{ if(!state.services.some(sv=>sv.name===n)) durs[n] = sp.duraciones[n]; });
+    document.querySelectorAll(`[data-spec-dur^="${i}:"]`).forEach(inp=>{
+      const sv = state.services[Number(inp.dataset.specDur.split(':')[1])];
+      const m = Math.round(Number(inp.value)||0);
+      if(sv && m>0 && m!==(Number(sv.duration)||0)) durs[sv.name] = m;
+    });
+    if(JSON.stringify(durs) !== JSON.stringify(sp.duraciones||{})) sp.duraciones = durs;
+  });
   ui.modal = null;
   render();
   saveData();
@@ -10395,6 +10822,12 @@ function saveScheduleFromForm(){
 // document para que sigan funcionando después de cada render() del modal.
 document.addEventListener('change', e=>{
   if(e.target && ['f-specialist','f-client','f-date','f-start','f-traspaso','f-traspaso-monto'].includes(e.target.id)) actualizarTraspasoGarantia();
+  if(e.target && e.target.id==='f-specialist'){
+    actualizarPerfilEnForm();
+    // En una cita NUEVA la hora de término sigue a lo que se demora esa
+    // especialista; al editar una cita ya guardada no se mueve sola.
+    if(ui.modal && ui.modal.mode==='new') ajustarDuracionGarantia();
+  }
   if(e.target && e.target.id==='f-start'){
     const endInput = document.getElementById('f-end');
     if(endInput && e.target.value){

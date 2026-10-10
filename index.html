@@ -4248,7 +4248,7 @@ function opcionesEspecialistaHtml(servicios, actual){
   return `<option value="">— Sin asignar —</option>${extra}` + ordenada.map(s=>{
     const falta = aptas.length ? [] : noHaceDe(s.name, servicios);
     const f = filaDe(s.name);
-    const gar = f ? ` ${f.medalla ? f.medalla+' ' : ''}${f.pct}% bien${f.motivo ? ' (pocos datos)' : ''}` : '';
+    const gar = f ? ` ${f.medalla ? f.medalla+' ' : ''}${f.pct}% bien · ${f.c.n} trabajo${f.c.n===1?'':'s'}` : '';
     return `<option value="${escapeHtml(s.name)}" ${actual===s.name?'selected':''}>${escapeHtml(s.name)}${gar}${falta.length ? ` (no hace ${escapeHtml(summarizeServices(falta))})` : ''}</option>`;
   }).join('');
 }
@@ -6178,17 +6178,24 @@ function garantiasStatsDelForm(){
   if(!ui.modal._garStats) Object.defineProperty(ui.modal, '_garStats', {value: garantiasStats(), enumerable:false, writable:true});
   return ui.modal._garStats;
 }
-// En el formulario de la cita (solo dueños): con UN tratamiento elegido, la
-// lista de especialistas va ordenada de mejor a peor con su medalla y su %
-// (pedido de Juan Diego). Antes había además una nota debajo de la lista: se
-// quitó (alargaba el formulario y la lista ya lo dice todo).
+// En el formulario de la cita (solo dueños): la lista de especialistas va
+// ordenada de mejor a peor con su medalla, su % y cuántos trabajos tiene
+// (pedido de Juan Diego). Con varios tratamientos (combo) se suman los
+// trabajos y garantías de cada una en esos tratamientos. Antes había además
+// una nota debajo de la lista (se quitó) y la etiqueta "(pocos datos)", que
+// también salía cuando la mayoría eran recientes y confundía: ahora dice el
+// número de trabajos.
 function rankingParaForm(servicios){
   const sv = serviciosParaFiltro(servicios);
-  if(sv.length!==1) return null;
+  if(!sv.length) return null;
   const st = garantiasStatsDelForm();
-  const porEsp = st && st.celdas[sv[0]];
-  if(!porEsp) return null;
-  const filas = rankingGarantias(porEsp).filas;
+  if(!st) return null;
+  const suma = {};
+  sv.forEach(t=>Object.entries(st.celdas[t]||{}).forEach(([e,c])=>{
+    const x = suma[e] = suma[e] || {n:0, g:0, peso:0, rec:0};
+    x.n += c.n; x.g += c.g; x.peso += c.peso||0; x.rec += c.rec||0;
+  }));
+  const filas = rankingGarantias(suma).filas;
   return filas.length ? filas : null;
 }
 function garantiasPageHtml(){

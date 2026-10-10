@@ -1109,10 +1109,13 @@ para servir también a **Copiapó**, de la siguiente forma:
   ninguno le sale la estrellita?"). Con menos de `GARANTIAS_MIN_DATOS` (3)
   trabajos o la mayoría de los últimos `GARANTIAS_VENTANA_DIAS` (30) días,
   solo una nota "⚠️" al lado (ese % todavía puede cambiar). **Al agendar**
-  (solo dueños): con UN tratamiento elegido, la lista de especialistas se
-  ORDENA de mejor a peor con medalla y % ("Lucy 🥇 100% bien", "Salomé 🥈
-  83% bien", "(pocos datos)" si corresponde; `rankingParaForm` en
-  `opcionesEspecialistaHtml`); con dos o más tratamientos, sin medallas. La
+  (solo dueños): la lista de especialistas se ORDENA de mejor a peor con
+  medalla, % y cuántos trabajos tiene ("Lucy 🥇 100% bien · 4 trabajos";
+  `rankingParaForm` en `opcionesEspecialistaHtml`). Con varios tratamientos
+  (combo) se suman sus trabajos y garantías en esos tratamientos. (Antes
+  decía "(pocos datos)" también cuando la mayoría eran recientes, que como
+  la agenda empezó en septiembre era casi siempre: confundía; se cambió por
+  el número de trabajos, 10/10/2026.) La
   nota que había debajo de "Especialista" se QUITÓ (10/10/2026, él dudaba
   de que sirviera y alargaba el formulario). Arriba de la pestaña, una línea
   de resumen (trabajos medidos, garantías).

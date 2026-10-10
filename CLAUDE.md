@@ -1102,18 +1102,20 @@ para servir también a **Copiapó**, de la siguiente forma:
   garantía · 1 garantía", barra = % bien (más larga = mejor), medallas
   🥇🥈🥉 (`rankingGarantias`). El orden es EXACTAMENTE el % visible (una
   versión con una "cuenta más justa" escondida ponía "94% 🥇" arriba de
-  "100% 🥈": no se entendía, NO volver a eso). Todo trabajo cuenta en el %
-  desde el día que se hizo, pero para COMPETIR por medalla hacen falta al
-  menos `GARANTIAS_MIN_DATOS` (3) trabajos de hace más de
-  `GARANTIAS_VENTANA_DIAS` (30) días y que la mayoría no sea reciente: así
-  quien hizo muchos trabajos estos días no gana por eso (su preocupación
-  explícita); las demás van al final en gris con el motivo ("pocos trabajos
-  todavía" / "la mayoría son de los últimos 30 días: todavía no se sabe").
-  Empatadas comparten medalla; si todas empatan o compite una sola, no hay
-  medallas. Al agendar: "Delineado de Ojos (DO): 🥇 Lucy 100% (4 de 4 bien) ·
-  🥈 Salomé 83% (5 de 6 bien)" y, con UN tratamiento, "🥇 la mejor en esto"
-  junto al nombre en la lista. Arriba, una línea de resumen (trabajos
-  medidos, garantías).
+  "100% 🥈": no se entendía, NO volver a eso); si empatan, primero la que
+  tiene más trabajos. **Siempre hay medallas** si hay al menos dos (una
+  versión exigía 3 trabajos de hace más de 30 días para competir y, como la
+  agenda empezó en septiembre, no salía ninguna: él preguntó "¿por qué a
+  ninguno le sale la estrellita?"). Con menos de `GARANTIAS_MIN_DATOS` (3)
+  trabajos o la mayoría de los últimos `GARANTIAS_VENTANA_DIAS` (30) días,
+  solo una nota "⚠️" al lado (ese % todavía puede cambiar). **Al agendar**
+  (solo dueños): con UN tratamiento elegido, la lista de especialistas se
+  ORDENA de mejor a peor con medalla y % ("Lucy 🥇 100% bien", "Salomé 🥈
+  83% bien", "(pocos datos)" si corresponde; `rankingParaForm` en
+  `opcionesEspecialistaHtml`); con dos o más tratamientos, sin medallas. La
+  nota que había debajo de "Especialista" se QUITÓ (10/10/2026, él dudaba
+  de que sirviera y alargaba el formulario). Arriba de la pestaña, una línea
+  de resumen (trabajos medidos, garantías).
   **Garantías que no cuentan** (desplegable): el tratamiento original no
   está desde el 1/9; debajo de cada una el motivo (`razonGarantiaNoCuenta`:
   original de antes del 1/9 con fecha y especialista; nombre de la clienta
@@ -1143,11 +1145,7 @@ para servir también a **Copiapó**, de la siguiente forma:
   no (combo), lista "sin tratamiento anotado" para abrirla y elegirlo.
   Solo lee: no guarda nada ni toca plata. **También al agendar** (pedido de
   Juan Diego: "ver quién es la especialista más óptima mientras agendo"):
-  debajo de "Especialista" en el formulario de la cita, una línea por
-  tratamiento elegido con el mismo ranking (ver "Cómo se muestra" arriba;
-  solo las que lo hacen según su perfil; `garantiasEnFormHtml`) y, con UN
-  tratamiento, "🥇 la mejor en esto" junto a su nombre en la lista
-  (`estrellaGarantias`). No reordena la lista ni elige sola. Solo dueños
+  ver arriba (lista ordenada con medallas). No elige sola. Solo dueños
   (`esDueno()`); las cuentas se hacen una vez por formulario abierto
   (`ui.modal._garStats`, no enumerable). Probado: e2e (21 + 6 + 19 + 6 +
   5 + 13 del ranking y "Contársela a"). **Publicado el 09/10/2026

@@ -405,6 +405,12 @@
   .gar-titulo{font-weight:600;font-size:14.5px;margin-bottom:8px;}
   .gar-fila{display:grid;grid-template-columns:minmax(80px,140px) 1fr auto;gap:4px 10px;align-items:center;padding:6px 0;border-top:1px dashed var(--line);}
   .gar-titulo + .gar-fila{border-top:none;}
+  .gar-revisar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--line);}
+  .gar-revisar-info{flex:1 1 260px;min-width:0;cursor:pointer;font-size:13px;overflow-wrap:anywhere;}
+  .gar-revisar-info .como{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+  .gar-revisar-acc{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+  .gar-revisar-acc select{max-width:200px;padding:6px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--panel-2);color:var(--ink);}
+  .gar-revisar-acc .btn{font-size:12px;padding:6px 10px;}
   .gar-quien{font-size:13.5px;display:flex;align-items:center;gap:6px;min-width:0;overflow-wrap:anywhere;}
   .gar-quien .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
   .gar-barra{height:10px;border-radius:5px;background:var(--line);overflow:hidden;}
@@ -5971,102 +5977,181 @@ function desmarcarPagado(name){
 // retoques no cuentan: son parte normal del proceso. Solo dueños: pestaña
 // "⭐ Garantías" arriba, al lado de Stock (él pidió que fuera una sección como
 // Finanzas o Stock; primero estuvo en Finanzas y después en Más).
-// - Desde GARANTIAS_DESDE (inicio de esta agenda).
-// - Un tratamiento de los últimos GARANTIAS_MADURACION_DIAS días todavía no
-//   cuenta en el % (aún puede volver por garantía); se muestra aparte.
+// - Desde GARANTIAS_DESDE (inicio de esta agenda). Todo tratamiento cuenta
+//   desde el mismo día (antes había una espera de 30 días para que la
+//   clienta alcanzara a volver; a Juan Diego le confundía y dejaba todo en 0%,
+//   se quitó el 10/10/2026).
 // - Con menos de GARANTIAS_MIN_DATOS tratamientos: "pocos datos", sin ⭐.
 // - Garantía sin "¿de qué tratamiento?" (las de antes de que existiera esa
 //   pregunta): si la clienta tuvo un solo tratamiento antes, es ese; si no,
 //   queda en "sin tratamiento anotado" para elegirlo a mano en la cita.
+// - Garantías de antes de que existiera "Garantía de servicio" (quedaron
+//   como el mismo tratamiento a $0 o con "garantía" en las notas): el
+//   buscador "🔎 Posibles garantías sin marcar" (BUSCAR_GARANTIAS_VIEJAS,
+//   temporal) las propone y Juan Diego confirma cada una. Se guarda en
+//   a.garantiaRevision = {es:true, de:<tratamiento>, en} o {es:false, en}.
+//   SOLO lo usan estas estadísticas: no toca precio, comisión, pagos ni
+//   isGarantiaAppt (que sí mueve plata).
 const GARANTIAS_DESDE = '2026-09-01';
-// Juan Diego (09/10/2026): una clienta insatisfecha vuelve casi siempre a
-// la semana, a las dos o a las tres; muy rara vez después del retoque.
-const GARANTIAS_MADURACION_DIAS = 30;
-const GARANTIAS_MIN_DATOS = 10;
+const GARANTIAS_MIN_DATOS = 3; // menos que esto: "pocos datos" (en gris) y sin ⭐
+// La ⭐ (quién es mejor en un tratamiento) usa una cuenta más justa que el %
+// que se ve, para que funcione desde el primer día (pedido de Juan Diego:
+// "que empiece a funcionar desde ya … la manera más óptima"):
+// 1) Un tratamiento de hace menos de GARANTIAS_VENTANA_DIAS pesa menos (la
+//    clienta todavía puede volver): pesa días/ventana (hoy = 0, a los 30 = 1).
+// 2) Con pocos tratamientos no se confía tanto: se acerca al promedio de
+//    todas en ese tratamiento como si tuviera GARANTIAS_PESO_PROMEDIO
+//    tratamientos más con ese promedio. Así "0 de 2" no gana por suerte.
+// Para tener ⭐ hacen falta al menos GARANTIAS_MIN_DATOS tratamientos.
+const GARANTIAS_VENTANA_DIAS = 30;
+const GARANTIAS_PESO_PROMEDIO = 10;
+// Buscador de garantías viejas sin marcar: para usarlo una vez. Cuando ya no
+// haga falta, se apaga con false (lo ya marcado sigue contando).
+const BUSCAR_GARANTIAS_VIEJAS = true;
+function esGarantiaParaStats(a){
+  return isGarantiaAppt(a) || !!(a.garantiaRevision && a.garantiaRevision.es);
+}
+function garantiaDeStats(a){
+  if(a.garantiaDe) return a.garantiaDe;
+  return a.garantiaRevision && a.garantiaRevision.es ? (a.garantiaRevision.de || '') : '';
+}
 function originalDeGarantiaParaStats(g, rastreados){
-  if(g.garantiaDe){
-    const orig = tratamientoOriginalDeGarantia(g);
-    return orig ? {orig, tratamiento: g.garantiaDe} : null;
-  }
   const n = normalizeName(g.client||'');
   if(!n) return null;
   const limite = (g.date||'') + (g.start||'');
-  const prev = state.appointments
-    .filter(x=>x.id!==g.id && normalizeName(x.client||'')===n && !isGarantiaAppt(x) && !x.cursoId
+  const previas = state.appointments
+    .filter(x=>x.id!==g.id && normalizeName(x.client||'')===n && !esGarantiaParaStats(x) && !x.cursoId
       && x.estado!=='Cancelada' && x.estado!=='NoShow'
-      && (x.services||[]).some(sv=>rastreados.has(sv))
       && (x.date+(x.start||'')) <= limite)
-    .sort((x,y)=>(y.date+(y.start||'')).localeCompare(x.date+(x.start||'')))[0];
+    .sort((x,y)=>(y.date+(y.start||'')).localeCompare(x.date+(x.start||'')));
+  const de = garantiaDeStats(g);
+  if(de){
+    const t = normalizeName(de);
+    const orig = previas.find(x=>(x.services||[]).some(sv=>normalizeName(sv)===t));
+    return orig ? {orig, tratamiento: de} : null;
+  }
+  const prev = previas.find(x=>(x.services||[]).some(sv=>rastreados.has(sv)));
   if(!prev) return null;
   const trats = Array.from(new Set((prev.services||[]).filter(sv=>rastreados.has(sv))));
   return trats.length===1 ? {orig: prev, tratamiento: trats[0], adivinado: true} : null;
 }
 function garantiasStats(){
   const hoy = toKey(new Date());
-  const corte = toKey(addDays(parseKey(hoy), -GARANTIAS_MADURACION_DIAS));
-  const garantias = state.appointments.filter(a=>isGarantiaAppt(a) && !a.cursoId && a.date>=GARANTIAS_DESDE && a.date<=hoy
+  const garantias = state.appointments.filter(a=>esGarantiaParaStats(a) && !a.cursoId && a.date>=GARANTIAS_DESDE && a.date<=hoy
     && a.estado!=='Cancelada' && a.estado!=='NoShow');
   // Qué tratamientos se miden: los que llevan retoque (micropigmentación) y
   // cualquiera que haya tenido una garantía.
   const rastreados = new Set(state.services.map(s=>s.name).filter(servicioLlevaRetoque));
-  garantias.forEach(g=>{ if(g.garantiaDe) rastreados.add(g.garantiaDe); });
-  const celdas = {}; // tratamiento -> especialista -> {n, g, nRec, gRec}
+  garantias.forEach(g=>{ const de = garantiaDeStats(g); if(de) rastreados.add(de); });
+  const celdas = {}; // tratamiento -> especialista -> {n, g, citas}
   const celda = (t, esp)=>{
     celdas[t] = celdas[t] || {};
-    return celdas[t][esp] = celdas[t][esp] || {n:0, g:0, nRec:0, gRec:0, citas:[]};
+    return celdas[t][esp] = celdas[t][esp] || {n:0, g:0, peso:0, rec:0, citas:[]};
   };
+  const hoyD = parseKey(hoy);
   state.appointments.forEach(a=>{
-    if(a.cursoId || isGarantiaAppt(a) || !a.specialist) return;
+    if(a.cursoId || esGarantiaParaStats(a) || !a.specialist) return;
     if(a.estado==='Cancelada' || a.estado==='NoShow') return;
     if(a.date<GARANTIAS_DESDE || a.date>hoy) return;
+    const dias = Math.round((hoyD - parseKey(a.date)) / 86400000);
+    const peso = Math.min(1, Math.max(0, dias / GARANTIAS_VENTANA_DIAS));
     (a.services||[]).forEach(sv=>{
       if(!rastreados.has(sv)) return;
       const c = celda(sv, a.specialist);
-      if(a.date<=corte) c.n++; else c.nRec++;
+      c.n++; c.peso += peso; if(peso<1) c.rec++;
     });
   });
   const sinAnotar = [], fuera = [];
   garantias.forEach(g=>{
     const r = originalDeGarantiaParaStats(g, rastreados);
-    if(!r){ (g.garantiaDe ? fuera : sinAnotar).push(g); return; }
+    if(!r){ (garantiaDeStats(g) ? fuera : sinAnotar).push(g); return; }
     const {orig, tratamiento} = r;
     // Tratamiento original de antes de esta agenda (o sin especialista):
     // no se puede comparar con nada, no cuenta.
     if(!orig.specialist || orig.date<GARANTIAS_DESDE){ fuera.push(g); return; }
     const c = celda(tratamiento, orig.specialist);
-    if(orig.date<=corte) c.g++; else c.gRec++;
+    c.g++;
     c.citas.push({g, orig, adivinado: !!r.adivinado});
   });
-  // Totales para el resumen de arriba ("¿por qué todo está en 0%?").
-  const resumen = {n:0, nRec:0, g:0, gRec:0, garantias: garantias.length, sinAnotar: sinAnotar.length, fuera: fuera.length};
-  Object.values(celdas).forEach(porEsp=>Object.values(porEsp).forEach(c=>{
-    resumen.n += c.n; resumen.nRec += c.nRec; resumen.g += c.g; resumen.gRec += c.gRec;
-  }));
-  return {celdas, sinAnotar, fuera, corte, resumen};
+  const resumen = {n:0, g:0, garantias: garantias.length, sinAnotar: sinAnotar.length, fuera: fuera.length};
+  Object.values(celdas).forEach(porEsp=>Object.values(porEsp).forEach(c=>{ resumen.n += c.n; resumen.g += c.g; }));
+  return {celdas, sinAnotar, fuera, resumen};
+}
+// Posibles garantías de antes, anotadas como un tratamiento normal: con
+// "garantía"/"arreglo"/"corrección" en las notas, o con precio $0. Solo las
+// que todavía nadie revisó.
+function posiblesGarantiasViejas(){
+  const hoy = toKey(new Date());
+  return state.appointments.filter(a=>{
+    if(a.garantiaRevision || esGarantiaParaStats(a) || a.cursoId) return false;
+    if(a.date<GARANTIAS_DESDE || a.date>hoy) return false;
+    if(a.estado==='Cancelada' || a.estado==='NoShow') return false;
+    if(isRetoqueAppt(a) || isEvaluacionAppt(a)) return false;
+    const nota = /garant|arregl|correcci|correg/i.test(a.notas||'');
+    const gratis = !(Number(a.price)>0);
+    return nota || gratis;
+  }).sort((x,y)=>(y.date+(y.start||'')).localeCompare(x.date+(x.start||'')));
+}
+function posiblesGarantiasHtml(){
+  if(!BUSCAR_GARANTIAS_VIEJAS) return '';
+  const lista = posiblesGarantiasViejas();
+  const opciones = tratamientosParaGarantia().filter(n=>!/evaluaci[oó]n/i.test(n) && !/retoque/i.test(n));
+  return `
+    <details class="gar-detalle" ${(ui.garBuscarAbierto ?? lista.length>0) ? 'open' : ''}>
+      <summary class="fin-sub" style="cursor:pointer;" data-act="gar-buscar-toggle">🔎 Posibles garantías sin marcar (${lista.length})</summary>
+      <div class="hint" style="margin:0 0 8px;">Citas desde el ${parseKey(GARANTIAS_DESDE).getDate()} de ${MONTHS[parseKey(GARANTIAS_DESDE).getMonth()]} que podrían haber sido una garantía anotada como un tratamiento normal (antes no existía "Garantía de servicio"): dicen "garantía" o "arreglo" en las notas, o tienen precio $0. Marca cada una. <b>Solo cambia estas estadísticas</b>: no toca precios, comisiones ni pagos.</div>
+      ${lista.length ? lista.map(a=>{
+        const sugerido = (a.services||[]).find(sv=>opciones.includes(sv)) || ultimoTratamientoDe(a.client) || '';
+        return `
+      <div class="gar-revisar">
+        <div class="gar-revisar-info" data-act="edit-appt" data-id="${escapeHtml(a.id)}">
+          <b>${diaCorto(a.date)} · ${escapeHtml(a.client||'(sin nombre)')}</b>
+          <div class="como">${escapeHtml(apptServiciosTexto(a))} · ${fmtCLP(Number(a.price)||0)}${a.specialist ? ` · ${escapeHtml(a.specialist)}` : ''}</div>
+          ${a.notas ? `<div class="como">📝 ${escapeHtml(a.notas)}</div>` : ''}
+        </div>
+        <div class="gar-revisar-acc">
+          <select data-gar-de="${escapeHtml(a.id)}">
+            ${opciones.map(n=>`<option value="${escapeHtml(n)}" ${n===sugerido?'selected':''}>${escapeHtml(n)}</option>`).join('')}
+          </select>
+          <button type="button" class="btn btn-primary" data-act="gar-marcar-si" data-id="${escapeHtml(a.id)}">✓ Era garantía</button>
+          <button type="button" class="btn btn-ghost" data-act="gar-marcar-no" data-id="${escapeHtml(a.id)}">✗ No</button>
+        </div>
+      </div>`;}).join('') : `<div class="hint">No queda ninguna por revisar. 🎉</div>`}
+    </details>`;
 }
 function garantiaBarraHtml(esp, c, escala, mejor){
   const pocos = c.n < GARANTIAS_MIN_DATOS;
   const pct = c.n ? Math.round(c.g*100/c.n) : 0;
   const ancho = c.n ? Math.max(2, Math.round(Math.min(pct, escala)*100/escala)) : 0;
-  const recientes = c.nRec ? `<div class="gar-rec">+ ${c.nRec} reciente${c.nRec===1?'':'s'}${c.gRec ? `, ${c.gRec} ya con garantía` : ''} (todavía no cuenta${c.nRec===1?'':'n'})</div>` : '';
   return `
     <div class="gar-fila${pocos?' pocos':''}">
       <div class="gar-quien"><span class="dot" style="background:${colorSeguro(specialistColor(esp))}"></span>${escapeHtml(esp)}${mejor?' <span title="La que menos garantías tiene">⭐</span>':''}</div>
       <div class="gar-barra"><span style="width:${ancho}%;background:${colorSeguro(specialistColor(esp))}"></span></div>
       <div class="gar-num">${c.n ? `<b>${pct}%</b> <span>${c.g} de ${c.n}</span>` : '<span>—</span>'}</div>
       ${pocos && c.n ? `<div class="gar-rec">Pocos datos todavía (menos de ${GARANTIAS_MIN_DATOS})</div>` : ''}
-      ${recientes}
+      ${!pocos && mayoriaRecientes(c) ? `<div class="gar-rec">La mayoría son de los últimos ${GARANTIAS_VENTANA_DIAS} días: todavía pueden volver por garantía</div>` : ''}
     </div>`;
 }
-// Las que menos garantías tienen (⭐): solo si al menos dos tienen datos
-// suficientes y no están todas empatadas.
+// Más de la mitad de sus tratamientos son de los últimos días: su % todavía
+// puede subir (por eso puede tener 0% y no llevarse la ⭐).
+function mayoriaRecientes(c){ return c.n>0 && c.rec*2 > c.n; }
+// Las que menos garantías tienen (⭐), con la cuenta justa de arriba
+// (recientes pesan menos, pocos datos se acercan al promedio). Solo si al
+// menos dos tienen GARANTIAS_MIN_DATOS tratamientos y no están empatadas.
+function puntajeGarantias(c, promedio){
+  return (c.g + GARANTIAS_PESO_PROMEDIO*promedio) / ((c.peso||0) + GARANTIAS_PESO_PROMEDIO);
+}
 function mejoresEnGarantias(porEsp){
-  const pctDe = e=> porEsp[e].n ? porEsp[e].g/porEsp[e].n : 0;
-  const conDatos = Object.keys(porEsp).filter(e=>porEsp[e].n>=GARANTIAS_MIN_DATOS);
+  const esps = Object.keys(porEsp);
+  const totG = esps.reduce((s,e)=>s+porEsp[e].g,0);
+  const totP = esps.reduce((s,e)=>s+(porEsp[e].peso||0),0);
+  const promedio = totP>0 ? Math.min(1, totG/totP) : 0;
+  const conDatos = esps.filter(e=>porEsp[e].n>=GARANTIAS_MIN_DATOS);
   if(conDatos.length<2) return new Set();
-  const min = Math.min(...conDatos.map(pctDe));
-  const max = Math.max(...conDatos.map(pctDe));
-  return min<max ? new Set(conDatos.filter(e=>pctDe(e)===min)) : new Set();
+  const pts = Object.fromEntries(conDatos.map(e=>[e, puntajeGarantias(porEsp[e], promedio)]));
+  const min = Math.min(...Object.values(pts));
+  const max = Math.max(...Object.values(pts));
+  return max-min > 1e-9 ? new Set(conDatos.filter(e=>pts[e]-min < 1e-9)) : new Set();
 }
 // ---- Garantías mientras se agenda (pedido de Juan Diego: ver quién es la
 // más indicada para el tratamiento al momento de agendar) ----
@@ -6102,14 +6187,14 @@ function garantiasEnFormHtml(servicios){
       const pct = Math.round(x.c.g*100/x.c.n);
       return x.c.n < GARANTIAS_MIN_DATOS
         ? `${escapeHtml(sp.name)} <span style="opacity:.7">(pocos datos: ${x.c.g} de ${x.c.n})</span>`
-        : `${x.mejor?'⭐ ':''}<b>${escapeHtml(sp.name)} ${pct}%</b> <span style="opacity:.7">(${x.c.g} de ${x.c.n})</span>`;
+        : `${x.mejor?'⭐ ':''}<b>${escapeHtml(sp.name)} ${pct}%</b> <span style="opacity:.7">(${x.c.g} de ${x.c.n}${mayoriaRecientes(x.c) ? ', la mayoría recientes' : ''})</span>`;
     }).filter(Boolean);
     return partes.length ? `<div>Garantías en ${escapeHtml(t)}: ${partes.join(' · ')}</div>` : '';
   }).filter(Boolean);
-  return lineas.length ? lineas.join('') + `<div style="opacity:.7">Menos es mejor. Detalle en Más → ⭐ Garantías.</div>` : '';
+  return lineas.length ? lineas.join('') + `<div style="opacity:.7">Menos es mejor. Detalle en la pestaña ⭐ Garantías.</div>` : '';
 }
 function garantiaBloqueHtml(titulo, porEsp){
-  const esps = Object.keys(porEsp).filter(e=>porEsp[e].n || porEsp[e].nRec)
+  const esps = Object.keys(porEsp).filter(e=>porEsp[e].n)
     .sort((a,b)=>(porEsp[b].n - porEsp[a].n) || a.localeCompare(b));
   if(!esps.length) return '';
   const pctDe = e=> porEsp[e].n ? porEsp[e].g/porEsp[e].n : 0;
@@ -6122,20 +6207,17 @@ function garantiaBloqueHtml(titulo, porEsp){
     </div>`;
 }
 function garantiasPageHtml(){
-  const {celdas, sinAnotar, fuera, corte, resumen:r} = garantiasStats();
+  const {celdas, sinAnotar, fuera, resumen:r} = garantiasStats();
   const desdeTxt = `${parseKey(GARANTIAS_DESDE).getDate()} de ${MONTHS[parseKey(GARANTIAS_DESDE).getMonth()]}`;
-  const corteTxt = `${parseKey(corte).getDate()} de ${MONTHS[parseKey(corte).getMonth()]}`;
   const resumenHtml = `
-    <div class="fin-cards">
-      <div class="fin-card"><div class="lbl">Tratamientos que ya cuentan</div><div class="val">${r.n}</div><div class="hint" style="margin:2px 0 0;">hechos entre el ${desdeTxt} y el ${corteTxt}</div></div>
-      <div class="fin-card"><div class="lbl">Recientes (aún no cuentan)</div><div class="val">${r.nRec}</div><div class="hint" style="margin:2px 0 0;">de los últimos ${GARANTIAS_MADURACION_DIAS} días</div></div>
-      <div class="fin-card highlight"><div class="lbl">Garantías desde el ${desdeTxt}</div><div class="val">${r.garantias}</div><div class="hint" style="margin:2px 0 0;">${r.g} cuenta${r.g===1?'':'n'} en el %${r.gRec ? ` · ${r.gRec} de recientes` : ''}${r.sinAnotar ? ` · ${r.sinAnotar} sin tratamiento anotado` : ''}${r.fuera ? ` · ${r.fuera} de antes de la agenda` : ''}</div></div>
-    </div>
-    ${r.g===0 && r.n>0 ? `<div class="hint" style="margin:-6px 0 14px;">💡 Si todo sale en <b>0%</b> es porque ningún tratamiento que ya cuenta tiene una garantía anotada: 0% es lo mejor posible, no un error. Los números se van llenando solos a medida que pasan los días y se agendan garantías (marcando "Garantía de servicio" y eligiendo de qué tratamiento es).</div>` : ''}`;
+    <div class="fin-cards" style="grid-template-columns:repeat(2,1fr);">
+      <div class="fin-card"><div class="lbl">Tratamientos medidos</div><div class="val">${r.n}</div><div class="hint" style="margin:2px 0 0;">desde el ${desdeTxt}</div></div>
+      <div class="fin-card highlight"><div class="lbl">Garantías</div><div class="val">${r.g}</div><div class="hint" style="margin:2px 0 0;">de esos tratamientos${r.sinAnotar ? ` · ${r.sinAnotar} sin tratamiento anotado` : ''}${r.fuera ? ` · ${r.fuera} de tratamientos de antes del ${desdeTxt}` : ''}</div></div>
+    </div>`;
   const general = {};
   Object.values(celdas).forEach(porEsp=>Object.keys(porEsp).forEach(e=>{
-    const c = porEsp[e], gq = general[e] = general[e] || {n:0, g:0, nRec:0, gRec:0};
-    gq.n += c.n; gq.g += c.g; gq.nRec += c.nRec; gq.gRec += c.gRec;
+    const c = porEsp[e], gq = general[e] = general[e] || {n:0, g:0, peso:0, rec:0};
+    gq.n += c.n; gq.g += c.g; gq.peso += c.peso; gq.rec += c.rec;
   }));
   const orden = state.services.map(s=>s.name);
   const trats = Object.keys(celdas).sort((a,b)=>{
@@ -6148,6 +6230,7 @@ function garantiasPageHtml(){
   lista.sort((x,y)=>y.g.date.localeCompare(x.g.date));
   return `
     ${resumenHtml}
+    ${posiblesGarantiasHtml()}
     ${Object.keys(general).length ? garantiaBloqueHtml('En general (todos los tratamientos)', general) : `<div class="empty-msg">Todavía no hay tratamientos para medir.</div>`}
     ${bloques ? `<div class="fin-sub">Por tratamiento</div><div class="gar-grid">${bloques}</div>` : ''}
     ${sinAnotar.length ? `
@@ -6159,8 +6242,9 @@ function garantiasPageHtml(){
       ${lista.map(({g, orig, adivinado, t})=>`
       <div class="pago-fila click" data-act="edit-appt" data-id="${escapeHtml(g.id)}">
         <div>${diaCorto(g.date)} · ${escapeHtml(g.client||'(sin nombre)')}
-          <div class="como">Garantía de ${escapeHtml(t)} hecho por <b>${escapeHtml(orig.specialist)}</b> el ${diaCorto(orig.date)}${g.specialist && normalizeName(g.specialist)!==normalizeName(orig.specialist) ? ` · la garantía la hizo ${escapeHtml(g.specialist)}` : ''}${adivinado ? ' · (tratamiento deducido: era el único que se había hecho)' : ''}</div>
+          <div class="como">Garantía de ${escapeHtml(t)} hecho por <b>${escapeHtml(orig.specialist)}</b> el ${diaCorto(orig.date)}${g.specialist && normalizeName(g.specialist)!==normalizeName(orig.specialist) ? ` · la garantía la hizo ${escapeHtml(g.specialist)}` : ''}${adivinado ? ' · (tratamiento deducido: era el único que se había hecho)' : ''}${g.garantiaRevision && g.garantiaRevision.es ? ' · marcada a mano' : ''}</div>
         </div>
+        ${g.garantiaRevision ? `<button type="button" class="linklike" style="font-size:11.5px;white-space:nowrap;" data-act="gar-desmarcar" data-id="${escapeHtml(g.id)}">Desmarcar</button>` : ''}
       </div>`).join('')}
     </details>` : ''}
     ${fuera.length ? `
@@ -6172,7 +6256,7 @@ function garantiasPageHtml(){
         <div>${diaCorto(g.date)} · ${escapeHtml(g.client||'(sin nombre)')}<div class="como">${escapeHtml(apptServiciosTexto(g))}${g.specialist ? ` · la hizo ${escapeHtml(g.specialist)}` : ''}</div></div>
       </div>`).join('')}
     </details>` : ''}
-    <div class="hint" style="margin-top:16px;">Cómo se calcula: tratamientos que llevan retoque (y cualquier otro que haya tenido una garantía) hechos desde el ${parseKey(GARANTIAS_DESDE).getDate()} de ${MONTHS[parseKey(GARANTIAS_DESDE).getMonth()]} (sin contar los cancelados ni los que no llegaron), y cuántos volvieron por garantía. La garantía se le cuenta a quien hizo el tratamiento, aunque la garantía la haya hecho otra. Los de los últimos ${GARANTIAS_MADURACION_DIAS} días (desde el ${diaCorto(toKey(addDays(parseKey(corte),1)))}) todavía no cuentan en el %, porque la clienta aún puede volver. ⭐ = la que menos garantías tiene, solo cuando hay al menos ${GARANTIAS_MIN_DATOS} tratamientos para comparar. Los retoques no cuentan (son parte normal del proceso).</div>`;
+    <div class="hint" style="margin-top:16px;">Cómo se calcula: de los tratamientos que llevan retoque (y cualquier otro que haya tenido una garantía) hechos desde el ${desdeTxt}, sin contar los cancelados ni los que no llegaron, cuántos volvieron por garantía. La garantía se le cuenta a quien hizo el tratamiento, aunque la garantía la haya hecho otra. ⭐ = la que menos garantías tiene, con una cuenta más justa que el %: un tratamiento de los últimos ${GARANTIAS_VENTANA_DIAS} días pesa menos (la clienta todavía puede volver) y, con pocos tratamientos, se acerca al promedio de todas (así "0 de 2" no gana por suerte). Hace falta un mínimo de ${GARANTIAS_MIN_DATOS} tratamientos. Los retoques no cuentan (son parte normal del proceso).</div>`;
 }
 
 function puedeVerGarantias(){ return ui.mode==='admin' && esDueno(); }
@@ -6845,6 +6929,7 @@ function touchupCandidates(opts){
     if(isRetoqueAppt(a)) return; // ya es un retoque, no una sesión inicial
     if(isEvaluacionAppt(a)) return; // una evaluación no es un tratamiento, no le corresponde retoque
     if(isGarantiaAppt(a)) return; // una garantía tampoco es una sesión inicial nueva
+    if(a.garantiaRevision && a.garantiaRevision.es) return; // garantía vieja marcada a mano en ⭐ Garantías
     if(isLiftingPestanasAppt(a)) return; // el lifting de pestañas no lleva retoque
     if(!(a.services||[]).some(servicioLlevaRetoque)) return; // ningún tratamiento de la cita lleva retoque (laminado, limpieza, perfilado…)
     if(a.cursoId) return; // una clase de un curso no es un tratamiento individual, no le corresponde retoque
@@ -7866,7 +7951,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-specialists','add-specialist','remove-specialist','save-specialists',
   'open-schedule','toggle-day-closed','save-schedule',
   'open-clients','toggle-client','delete-client',
-  'open-noshows','open-autobackups','download-autobackup','restore-autobackup','sync-all-backup','open-security','save-security','forget-device','open-blocks-list','open-touchups',
+  'open-noshows','open-autobackups','download-autobackup','restore-autobackup','sync-all-backup','open-security','save-security','forget-device','open-blocks-list','open-touchups','gar-marcar-si','gar-marcar-no','gar-desmarcar','gar-buscar-toggle',
   'copy-touchup-msg','mark-touchup-avisado','quitar-touchup','devolver-touchup',
   'open-reviews','copy-checkin-msg','copy-review-msg','toggle-review-avisado',
   'finance-tab','save-comision-pct','save-mis-ganancias-desde',
@@ -8250,6 +8335,29 @@ function onAction(e){
       if(appt){ delete appt.retoqueQuitado; render(); saveData(); }
       break;
     }
+    case 'gar-marcar-si':
+    case 'gar-marcar-no': {
+      const id = e.currentTarget.dataset.id;
+      const appt = state.appointments.find(a=>a.id===id);
+      if(!appt) break;
+      const si = act==='gar-marcar-si';
+      const sel = document.querySelector(`[data-gar-de="${CSS.escape(id)}"]`);
+      appt.garantiaRevision = si ? {es:true, de: sel ? sel.value : '', en: new Date().toISOString()} : {es:false, en: new Date().toISOString()};
+      ui.garBuscarAbierto = true;
+      render();
+      saveData();
+      break;
+    }
+    case 'gar-desmarcar': {
+      const id = e.currentTarget.dataset.id;
+      const appt = state.appointments.find(a=>a.id===id);
+      if(appt && appt.garantiaRevision){ delete appt.garantiaRevision; render(); saveData(); }
+      break;
+    }
+    case 'gar-buscar-toggle':
+      // el <details> se abre/cierra solo; se recuerda para el próximo render
+      ui.garBuscarAbierto = !e.currentTarget.parentElement.open;
+      break;
     case 'open-reviews':
       ui.modal = {type:'reviews'}; ui.menuOpen = false; render(); break;
     case 'copy-checkin-msg': {

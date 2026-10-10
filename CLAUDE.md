@@ -1092,18 +1092,37 @@ para servir también a **Copiapó**, de la siguiente forma:
   necesita retoque" tampoco (él lo descartó: muy difícil de filtrar). Se
   miden los tratamientos que llevan retoque + cualquiera que haya tenido una
   garantía, desde `GARANTIAS_DESDE` ('2026-09-01', inicio de la agenda,
-  decidido por él). Un tratamiento de los últimos `GARANTIAS_MADURACION_DIAS`
-  (30: según él, una clienta insatisfecha vuelve a la semana, a las dos o a
-  las tres; casi nunca después del retoque) todavía no cuenta en el % ("+ N
-  recientes, todavía no cuentan"). Arriba, un resumen (tratamientos que ya
-  cuentan, recientes, garantías desde el 1/9 y qué pasó con cada una) y, si
-  todo da 0%, la explicación: 0% = ninguna garantía anotada, no un error (él
-  preguntó "¿por qué todo está en cero?"). Garantías cuyo tratamiento
-  original es de antes del 1/9 o no está en la agenda: "Garantías que no
-  cuentan" (desplegable). En pantalla ancha, los tratamientos en 2
-  columnas (`.gar-grid`).
-  Menos de `GARANTIAS_MIN_DATOS` (10): "Pocos datos", sin ⭐. ⭐ = menor %
-  entre las que tienen datos suficientes. Garantías viejas sin "¿de qué
+  decidido por él). **Cómo se cuenta (cambiado el 10/10/2026):** primero
+  había una espera de 30 días antes de que un tratamiento contara; a él le
+  confundía y todo salía en 0% ("que empiece a funcionar desde ya … la
+  manera más óptima"). Ahora el % que se ve es simple (todo cuenta desde el
+  día del tratamiento: "1 de 12") y la ⭐ usa una cuenta más justa
+  (`puntajeGarantias`): (1) un tratamiento de hace menos de
+  `GARANTIAS_VENTANA_DIAS` (30) pesa días/30 — así quien hizo muchos
+  tratamientos recién NO gana la ⭐ por eso (su preocupación explícita); (2)
+  se acerca al promedio de todas en ese tratamiento como si tuviera
+  `GARANTIAS_PESO_PROMEDIO` (10) tratamientos más (con 5, "0 de 5" le ganaba
+  a "1 de 18"). ⭐ = menor puntaje entre las que tienen al menos
+  `GARANTIAS_MIN_DATOS` (3) tratamientos (menos: "Pocos datos", en gris), y
+  solo si no están empatadas. Si más de la mitad de los tratamientos de una
+  son de los últimos 30 días: "La mayoría son de los últimos 30 días:
+  todavía pueden volver por garantía" (y ", la mayoría recientes" al
+  agendar). Arriba, un resumen (tratamientos medidos, garantías).
+  Garantías cuyo tratamiento original es de antes del 1/9 o no está en la
+  agenda: "Garantías que no cuentan" (desplegable). En pantalla ancha, los
+  tratamientos en 2 columnas (`.gar-grid`).
+  **Garantías viejas sin marcar (10/10/2026):** antes de que existiera
+  "Garantía de servicio" se anotaban como el mismo tratamiento a $0 o con
+  "garantía" en las notas. "🔎 Posibles garantías sin marcar" (arriba,
+  abierto mientras queden) propone citas desde el 1/9 con
+  garantía/arreglo/corrección en las notas o precio $0 (no retoques,
+  evaluaciones ni cursos); Juan Diego elige el tratamiento y toca "✓ Era
+  garantía" o "✗ No". Se guarda en `a.garantiaRevision` = {es, de, en}; en
+  "una por una" se puede "Desmarcar". SOLO lo usan estas estadísticas
+  (`esGarantiaParaStats`/`garantiaDeStats`) y Retoques pendientes (una
+  garantía marcada no es sesión inicial): NO toca precio, comisión, pagos ni
+  `isGarantiaAppt`. Es temporal: `BUSCAR_GARANTIAS_VIEJAS = false` lo
+  esconde cuando él termine (lo marcado sigue contando). Probado: e2e (19). Garantías viejas sin "¿de qué
   tratamiento?": si la clienta tuvo un solo tratamiento antes, se deduce; si
   no (combo), lista "sin tratamiento anotado" para abrirla y elegirlo.
   Solo lee: no guarda nada ni toca plata. **También al agendar** (pedido de

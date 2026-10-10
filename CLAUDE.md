@@ -1092,25 +1092,39 @@ para servir también a **Copiapó**, de la siguiente forma:
   necesita retoque" tampoco (él lo descartó: muy difícil de filtrar). Se
   miden los tratamientos que llevan retoque + cualquiera que haya tenido una
   garantía, desde `GARANTIAS_DESDE` ('2026-09-01', inicio de la agenda,
-  decidido por él). **Cómo se cuenta (cambiado el 10/10/2026):** primero
-  había una espera de 30 días antes de que un tratamiento contara; a él le
-  confundía y todo salía en 0% ("que empiece a funcionar desde ya … la
-  manera más óptima"). Ahora el % que se ve es simple (todo cuenta desde el
-  día del tratamiento: "1 de 12") y la ⭐ usa una cuenta más justa
-  (`puntajeGarantias`): (1) un tratamiento de hace menos de
-  `GARANTIAS_VENTANA_DIAS` (30) pesa días/30 — así quien hizo muchos
-  tratamientos recién NO gana la ⭐ por eso (su preocupación explícita); (2)
-  se acerca al promedio de todas en ese tratamiento como si tuviera
-  `GARANTIAS_PESO_PROMEDIO` (10) tratamientos más (con 5, "0 de 5" le ganaba
-  a "1 de 18"). ⭐ = menor puntaje entre las que tienen al menos
-  `GARANTIAS_MIN_DATOS` (3) tratamientos (menos: "Pocos datos", en gris), y
-  solo si no están empatadas. Si más de la mitad de los tratamientos de una
-  son de los últimos 30 días: "La mayoría son de los últimos 30 días:
-  todavía pueden volver por garantía" (y ", la mayoría recientes" al
-  agendar). Arriba, un resumen (tratamientos medidos, garantías).
-  Garantías cuyo tratamiento original es de antes del 1/9 o no está en la
-  agenda: "Garantías que no cuentan" (desplegable). En pantalla ancha, los
-  tratamientos en 2 columnas (`.gar-grid`).
+  decidido por él). **Cómo se muestra (rehecho el 10/10/2026, porque no
+  se entendía: "Lucy 7%" con barra larga era 7% de garantías, o sea, menos
+  es mejor, al revés de lo que se lee; y primero había una espera de 30 días
+  que dejaba todo en 0%):** botones por tratamiento arriba ("Todos ·
+  Microblading · Delineado…", `ui.garTrat`, mismo estilo que las
+  subpestañas de Finanzas) y UN ranking "¿Quién hace mejor X?" de mejor a
+  peor, en positivo: "**94% quedaron bien** · 17 de 18 trabajos sin
+  garantía · 1 garantía", barra = % bien (más larga = mejor), medallas
+  🥇🥈🥉 (`rankingGarantias`). El orden es EXACTAMENTE el % visible (una
+  versión con una "cuenta más justa" escondida ponía "94% 🥇" arriba de
+  "100% 🥈": no se entendía, NO volver a eso). Todo trabajo cuenta en el %
+  desde el día que se hizo, pero para COMPETIR por medalla hacen falta al
+  menos `GARANTIAS_MIN_DATOS` (3) trabajos de hace más de
+  `GARANTIAS_VENTANA_DIAS` (30) días y que la mayoría no sea reciente: así
+  quien hizo muchos trabajos estos días no gana por eso (su preocupación
+  explícita); las demás van al final en gris con el motivo ("pocos trabajos
+  todavía" / "la mayoría son de los últimos 30 días: todavía no se sabe").
+  Empatadas comparten medalla; si todas empatan o compite una sola, no hay
+  medallas. Al agendar: "Delineado de Ojos (DO): 🥇 Lucy 100% (4 de 4 bien) ·
+  🥈 Salomé 83% (5 de 6 bien)" y, con UN tratamiento, "🥇 la mejor en esto"
+  junto al nombre en la lista. Arriba, una línea de resumen (trabajos
+  medidos, garantías).
+  **Garantías que no cuentan** (desplegable): el tratamiento original no
+  está desde el 1/9; debajo de cada una el motivo (`razonGarantiaNoCuenta`:
+  original de antes del 1/9 con fecha y especialista; nombre de la clienta
+  escrito distinto —`nombresParecidos`, ≥2 palabras iguales—; original sin
+  especialista; o no hay ninguno en la agenda) y el botón "Contársela a
+  <quien hizo la garantía>" (`a.garantiaAsignadaA`, pedido de Juan Diego
+  para 3 garantías de delineado que hizo Salomé): cuenta como 1 trabajo + 1
+  garantía para ella (el tratamiento existió aunque no esté medido). Solo
+  estadística, no toca plata; se deshace con "Desmarcar" en "una por una".
+  Los botones dentro de una fila que abre la cita hacen `stopPropagation`
+  (bug encontrado: "Desmarcar" también abría la cita).
   **Garantías viejas sin marcar (10/10/2026):** antes de que existiera
   "Garantía de servicio" se anotaban como el mismo tratamiento a $0 o con
   "garantía" en las notas. "🔎 Posibles garantías sin marcar" (arriba,
@@ -1130,12 +1144,13 @@ para servir también a **Copiapó**, de la siguiente forma:
   Solo lee: no guarda nada ni toca plata. **También al agendar** (pedido de
   Juan Diego: "ver quién es la especialista más óptima mientras agendo"):
   debajo de "Especialista" en el formulario de la cita, una línea por
-  tratamiento elegido ("Garantías en Microblading: ⭐ Salomé 6% (1 de 16) ·
-  Lucy 31% …", solo las que lo hacen según su perfil; `garantiasEnFormHtml`)
-  y, con UN tratamiento, "⭐ menos garantías" junto a su nombre en la lista
+  tratamiento elegido con el mismo ranking (ver "Cómo se muestra" arriba;
+  solo las que lo hacen según su perfil; `garantiasEnFormHtml`) y, con UN
+  tratamiento, "🥇 la mejor en esto" junto a su nombre en la lista
   (`estrellaGarantias`). No reordena la lista ni elige sola. Solo dueños
   (`esDueno()`); las cuentas se hacen una vez por formulario abierto
-  (`ui.modal._garStats`, no enumerable). Probado: e2e (21 + 6). **Publicado el 09/10/2026
+  (`ui.modal._garStats`, no enumerable). Probado: e2e (21 + 6 + 19 + 6 +
+  5 + 13 del ranking y "Contársela a"). **Publicado el 09/10/2026
   (PR #109, junto con "Quitar" de Retoques y el perfil de especialistas).**
   Él sabe que suma algo más al formulario (que intenta mantener corto) y
   decidió que vale la pena y que ese es el mejor lugar.

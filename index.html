@@ -405,12 +405,6 @@
   .gar-titulo{font-weight:600;font-size:14.5px;margin-bottom:8px;}
   .gar-fila{display:grid;grid-template-columns:minmax(80px,140px) 1fr auto;gap:4px 10px;align-items:center;padding:6px 0;border-top:1px dashed var(--line);}
   .gar-titulo + .gar-fila{border-top:none;}
-  .gar-revisar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px dashed var(--line);}
-  .gar-revisar-info{flex:1 1 260px;min-width:0;cursor:pointer;font-size:13px;overflow-wrap:anywhere;}
-  .gar-revisar-info .como{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
-  .gar-revisar-acc{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
-  .gar-revisar-acc select{max-width:200px;padding:6px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--panel-2);color:var(--ink);}
-  .gar-revisar-acc .btn{font-size:12px;padding:6px 10px;}
   .gar-quien{font-size:13.5px;display:flex;align-items:center;gap:6px;min-width:0;overflow-wrap:anywhere;}
   .gar-quien .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
   .gar-barra{height:10px;border-radius:5px;background:var(--line);overflow:hidden;}
@@ -5986,12 +5980,12 @@ function desmarcarPagado(name){
 //   pregunta): si la clienta tuvo un solo tratamiento antes, es ese; si no,
 //   queda en "sin tratamiento anotado" para elegirlo a mano en la cita.
 // - Garantías de antes de que existiera "Garantía de servicio" (quedaron
-//   como el mismo tratamiento a $0 o con "garantía" en las notas): el
-//   buscador "🔎 Posibles garantías sin marcar" (BUSCAR_GARANTIAS_VIEJAS,
-//   temporal) las propone y Juan Diego confirma cada una. Se guarda en
-//   a.garantiaRevision = {es:true, de:<tratamiento>, en} o {es:false, en}.
-//   SOLO lo usan estas estadísticas: no toca precio, comisión, pagos ni
-//   isGarantiaAppt (que sí mueve plata).
+//   como el mismo tratamiento a $0 o con "garantía" en las notas): Juan
+//   Diego las marcó una vez (10/10/2026) con un buscador temporal que ya se
+//   quitó. Quedaron en a.garantiaRevision = {es:true, de:<tratamiento>, en}
+//   (o {es:false, en} = "no era garantía"). SOLO lo usan estas estadísticas
+//   y Retoques: no toca precio, comisión, pagos ni isGarantiaAppt (que sí
+//   mueve plata). En "una por una" se pueden desmarcar.
 const GARANTIAS_DESDE = '2026-09-01';
 const GARANTIAS_MIN_DATOS = 3; // menos que esto: "pocos datos" (en gris) y sin ⭐
 // La ⭐ (quién es mejor en un tratamiento) usa una cuenta más justa que el %
@@ -6005,9 +5999,6 @@ const GARANTIAS_MIN_DATOS = 3; // menos que esto: "pocos datos" (en gris) y sin 
 // Para tener ⭐ hacen falta al menos GARANTIAS_MIN_DATOS tratamientos.
 const GARANTIAS_VENTANA_DIAS = 30;
 const GARANTIAS_PESO_PROMEDIO = 10;
-// Buscador de garantías viejas sin marcar: para usarlo una vez. Cuando ya no
-// haga falta, se apaga con false (lo ya marcado sigue contando).
-const BUSCAR_GARANTIAS_VIEJAS = true;
 function esGarantiaParaStats(a){
   return isGarantiaAppt(a) || !!(a.garantiaRevision && a.garantiaRevision.es);
 }
@@ -6076,48 +6067,6 @@ function garantiasStats(){
   const resumen = {n:0, g:0, garantias: garantias.length, sinAnotar: sinAnotar.length, fuera: fuera.length};
   Object.values(celdas).forEach(porEsp=>Object.values(porEsp).forEach(c=>{ resumen.n += c.n; resumen.g += c.g; }));
   return {celdas, sinAnotar, fuera, resumen};
-}
-// Posibles garantías de antes, anotadas como un tratamiento normal: con
-// "garantía"/"arreglo"/"corrección" en las notas, o con precio $0. Solo las
-// que todavía nadie revisó.
-function posiblesGarantiasViejas(){
-  const hoy = toKey(new Date());
-  return state.appointments.filter(a=>{
-    if(a.garantiaRevision || esGarantiaParaStats(a) || a.cursoId) return false;
-    if(a.date<GARANTIAS_DESDE || a.date>hoy) return false;
-    if(a.estado==='Cancelada' || a.estado==='NoShow') return false;
-    if(isRetoqueAppt(a) || isEvaluacionAppt(a)) return false;
-    const nota = /garant|arregl|correcci|correg/i.test(a.notas||'');
-    const gratis = !(Number(a.price)>0);
-    return nota || gratis;
-  }).sort((x,y)=>(y.date+(y.start||'')).localeCompare(x.date+(x.start||'')));
-}
-function posiblesGarantiasHtml(){
-  if(!BUSCAR_GARANTIAS_VIEJAS) return '';
-  const lista = posiblesGarantiasViejas();
-  const opciones = tratamientosParaGarantia().filter(n=>!/evaluaci[oó]n/i.test(n) && !/retoque/i.test(n));
-  return `
-    <details class="gar-detalle" ${(ui.garBuscarAbierto ?? lista.length>0) ? 'open' : ''}>
-      <summary class="fin-sub" style="cursor:pointer;" data-act="gar-buscar-toggle">🔎 Posibles garantías sin marcar (${lista.length})</summary>
-      <div class="hint" style="margin:0 0 8px;">Citas desde el ${parseKey(GARANTIAS_DESDE).getDate()} de ${MONTHS[parseKey(GARANTIAS_DESDE).getMonth()]} que podrían haber sido una garantía anotada como un tratamiento normal (antes no existía "Garantía de servicio"): dicen "garantía" o "arreglo" en las notas, o tienen precio $0. Marca cada una. <b>Solo cambia estas estadísticas</b>: no toca precios, comisiones ni pagos.</div>
-      ${lista.length ? lista.map(a=>{
-        const sugerido = (a.services||[]).find(sv=>opciones.includes(sv)) || ultimoTratamientoDe(a.client) || '';
-        return `
-      <div class="gar-revisar">
-        <div class="gar-revisar-info" data-act="edit-appt" data-id="${escapeHtml(a.id)}">
-          <b>${diaCorto(a.date)} · ${escapeHtml(a.client||'(sin nombre)')}</b>
-          <div class="como">${escapeHtml(apptServiciosTexto(a))} · ${fmtCLP(Number(a.price)||0)}${a.specialist ? ` · ${escapeHtml(a.specialist)}` : ''}</div>
-          ${a.notas ? `<div class="como">📝 ${escapeHtml(a.notas)}</div>` : ''}
-        </div>
-        <div class="gar-revisar-acc">
-          <select data-gar-de="${escapeHtml(a.id)}">
-            ${opciones.map(n=>`<option value="${escapeHtml(n)}" ${n===sugerido?'selected':''}>${escapeHtml(n)}</option>`).join('')}
-          </select>
-          <button type="button" class="btn btn-primary" data-act="gar-marcar-si" data-id="${escapeHtml(a.id)}">✓ Era garantía</button>
-          <button type="button" class="btn btn-ghost" data-act="gar-marcar-no" data-id="${escapeHtml(a.id)}">✗ No</button>
-        </div>
-      </div>`;}).join('') : `<div class="hint">No queda ninguna por revisar. 🎉</div>`}
-    </details>`;
 }
 function garantiaBarraHtml(esp, c, escala, mejor){
   const pocos = c.n < GARANTIAS_MIN_DATOS;
@@ -6230,7 +6179,6 @@ function garantiasPageHtml(){
   lista.sort((x,y)=>y.g.date.localeCompare(x.g.date));
   return `
     ${resumenHtml}
-    ${posiblesGarantiasHtml()}
     ${Object.keys(general).length ? garantiaBloqueHtml('En general (todos los tratamientos)', general) : `<div class="empty-msg">Todavía no hay tratamientos para medir.</div>`}
     ${bloques ? `<div class="fin-sub">Por tratamiento</div><div class="gar-grid">${bloques}</div>` : ''}
     ${sinAnotar.length ? `
@@ -7951,7 +7899,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-specialists','add-specialist','remove-specialist','save-specialists',
   'open-schedule','toggle-day-closed','save-schedule',
   'open-clients','toggle-client','delete-client',
-  'open-noshows','open-autobackups','download-autobackup','restore-autobackup','sync-all-backup','open-security','save-security','forget-device','open-blocks-list','open-touchups','gar-marcar-si','gar-marcar-no','gar-desmarcar','gar-buscar-toggle',
+  'open-noshows','open-autobackups','download-autobackup','restore-autobackup','sync-all-backup','open-security','save-security','forget-device','open-blocks-list','open-touchups','gar-desmarcar',
   'copy-touchup-msg','mark-touchup-avisado','quitar-touchup','devolver-touchup',
   'open-reviews','copy-checkin-msg','copy-review-msg','toggle-review-avisado',
   'finance-tab','save-comision-pct','save-mis-ganancias-desde',
@@ -8335,29 +8283,12 @@ function onAction(e){
       if(appt){ delete appt.retoqueQuitado; render(); saveData(); }
       break;
     }
-    case 'gar-marcar-si':
-    case 'gar-marcar-no': {
-      const id = e.currentTarget.dataset.id;
-      const appt = state.appointments.find(a=>a.id===id);
-      if(!appt) break;
-      const si = act==='gar-marcar-si';
-      const sel = document.querySelector(`[data-gar-de="${CSS.escape(id)}"]`);
-      appt.garantiaRevision = si ? {es:true, de: sel ? sel.value : '', en: new Date().toISOString()} : {es:false, en: new Date().toISOString()};
-      ui.garBuscarAbierto = true;
-      render();
-      saveData();
-      break;
-    }
     case 'gar-desmarcar': {
       const id = e.currentTarget.dataset.id;
       const appt = state.appointments.find(a=>a.id===id);
       if(appt && appt.garantiaRevision){ delete appt.garantiaRevision; render(); saveData(); }
       break;
     }
-    case 'gar-buscar-toggle':
-      // el <details> se abre/cierra solo; se recuerda para el próximo render
-      ui.garBuscarAbierto = !e.currentTarget.parentElement.open;
-      break;
     case 'open-reviews':
       ui.modal = {type:'reviews'}; ui.menuOpen = false; render(); break;
     case 'copy-checkin-msg': {

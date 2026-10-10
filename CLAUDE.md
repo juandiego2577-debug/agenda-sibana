@@ -1121,8 +1121,10 @@ para servir también a **Copiapó**, de la siguiente forma:
   "una por una" se puede "Desmarcar". SOLO lo usan estas estadísticas
   (`esGarantiaParaStats`/`garantiaDeStats`) y Retoques pendientes (una
   garantía marcada no es sesión inicial): NO toca precio, comisión, pagos ni
-  `isGarantiaAppt`. Es temporal: `BUSCAR_GARANTIAS_VIEJAS = false` lo
-  esconde cuando él termine (lo marcado sigue contando). Probado: e2e (19). Garantías viejas sin "¿de qué
+  `isGarantiaAppt`. **Era temporal: Juan Diego revisó todas y el buscador
+  se QUITÓ del código el 10/10/2026** (lo marcado en `a.garantiaRevision`
+  sigue contando y se puede desmarcar en "una por una"). Si algún día hace
+  falta de nuevo, está en el historial de git (PR #111). Probado: e2e (19 + 6). Garantías viejas sin "¿de qué
   tratamiento?": si la clienta tuvo un solo tratamiento antes, se deduce; si
   no (combo), lista "sin tratamiento anotado" para abrirla y elegirlo.
   Solo lee: no guarda nada ni toca plata. **También al agendar** (pedido de

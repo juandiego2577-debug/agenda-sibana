@@ -6026,6 +6026,37 @@ function originalDeGarantiaParaStats(g, rastreados){
   const trats = Array.from(new Set((prev.services||[]).filter(sv=>rastreados.has(sv))));
   return trats.length===1 ? {orig: prev, tratamiento: trats[0], adivinado: true} : null;
 }
+// Por qué una garantía no se puede contar ("Garantías que no cuentan").
+function nombresParecidos(a, b){
+  const tok = x=> new Set(sinTildes(x||'').split(/\s+/).filter(w=>w.length>1));
+  const ta = tok(a), tb = tok(b);
+  let comunes = 0; ta.forEach(w=>{ if(tb.has(w)) comunes++; });
+  return comunes>=2 || (comunes>=1 && Math.min(ta.size, tb.size)===1 && ta.size+tb.size<=3);
+}
+function fechaTexto(key){
+  const d = parseKey(key);
+  return `${d.getDate()} de ${MONTHS[d.getMonth()]}${d.getFullYear()!==new Date().getFullYear() ? ' de '+d.getFullYear() : ''}`;
+}
+function razonGarantiaNoCuenta(g){
+  const de = garantiaDeStats(g);
+  if(!de) return 'No dice de qué tratamiento es la garantía.';
+  const t = normalizeName(de), n = normalizeName(g.client||'');
+  const limite = (g.date||'') + (g.start||'');
+  const previas = state.appointments.filter(x=>x.id!==g.id && !esGarantiaParaStats(x) && !x.cursoId
+      && x.estado!=='Cancelada' && x.estado!=='NoShow' && (x.date+(x.start||'')) <= limite)
+    .sort((x,y)=>(y.date+(y.start||'')).localeCompare(x.date+(x.start||'')));
+  const conTrat = x=>(x.services||[]).some(sv=>normalizeName(sv)===t);
+  const misma = previas.find(x=>conTrat(x) && normalizeName(x.client||'')===n);
+  const desdeTxt = fechaTexto(GARANTIAS_DESDE);
+  if(misma){
+    if(!misma.specialist) return `Su ${escapeHtml(de)} del ${fechaTexto(misma.date)} no tiene especialista anotada: ábrelo y elige quién lo hizo.`;
+    return `Su ${escapeHtml(de)} fue el ${fechaTexto(misma.date)} con ${escapeHtml(misma.specialist)}, antes del ${desdeTxt} (desde cuando se mide).`;
+  }
+  const parecida = previas.find(x=>conTrat(x) && nombresParecidos(x.client, g.client));
+  if(parecida) return `Hay un ${escapeHtml(de)} de "<b>${escapeHtml(parecida.client)}</b>" el ${fechaTexto(parecida.date)}: si es la misma clienta, el nombre está escrito distinto. Corrígelo en una de las dos citas para que coincida${parecida.date<GARANTIAS_DESDE ? ` (aunque, al ser de antes del ${desdeTxt}, igual no contaría)` : ''}.`;
+  const otra = previas.find(x=>normalizeName(x.client||'')===n);
+  return `No hay ningún ${escapeHtml(de)} anterior de esta clienta en la agenda (quizás se lo hizo antes de que existiera la agenda)${otra ? `. Lo último que tiene anotado antes es ${escapeHtml(summarizeServices(otra.services||[]))} el ${fechaTexto(otra.date)}` : ''}.`;
+}
 function garantiasStats(){
   const hoy = toKey(new Date());
   const garantias = state.appointments.filter(a=>esGarantiaParaStats(a) && !a.cursoId && a.date>=GARANTIAS_DESDE && a.date<=hoy
@@ -6198,10 +6229,11 @@ function garantiasPageHtml(){
     ${fuera.length ? `
     <details class="gar-detalle">
       <summary class="fin-sub" style="cursor:pointer;">Garantías que no cuentan (${fuera.length})</summary>
-      <div class="hint" style="margin:0 0 6px;">El tratamiento original es de antes del ${desdeTxt} (o no está en la agenda), así que no hay con qué compararlo.</div>
+      <div class="hint" style="margin:0 0 6px;">No se encuentra el tratamiento original desde el ${desdeTxt}, así que no se sabe a quién contársela. Debajo de cada una, el motivo.</div>
       ${fuera.map(g=>`
       <div class="pago-fila click" data-act="edit-appt" data-id="${escapeHtml(g.id)}">
-        <div>${diaCorto(g.date)} · ${escapeHtml(g.client||'(sin nombre)')}<div class="como">${escapeHtml(apptServiciosTexto(g))}${g.specialist ? ` · la hizo ${escapeHtml(g.specialist)}` : ''}</div></div>
+        <div>${diaCorto(g.date)} · ${escapeHtml(g.client||'(sin nombre)')}<div class="como">${escapeHtml(apptServiciosTexto(g))}${g.specialist ? ` · la hizo ${escapeHtml(g.specialist)}` : ''}</div>
+          <div class="como" style="color:var(--ink);">👉 ${razonGarantiaNoCuenta(g)}</div></div>
       </div>`).join('')}
     </details>` : ''}
     <div class="hint" style="margin-top:16px;">Cómo se calcula: de los tratamientos que llevan retoque (y cualquier otro que haya tenido una garantía) hechos desde el ${desdeTxt}, sin contar los cancelados ni los que no llegaron, cuántos volvieron por garantía. La garantía se le cuenta a quien hizo el tratamiento, aunque la garantía la haya hecho otra. ⭐ = la que menos garantías tiene, con una cuenta más justa que el %: un tratamiento de los últimos ${GARANTIAS_VENTANA_DIAS} días pesa menos (la clienta todavía puede volver) y, con pocos tratamientos, se acerca al promedio de todas (así "0 de 2" no gana por suerte). Hace falta un mínimo de ${GARANTIAS_MIN_DATOS} tratamientos. Los retoques no cuentan (son parte normal del proceso).</div>`;

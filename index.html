@@ -271,6 +271,7 @@
   .curso-row .cr-right{text-align:right;font-size:12.5px;color:var(--ink-soft);}
   .day-banners{display:flex;flex-direction:column;gap:6px;margin:0 0 10px;}
   .day-banner{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;padding:10px 12px;border-radius:10px;background:rgba(178,58,46,0.12);border:1px solid rgba(178,58,46,0.35);border-left:6px solid #B23A2E;cursor:pointer;}
+  .day-banner.ghost-banner{background:transparent;border:1px dashed var(--ink-soft);border-left:6px solid var(--ink-soft);opacity:.85;}
   .day-banner .db-who{font-weight:700;font-size:13.5px;color:var(--ink);}
   .day-banner .db-when{font-size:12.5px;color:var(--ink-soft);}
   .wd-block,.mc-block{font-size:10.5px;color:#E7A39A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:3px;flex-wrap:wrap;}
@@ -1537,6 +1538,69 @@ function linkConsentToAppt(apptId, consentId, consentName){
   render();
 }
 
+// ---- Vínculo automático (10/10/2026, pedido de Juan Diego: las
+// especialistas nunca vinculaban la ficha a la cita) ----
+// Una ficha firmada se vincula sola a la cita de ESE día cuyo nombre de
+// clienta es exactamente el mismo (sin contar mayúsculas, tildes ni espacios
+// de más). Si la clienta tiene dos citas ese día, va a la que está más cerca
+// de la hora de la firma. Nunca toca una cita que ya tiene ficha, ni una
+// ficha que ya está vinculada a otra cita, ni citas canceladas/no llegó ni
+// de cursos. Se escuchan solo las fichas de los últimos días.
+const CONSENT_AUTO_DIAS = 3;
+let fichasRecientes = [];
+let consentAutoUnsub = null, consentAutoDesde = '';
+function nombreExacto(s){
+  return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+}
+function fechaHoraEnSede(iso){
+  const d = new Date(iso);
+  if(isNaN(d)) return null;
+  const s = d.toLocaleString('sv-SE',{timeZone:SEDE.zonaHoraria}); // "2026-10-03 21:05:00"
+  return {date: s.slice(0,10), time: s.slice(11,16)};
+}
+function escucharFichasRecientes(){
+  if(!db || !SEDE.consentCollection) return;
+  const hoy = sedeNow().date;
+  if(consentAutoUnsub && consentAutoDesde === hoy) return;
+  if(consentAutoUnsub){ consentAutoUnsub(); consentAutoUnsub = null; }
+  consentAutoDesde = hoy;
+  const desdeIso = new Date(Date.now() - (CONSENT_AUTO_DIAS+1)*86400000).toISOString();
+  consentAutoUnsub = db.collection(SEDE.consentCollection).where('submittedAtClient','>=',desdeIso)
+    .onSnapshot(snap=>{
+      fichasRecientes = snap.docs.map(d=>({_id:d.id, nombre:d.data().nombre, submittedAtClient:d.data().submittedAtClient}));
+      vincularConsentimientosSolos();
+    }, err=>{ console.error('No se pudieron leer las fichas recientes', err); });
+}
+function vincularConsentimientosSolos(){
+  if(!ui.loaded || appOutdated || !fichasRecientes.length) return;
+  const usadas = new Set(state.appointments.filter(a=>a.consentId).map(a=>a.consentId));
+  const asignar = new Map(); // id de la cita -> ficha
+  fichasRecientes
+    .slice().sort((x,y)=>String(x.submittedAtClient||'').localeCompare(String(y.submittedAtClient||'')))
+    .forEach(f=>{
+      if(usadas.has(f._id)) return;
+      const nom = nombreExacto(f.nombre);
+      const cuando = fechaHoraEnSede(f.submittedAtClient);
+      if(!nom || !cuando) return;
+      const citas = state.appointments.filter(a=> a.date===cuando.date && !a.consentId && !a.cursoId
+        && a.estado!=='Cancelada' && a.estado!=='NoShow' && nombreExacto(a.client)===nom);
+      if(!citas.length) return;
+      const firmaMin = minutesFromMidnight(cuando.time);
+      const dist = a=> Math.abs(minutesFromMidnight(a.start||'00:00') - firmaMin);
+      citas.sort((a,b)=> dist(a)-dist(b));
+      asignar.set(citas[0].id, f); // si firmó dos veces, queda la última firma
+    });
+  if(!asignar.size) return;
+  asignar.forEach((f, apptId)=>{
+    const a = state.appointments.find(x=>x.id===apptId);
+    if(!a) return;
+    a.consentId = f._id;
+    if(ui.modal && ui.modal.data && ui.modal.data.id===apptId) ui.modal.data.consentId = f._id;
+  });
+  saveData({recordUndo:false, silent:true});
+  if(!ui.modal) render();
+}
+
 function viewConsent(clientName, apptId, knownConsentId){
   const existing = document.getElementById('custom-dialog');
   if(existing) existing.remove();
@@ -2665,7 +2729,7 @@ window.addEventListener('online', ()=>refreshFromServer());
 window.addEventListener('offline', ()=>setOffline(true));
 // Mientras la agenda está en pantalla, cada 2 minutos se confirma que lo que
 // se ve está al día (1 lectura; no cuesta nada dentro del plan gratis).
-setInterval(()=>{ if(document.visibilityState==='visible') refreshFromServer(); }, 2*60*1000);
+setInterval(()=>{ if(document.visibilityState==='visible') refreshFromServer(); if(ui.loaded) escucharFichasRecientes(); }, 2*60*1000);
 
 // Usuarios personales: mientras se preparan (oct 2026), el campo "Usuario"
 // de la entrada NO se muestra, para que el equipo vea la pantalla de siempre
@@ -2968,6 +3032,8 @@ function startFirestoreSync(){
       avisoEspacioSiHaceFalta();
       checkStaffIdentityIfNeeded();
       checkNewServicesIfNeeded();
+      escucharFichasRecientes();
+      vincularConsentimientosSolos();
     } else {
       // No existe ningún documento en la base de datos. Después de la primera
       // vez que se configuró Firebase, esto NUNCA debería volver a pasar — si
@@ -3648,6 +3714,33 @@ function dayViewHtml(){
       <span class="db-when">${escapeHtml(blockWhenLabel(b))}${b.reason?' · '+escapeHtml(b.reason):''}</span>
     </div>`).join('');
 
+  // "Cita fantasma" (10/10/2026, pedido de Juan Diego): una cita que se
+  // reprogramó desde este día deja aquí un aviso, para saber que había una
+  // cita y que la clienta la cambió (y cuándo avisó). No ocupa lugar en la
+  // grilla ni cuenta en nada: solo se ve. Tocarlo abre la cita (en su día nuevo).
+  const fantasmas = [];
+  filterBySpecialist(state.appointments.filter(a=>!a.cursoId && Array.isArray(a.reprogramaciones))).forEach(a=>{
+    a.reprogramaciones.forEach((r,ri)=>{
+      if(!r || r.desde!==dateKey) return;
+      const sig = a.reprogramaciones[ri+1];
+      const ahora = sig ? {date: sig.desde, start: sig.inicio} : {date: a.date, start: a.start};
+      fantasmas.push({a, r, ahora});
+    });
+  });
+  fantasmas.sort((x,y)=>String(x.r.inicio||'').localeCompare(String(y.r.inicio||'')));
+  const fantasmasHtml = fantasmas.map(({a, r, ahora})=>{
+    const avisoDt = new Date(r.en);
+    const aviso = isNaN(avisoDt) ? '' : ` · avisó el ${avisoDt.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'})}`;
+    const hora = /^\d{2}:\d{2}$/.test(r.inicio||'') ? r.inicio+(/^\d{2}:\d{2}$/.test(r.fin||'')?'–'+r.fin:'')+' · ' : '';
+    const destino = ahora.date===dateKey ? `ahora a las ${escapeHtml(ahora.start||'')}` : `ahora el ${fechaCortaConDia(ahora.date)}${/^\d{2}:\d{2}$/.test(ahora.start||'')?' a las '+ahora.start:''}`;
+    const estado = r.estadoAntes==='Cancelada' ? ' (cancelada)' : (r.estadoAntes==='NoShow' ? ' (no llegó)' : '');
+    return `
+    <div class="day-banner ghost-banner" style="border-left-color:${specialistColor(a.specialist)}" data-act="edit-appt" data-id="${escapeHtml(a.id)}">
+      <span class="db-who">🔁 ${hora}${escapeHtml(a.client||'Sin nombre')}${a.specialist?' · '+escapeHtml(a.specialist):''}</span>
+      <span class="db-when">Reprogramada${estado} → ${destino}${aviso}</span>
+    </div>`;
+  }).join('');
+
   let apptBlocks = '';
   appts.forEach((a,ai)=>{
     const startMin = minutesFromMidnight(a.start) - rangeStart*60;
@@ -3702,7 +3795,7 @@ function dayViewHtml(){
   });
 
   return `
-    ${fullDayBanners ? `<div class="day-banners">${fullDayBanners}</div>` : ''}
+    ${fullDayBanners||fantasmasHtml ? `<div class="day-banners">${fullDayBanners}${fantasmasHtml}</div>` : ''}
     <div class="dayrow" style="height:${gridHeight}px">
       <div class="timecol">${timeCol}</div>
       <div class="gridcol" style="height:${gridHeight}px">
@@ -4048,16 +4141,23 @@ function pagoMarcadoHtml(d){
 // crear otra — así el abono nunca se cuenta dos veces ni hay que acordarse de
 // marcar "abono ya pagado en una cita anterior". Cada cambio queda anotado en
 // a.reprogramaciones = [{desde, inicio, fin, en}] (la fecha/hora de ANTES).
-// Una cita Cancelada/No llegó se puede reprogramar solo si era de hoy en
-// adelante (y sin abono devuelto); una más vieja sigue el camino de siempre
-// (cita nueva con "abono ya pagado en una cita anterior"), para no mover
-// plata de semanas ya cerradas.
+// Una cita Cancelada/No llegó se puede reprogramar si era de hoy en adelante
+// o si su abono perdido no le generó comisión a nadie (desde el 05/10/2026 el
+// abono perdido es 100% del negocio): así moverla nunca cambia un pago ya
+// hecho. Con abono devuelto, o una vieja que sí generó comisión, se crea una
+// cita nueva (con "abono ya pagado en una cita anterior" si corresponde).
+// (10/10/2026: antes las canceladas de días anteriores nunca se podían
+// reprogramar, y Juan Diego lo necesitaba justamente para esas.)
 function puedeReprogramar(d){
-  if(!d || !d.id || d.cursoId || d.estado==='Realizada') return false;
+  return !motivoNoReprogramar(d);
+}
+function motivoNoReprogramar(d){
+  if(!d || !d.id || d.cursoId || d.estado==='Realizada') return 'no aplica';
   if(d.estado==='Cancelada' || d.estado==='NoShow'){
-    return !d.abonoDevuelto && d.date >= sedeNow().date;
+    if(d.abonoDevuelto) return 'Esta cita no se puede reprogramar porque se le devolvió el abono: crea una cita nueva para el día nuevo.';
+    if(d.date < sedeNow().date && apptCommission(d) > 0) return 'Esta cita no se puede reprogramar: su abono perdido ya se contó en la comisión de esa semana (regla anterior al 05/10). Crea una cita nueva y marca "abono ya pagado en una cita anterior".';
   }
-  return true;
+  return '';
 }
 function fechaCortaConDia(key){
   const dt = parseKey(key);
@@ -4069,12 +4169,16 @@ function reprogramacionesHtml(d, style){
   const filas = lista.map(r=>{
     const dt = new Date(r.en);
     const cuando = isNaN(dt) ? '' : ` <span style="opacity:.75">(cambiada el ${dt.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'})})</span>`;
-    return `<div>Antes era el ${fechaCortaConDia(r.desde)}${/^\d{2}:\d{2}$/.test(r.inicio||'')?' a las '+r.inicio:''}${cuando}</div>`;
+    const estAntes = r.estadoAntes==='Cancelada' ? ', estaba cancelada' : (r.estadoAntes==='NoShow' ? ', no había llegado' : '');
+    return `<div>Antes era el ${fechaCortaConDia(r.desde)}${/^\d{2}:\d{2}$/.test(r.inicio||'')?' a las '+r.inicio:''}${estAntes}${cuando}</div>`;
   }).join('');
   return `<div class="hint reprog-hist" style="${style||''}"><b>🔁 Reprogramada${lista.length>1?' '+lista.length+' veces':''}</b>${filas}</div>`;
 }
 function reprogramarPanelHtml(d){
-  if(ui.mode!=='admin' || !puedeReprogramar(d)) return '';
+  if(ui.mode!=='admin') return '';
+  const motivo = motivoNoReprogramar(d);
+  if(motivo && motivo!=='no aplica') return `<div class="hint" style="margin:-4px 0 14px;">📅 ${escapeHtml(motivo)}</div>`;
+  if(motivo) return '';
   const vuelvePendiente = d.estado==='Cancelada' || d.estado==='NoShow' || d.estado==='Confirmada';
   return `
       <button type="button" class="btn btn-ghost" id="reprog-open" style="width:100%;margin:-4px 0 14px;font-size:12.5px;">📅 Reprogramar (la clienta cambió de día u hora)</button>
@@ -8752,7 +8856,7 @@ function saveApptFromForm(){
   if(ui.modal.reprogramar && ui.modal.mode==='edit' && (updated.date!==original0.date || updated.start!==original0.start)){
     updated.reprogramaciones = [
       ...(Array.isArray(original0.reprogramaciones) ? original0.reprogramaciones : []),
-      {desde: original0.date, inicio: original0.start, fin: original0.end, en: new Date().toISOString()},
+      {desde: original0.date, inicio: original0.start, fin: original0.end, en: new Date().toISOString(), ...(original0.estado && original0.estado!=='Pendiente' ? {estadoAntes: original0.estado} : {})},
     ];
   }
   if(!updated.client){ showAlert('Ingresa el nombre del cliente.'); return; }

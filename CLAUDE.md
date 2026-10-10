@@ -1042,6 +1042,20 @@ para servir también a **Copiapó**, de la siguiente forma:
   dentro de la cita, no un `DOC_KEYS`). El Calendar mueve el evento pero su
   descripción no dice "reprogramada" (el script no se tocó). Probado contra
   el emulador (Firestore + Auth) con la agenda real: 37 pruebas.
+  **Cambios del 10/10/2026 (pedido de Juan Diego):** (1) una cita
+  Cancelada/No llegó de días ANTERIORES ya se puede reprogramar (era
+  justamente el caso que él necesitaba) si su abono perdido no generó
+  comisión (`apptCommission(d)===0`, o sea desde el 05/10 en Santiago y
+  siempre en BA): moverla no cambia ningún pago. Si no se puede (abono
+  devuelto, o vieja que sí generó comisión) el formulario lo EXPLICA en vez
+  de esconder el botón (`motivoNoReprogramar`). (2) `a.reprogramaciones[]`
+  guarda también `estadoAntes` (Cancelada/NoShow/Confirmada). (3) **"Cita
+  fantasma"**: en la vista Día del día ORIGINAL queda un aviso punteado
+  arriba de la grilla ("🔁 15:00–17:00 · Rosa Muñoz · Salomé — Reprogramada
+  (cancelada) → ahora el lun 12/10 a las 10:00 · avisó el 10/10",
+  `.ghost-banner`), para saber que había una cita y cuándo avisó la clienta.
+  No ocupa lugar en la grilla ni cuenta en nada; tocarlo abre la cita. Lo
+  ven Admin y especialistas. Probado: e2e (14).
 - **Formulario de la cita más corto (06/10/2026, pedido de Juan Diego: "se
   ve muy largo para lo poco que se llena"):** mismos campos y mismo orden,
   sin esconder nada (personas y "abono ya pagado" siguen a la vista, ver
@@ -1168,6 +1182,20 @@ para servir también a **Copiapó**, de la siguiente forma:
   detalle obligatorio si hay alergias, borrar fichas desde el Panel
   Sibana): todo vive en el repo aparte `sibana-consentimiento` (ver
   arriba), no en este.
+- **Vínculo AUTOMÁTICO del consentimiento (10/10/2026, pedido de Juan
+  Diego: las especialistas nunca vinculaban la ficha):** cada agenda abierta
+  escucha las fichas de los últimos 3 días (`escucharFichasRecientes`, una
+  consulta en tiempo real: solo cuesta lecturas cuando llega una ficha) y
+  `vincularConsentimientosSolos` pone `a.consentId` cuando el nombre de la
+  ficha es EXACTAMENTE el de la clienta de la cita (`nombreExacto`: sin
+  contar mayúsculas, tildes ni espacios de más) y la ficha se firmó ESE día
+  (hora de la sede). Si la clienta tiene dos citas ese día, va a la más
+  cercana a la hora de la firma. Nunca toca una cita que ya tiene ficha, una
+  ficha ya vinculada a otra cita, citas Cancelada/NoShow ni de cursos.
+  Funciona también si la cita se anota después de la firma. Se guarda sin
+  dejar "Deshacer" (`recordUndo:false`). Si el nombre no es igual (ej.
+  "Carla Soto" vs "Carla Soto Díaz"), se sigue vinculando a mano como antes.
+  Probado: e2e (12).
 - **Vincular/borrar consentimiento desde la agenda**: dentro de una cita se
   puede buscar y vincular la ficha de consentimiento firmada de esa
   clienta (`renderConsentSearch`). Borrarla desde ahí es **solo Admin**

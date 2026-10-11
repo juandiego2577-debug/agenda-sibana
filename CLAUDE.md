@@ -1050,12 +1050,16 @@ para servir también a **Copiapó**, de la siguiente forma:
   devuelto, o vieja que sí generó comisión) el formulario lo EXPLICA en vez
   de esconder el botón (`motivoNoReprogramar`). (2) `a.reprogramaciones[]`
   guarda también `estadoAntes` (Cancelada/NoShow/Confirmada). (3) **"Cita
-  fantasma"**: en la vista Día del día ORIGINAL queda un aviso punteado
-  arriba de la grilla ("🔁 15:00–17:00 · Rosa Muñoz · Salomé — Reprogramada
-  (cancelada) → ahora el lun 12/10 a las 10:00 · avisó el 10/10",
-  `.ghost-banner`), para saber que había una cita y cuándo avisó la clienta.
-  No ocupa lugar en la grilla ni cuenta en nada; tocarlo abre la cita. Lo
-  ven Admin y especialistas. Probado: e2e (14).
+  fantasma"**: en la vista Día del día ORIGINAL la cita SIGUE en su hora de
+  antes, pero rayada, punteada y apagada (`.ghost-appt`): "15:00–17:00 🔁
+  Reprogramada (cancelada) / Carolina Vega / → mar 13/10 a las 11:00 · avisó
+  el 9/10". Va en la columna de su especialista (entra a `layoutSideBySide`
+  como un elemento más), no cuenta en nada ni bloquea la hora (se puede
+  agendar encima con "+ Nueva cita"); tocarla abre la cita en su día nuevo.
+  Lo ven Admin y especialistas. (El 10/10 primero se hizo como un aviso
+  arriba de la grilla, `.ghost-banner`: a Juan Diego NO le gustó, pidió que
+  la cita siga en el día "de otra forma"; cambiado el 11/10.) Probado: e2e
+  (14 + 5).
 - **Formulario de la cita más corto (06/10/2026, pedido de Juan Diego: "se
   ve muy largo para lo poco que se llena"):** mismos campos y mismo orden,
   sin esconder nada (personas y "abono ya pagado" siguen a la vista, ver
@@ -1206,9 +1210,12 @@ para servir también a **Copiapó**, de la siguiente forma:
   Cancelada/NoShow/cursos). Él NO quería un aviso que quedara para siempre
   en las citas pasadas ("ya no se puede hacer nada"), así que sale SOLO el
   mismo día, desde `FIRMA_AVISO_ANTES_MIN` (60) minutos antes de la cita
-  hasta que termina (`faltaFirmarAhora`): etiqueta "✍️ Falta firmar" en la
+  hasta `FIRMA_AVISO_DESPUES_MIN` (30) después de que termina, por si la
+  clienta sigue ahí (`faltaFirmarAhora`): etiqueta "✍️ Falta firmar" en la
   ficha de la vista Día y un recuadro dentro de la cita (Admin y
-  especialista, `faltaFirmarAvisoHtml`). Se va sola cuando la ficha se
+  especialista, `faltaFirmarAvisoHtml`), que le dice que la clienta firme
+  con el mismo nombre de la cita (él pidió quitar "se vincula solo", sonaba
+  raro). Se va sola cuando la ficha se
   vincula (automático si el nombre es igual). Un temporizador de 1 minuto
   redibuja la vista Día si cambió a quién le toca (sin modal abierto).
   Probado: e2e (15).

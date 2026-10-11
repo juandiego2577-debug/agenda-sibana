@@ -4435,7 +4435,7 @@ function opcionesEspecialistaHtml(servicios, actual, inicial){
     const falta = aptas.length ? [] : noHaceDe(s.name, servicios);
     const f = filaDe(s.name);
     const gar = f ? ` ${f.medalla ? f.medalla+' ' : ''}${f.pct}% bien · ${f.c.n} trabajo${f.c.n===1?'':'s'}` : '';
-    const ini = esInicial(s.name) ? ` ⭐ hizo la sesión inicial (${fechaCortaConDia(inicial.date)})` : '';
+    const ini = esInicial(s.name) ? ' ⭐' : ''; // corto a pedido de Juan Diego; el detalle va en el mensaje de abajo
     return `<option value="${escapeHtml(s.name)}" ${actual===s.name?'selected':''}>${escapeHtml(s.name)}${ini}${ini ? '' : gar}${falta.length ? ` (no hace ${escapeHtml(summarizeServices(falta))})` : ''}</option>`;
   }).join('');
 }

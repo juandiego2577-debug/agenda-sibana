@@ -1105,7 +1105,8 @@ para servir también a **Copiapó**, de la siguiente forma:
   con un tratamiento que lleva retoque (`servicioLlevaRetoque`); si el
   retoque dice de qué es ("Retoque Delineado de Ojos"), gana la que más se
   parece por nombre (`palabrasTratamiento`). Esa especialista va PRIMERA en
-  la lista con "⭐ hizo la sesión inicial (fecha)" y debajo dice "⭐ La sesión
+  la lista con solo "⭐" al lado del nombre (él pidió que fuera corto; antes
+  decía "⭐ hizo la sesión inicial (fecha)") y debajo dice "⭐ La sesión
   inicial (X, fecha) la hizo Y". En una cita NUEVA se elige sola si no había
   nadie elegido (`ui.modal._retoqueAuto`); si se elige otra a mano, no se
   cambia. Las demás siguen en la lista. Se recalcula al cambiar

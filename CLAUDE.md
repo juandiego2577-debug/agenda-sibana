@@ -1117,12 +1117,16 @@ para servir también a **Copiapó**, de la siguiente forma:
   🥇🥈🥉 (`rankingGarantias`). El orden es EXACTAMENTE el % visible (una
   versión con una "cuenta más justa" escondida ponía "94% 🥇" arriba de
   "100% 🥈": no se entendía, NO volver a eso); si empatan, primero la que
-  tiene más trabajos. **Siempre hay medallas** si hay al menos dos (una
-  versión exigía 3 trabajos de hace más de 30 días para competir y, como la
-  agenda empezó en septiembre, no salía ninguna: él preguntó "¿por qué a
-  ninguno le sale la estrellita?"). Con menos de `GARANTIAS_MIN_DATOS` (3)
-  trabajos o la mayoría de los últimos `GARANTIAS_VENTANA_DIAS` (30) días,
-  solo una nota "⚠️" al lado (ese % todavía puede cambiar). **Al agendar**
+  tiene más trabajos. **Medallas (regla del 11/10/2026, aprobada por Juan
+  Diego):** solo compiten las que tienen al menos `GARANTIAS_MIN_DATOS` (5)
+  trabajos de ese tratamiento; van primero, ordenadas por el % visible, con
+  🥇🥈🥉. Las que tienen menos van DESPUÉS, sin medalla, con "⚠️ pocos
+  trabajos todavía" (antes "Melissa 🥉 100% · 1 trabajo" quedaba arriba de
+  "Salomé 81% · 27 trabajos": a él no le pareció realista). Antes de eso:
+  una versión exigía 3 trabajos de hace más de 30 días y no salía ninguna
+  medalla ("¿por qué a ninguno le sale la estrellita?"), y otra daba
+  medalla siempre aunque fuera 1 trabajo. La mayoría de los últimos
+  `GARANTIAS_VENTANA_DIAS` (30) días: solo una nota "⚠️" (no quita medalla). **Al agendar**
   (solo dueños): la lista de especialistas se ORDENA de mejor a peor con
   medalla, % y cuántos trabajos tiene ("Lucy 🥇 100% bien · 4 trabajos";
   `rankingParaForm` en `opcionesEspecialistaHtml`). Con varios tratamientos
@@ -1196,6 +1200,18 @@ para servir también a **Copiapó**, de la siguiente forma:
   dejar "Deshacer" (`recordUndo:false`). Si el nombre no es igual (ej.
   "Carla Soto" vs "Carla Soto Díaz"), se sigue vinculando a mano como antes.
   Probado: e2e (12).
+- **"✍️ Falta firmar" (11/10/2026, pedido de Juan Diego: se les olvida hacer
+  firmar):** el consentimiento se firma en CUALQUIER tratamiento (lo
+  confirmó él; solo se excluye una cita que es únicamente Evaluación, y
+  Cancelada/NoShow/cursos). Él NO quería un aviso que quedara para siempre
+  en las citas pasadas ("ya no se puede hacer nada"), así que sale SOLO el
+  mismo día, desde `FIRMA_AVISO_ANTES_MIN` (60) minutos antes de la cita
+  hasta que termina (`faltaFirmarAhora`): etiqueta "✍️ Falta firmar" en la
+  ficha de la vista Día y un recuadro dentro de la cita (Admin y
+  especialista, `faltaFirmarAvisoHtml`). Se va sola cuando la ficha se
+  vincula (automático si el nombre es igual). Un temporizador de 1 minuto
+  redibuja la vista Día si cambió a quién le toca (sin modal abierto).
+  Probado: e2e (15).
 - **Vincular/borrar consentimiento desde la agenda**: dentro de una cita se
   puede buscar y vincular la ficha de consentimiento firmada de esa
   clienta (`renderConsentSearch`). Borrarla desde ahí es **solo Admin**

@@ -284,6 +284,8 @@
   .block-kind input{display:none;}
   .block-kind label.on{background:var(--gold);color:#1a140c;font-weight:700;}
   .personas-badge{background:rgba(30,15,22,0.6);color:#FFF3D6;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;flex-shrink:0;white-space:nowrap;letter-spacing:.2px;margin-left:4px;}
+  .firma-badge{background:rgba(30,15,22,0.6);color:#FFF3D6;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;flex-shrink:0;white-space:nowrap;margin-right:4px;}
+  .firma-aviso{font-size:12.5px;line-height:1.45;padding:9px 11px;border-radius:8px;border:1px dashed var(--ink-soft);margin:0 0 10px;}
   .reprog-badge{background:rgba(30,15,22,0.6);color:#FFF3D6;font-size:9px;font-weight:700;padding:1px 5px;border-radius:999px;flex-shrink:0;white-space:nowrap;margin-right:4px;}
   .reprog-panel{border:1px solid var(--line);border-radius:10px;padding:12px;margin:-4px 0 14px;}
   .reprog-hist b{display:block;margin-bottom:2px;}
@@ -1558,6 +1560,32 @@ function fechaHoraEnSede(iso){
   const s = d.toLocaleString('sv-SE',{timeZone:SEDE.zonaHoraria}); // "2026-10-03 21:05:00"
   return {date: s.slice(0,10), time: s.slice(11,16)};
 }
+// "✍️ Falta firmar" (11/10/2026, pedido de Juan Diego: a las especialistas
+// se les olvida hacer firmar el consentimiento). Se firma en CUALQUIER
+// tratamiento (confirmado por él). El aviso sale SOLO mientras todavía sirve:
+// el mismo día, desde 1 hora antes de la cita hasta que termina — después ya
+// no se puede hacer nada y quedaría ahí para siempre (él no lo quería así).
+// Se va solo cuando la ficha se vincula (sola si el nombre es igual, o a mano).
+const FIRMA_AVISO_ANTES_MIN = 60;
+function faltaFirmarAhora(a){
+  if(!a || a.consentId || a.cursoId || a.estado==='Cancelada' || a.estado==='NoShow') return false;
+  const sv = a.services||[];
+  if(!sv.length || sv.every(x=>/evaluaci[oó]n/i.test(x||''))) return false; // una evaluación sola no es tratamiento
+  const now = sedeNow();
+  if(a.date!==now.date) return false;
+  const m = minutesFromMidnight(now.time);
+  return m >= minutesFromMidnight(a.start||'00:00') - FIRMA_AVISO_ANTES_MIN && m < minutesFromMidnight(a.end||a.start||'00:00');
+}
+function faltaFirmarAvisoHtml(a){
+  return faltaFirmarAhora(a) ? `<div class="firma-aviso">✍️ <b>Falta que la clienta firme el consentimiento.</b> Pídeselo antes de empezar. Si firma con el mismo nombre de la cita, se vincula solo.</div>` : '';
+}
+// Cada minuto, si en la vista Día cambió a quién le toca el aviso, se redibuja.
+let ultimoFaltaFirmar = '';
+setInterval(()=>{
+  if(!ui.loaded || ui.modal || document.visibilityState!=='visible') return;
+  const k = state.appointments.filter(faltaFirmarAhora).map(a=>a.id).sort().join(',');
+  if(k!==ultimoFaltaFirmar){ ultimoFaltaFirmar = k; render(); }
+}, 60*1000);
 function escucharFichasRecientes(){
   if(!db || !SEDE.consentCollection) return;
   const hoy = sedeNow().date;
@@ -3764,13 +3792,14 @@ function dayViewHtml(){
     // La clienta cambió de día u hora (botón "📅 Reprogramar"): se ve desde
     // afuera para que quien la atiende sepa que no es la fecha original.
     const reprogBadge = (Array.isArray(a.reprogramaciones) && a.reprogramaciones.length) ? `<span class="reprog-badge" title="Reprogramada">🔁</span>` : '';
+    const firmaBadge = faltaFirmarAhora(a) ? `<span class="firma-badge" title="Falta firmar el consentimiento">✍️ Falta firmar</span>` : '';
     const nameServiceHtml = isCompact
-      ? `<div class="t-name-compact">${escapeHtml(a.client||'Sin nombre')}${(a.services&&a.services.length)?' · '+escapeHtml(apptServiciosTexto(a)):''}</div>${reprogBadge}${personasBadge}${noAbonoBadge}`
+      ? `<div class="t-name-compact">${escapeHtml(a.client||'Sin nombre')}${(a.services&&a.services.length)?' · '+escapeHtml(apptServiciosTexto(a)):''}</div>${reprogBadge}${personasBadge}${firmaBadge}${noAbonoBadge}`
       : `<div class="t-name">${escapeHtml(a.client||'Sin nombre')}${personasBadge}</div>
         <div class="t-service">${escapeHtml(apptServiciosTexto(a))}</div>`;
     apptBlocks += `
       <div class="appt ${stClass}${isCompact?' compact':''}" style="top:${top}px;height:${height}px;${specBorder}${sidePos(apptCols[ai])}" data-act="edit-appt" data-id="${escapeHtml(a.id)}">
-        <div class="t-time">${a.start}–${a.end}${a.specialist?`<span class="spec-dot" style="background:${dotColor}"></span>`:''}${!isCompact?reprogBadge+noAbonoBadge:''}</div>
+        <div class="t-time">${a.start}–${a.end}${a.specialist?`<span class="spec-dot" style="background:${dotColor}"></span>`:''}${!isCompact?reprogBadge+firmaBadge+noAbonoBadge:''}</div>
         ${nameServiceHtml}
       </div>`;
   });
@@ -4282,6 +4311,7 @@ function apptViewOnlyHtml(d){
       <div class="field"><label>Fecha</label><div>${d.date} · ${d.start}–${d.end}</div></div>
       ${reprogramacionesHtml(d, 'margin:-6px 0 14px;')}
       <div class="field"><label>Cliente</label><div>${escapeHtml(d.client||'Sin nombre')}</div></div>
+      ${faltaFirmarAvisoHtml(d)}
       ${d.client && d.client.trim() ? `<button type="button" class="btn btn-ghost" style="margin:0 0 14px;font-size:12.5px;" data-act="view-consent" data-client="${escapeHtml(d.client)}" data-appt-id="${escapeHtml(d.id||'')}" data-consent-id="${escapeHtml(d.consentId||'')}">${d.consentId ? 'Ver consentimiento firmado ✓' : 'Ver consentimiento firmado'}</button>` : ''}
       ${d.phone ? `<div class="field"><label>Teléfono</label><div>${escapeHtml(d.phone)}</div></div>` : ''}
       ${d.email ? `<div class="field"><label>Correo electrónico</label><div>${escapeHtml(d.email)}</div></div>` : ''}
@@ -4462,6 +4492,7 @@ function apptModalHtml(){
         <input type="text" id="f-client" value="${escapeHtml(d.client)}" placeholder="Nombre del cliente" autocomplete="off">
         <div id="client-ac" class="ac-list" style="display:none"></div>
       </div>
+      ${faltaFirmarAvisoHtml(d)}
       ${d.client && d.client.trim() ? `<button type="button" class="btn btn-ghost" style="margin:-4px 0 14px;font-size:12.5px;" data-act="view-consent" data-client="${escapeHtml(d.client)}" data-appt-id="${escapeHtml(d.id||'')}" data-consent-id="${escapeHtml(d.consentId||'')}">${d.consentId ? 'Ver consentimiento firmado ✓' : 'Ver consentimiento firmado'}</button>` : ''}
       <div class="row2">
       <div class="field"><label>Teléfono</label><input type="text" id="f-phone" value="${escapeHtml(d.phone)}" placeholder="+${SEDE.telPais} 9…"></div>
@@ -6096,7 +6127,11 @@ function desmarcarPagado(name){
 //   desde el mismo día (antes había una espera de 30 días para que la
 //   clienta alcanzara a volver; a Juan Diego le confundía y dejaba todo en 0%,
 //   se quitó el 10/10/2026).
-// - Con menos de GARANTIAS_MIN_DATOS tratamientos: "pocos datos", sin ⭐.
+// - Medallas (11/10/2026, pedido de Juan Diego: "Melissa 🥉 100% · 1
+//   trabajo" quedaba arriba de "Salomé 81% · 27 trabajos", poco realista):
+//   solo compiten las que tienen al menos GARANTIAS_MIN_DATOS trabajos de ese
+//   tratamiento, ordenadas por el % visible; las demás van después, sin
+//   medalla, con "pocos trabajos todavía".
 // - Garantía sin "¿de qué tratamiento?" (las de antes de que existiera esa
 //   pregunta): si la clienta tuvo un solo tratamiento antes, es ese; si no,
 //   queda en "sin tratamiento anotado" para elegirlo a mano en la cita.
@@ -6108,7 +6143,7 @@ function desmarcarPagado(name){
 //   y Retoques: no toca precio, comisión, pagos ni isGarantiaAppt (que sí
 //   mueve plata). En "una por una" se pueden desmarcar.
 const GARANTIAS_DESDE = '2026-09-01';
-const GARANTIAS_MIN_DATOS = 3; // trabajos "asentados" para competir por medalla
+const GARANTIAS_MIN_DATOS = 5; // trabajos de ese tratamiento para competir por medalla (antes 3)
 // Un trabajo de los últimos GARANTIAS_VENTANA_DIAS días todavía puede volver
 // por garantía: cuenta en el %, pero no para ganar medalla (ver rankingGarantias).
 const GARANTIAS_VENTANA_DIAS = 30;
@@ -6242,10 +6277,11 @@ function rankingGarantias(porEsp){
     const motivo = c.n < GARANTIAS_MIN_DATOS ? 'pocos trabajos todavía'
       : mayoriaRecientes(c) ? `la mayoría son de los últimos ${GARANTIAS_VENTANA_DIAS} días (todavía pueden volver)` : '';
     return {esp:e, c, pct: pctBien(c), motivo};
-  }).sort((x,y)=>(y.pct-x.pct) || (y.c.n-x.c.n) || x.esp.localeCompare(y.esp));
+  }).sort((x,y)=>((y.c.n>=GARANTIAS_MIN_DATOS)-(x.c.n>=GARANTIAS_MIN_DATOS)) || (y.pct-x.pct) || (y.c.n-x.c.n) || x.esp.localeCompare(y.esp));
+  // Medallas solo entre las que tienen suficientes trabajos (van primero).
   if(filas.length>=2){
-    filas.forEach((f,i)=>{
-      const ant = filas[i-1];
+    filas.filter(f=>f.c.n>=GARANTIAS_MIN_DATOS).forEach((f,i,comp)=>{
+      const ant = comp[i-1];
       f.puesto = (ant && ant.pct===f.pct && ant.c.n===f.c.n) ? ant.puesto : i+1;
       f.medalla = MEDALLAS[f.puesto-1] || '';
     });
@@ -6362,7 +6398,7 @@ function garantiasPageHtml(){
         ${g.specialist ? `<button type="button" class="btn btn-ghost" style="font-size:11.5px;padding:5px 9px;white-space:nowrap;" data-act="gar-asignar" data-id="${escapeHtml(g.id)}" title="Contarla como 1 trabajo + 1 garantía de ${escapeHtml(g.specialist)}">Contársela a ${escapeHtml(g.specialist)}</button>` : ''}
       </div>`).join('')}
     </details>` : ''}
-    <div class="hint" style="margin-top:16px;">Cómo se calcula: se miden los tratamientos que llevan retoque (y cualquier otro que haya tenido una garantía) hechos desde el ${desdeTxt}, sin contar los cancelados ni los que no llegaron. Una garantía se le cuenta a quien hizo el tratamiento, aunque la garantía la haya hecho otra; los retoques no cuentan (son parte normal del proceso). Se ordenan por el % que quedó bien; si empatan, primero la que tiene más trabajos. "⚠️ Pocos trabajos" (menos de ${GARANTIAS_MIN_DATOS}) o "la mayoría son de los últimos ${GARANTIAS_VENTANA_DIAS} días" avisa que ese % todavía puede cambiar (una clienta puede volver por garantía hasta unas semanas después).</div>`;
+    <div class="hint" style="margin-top:16px;">Cómo se calcula: se miden los tratamientos que llevan retoque (y cualquier otro que haya tenido una garantía) hechos desde el ${desdeTxt}, sin contar los cancelados ni los que no llegaron. Una garantía se le cuenta a quien hizo el tratamiento, aunque la garantía la haya hecho otra; los retoques no cuentan (son parte normal del proceso). Se ordenan por el % que quedó bien; si empatan, primero la que tiene más trabajos. Las medallas 🥇🥈🥉 son solo para las que tienen al menos ${GARANTIAS_MIN_DATOS} trabajos de ese tratamiento; las que tienen menos van al final, sin medalla ("⚠️ pocos trabajos todavía"), porque con 1 o 2 trabajos un 100% no dice mucho. "La mayoría son de los últimos ${GARANTIAS_VENTANA_DIAS} días" también "la mayoría son de los últimos ${GARANTIAS_VENTANA_DIAS} días" avisa que ese % todavía puede cambiar (una clienta puede volver por garantía hasta unas semanas después).</div>`;
 }
 
 function puedeVerGarantias(){ return ui.mode==='admin' && esDueno(); }

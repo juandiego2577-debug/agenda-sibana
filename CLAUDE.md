@@ -1215,7 +1215,11 @@ para servir también a **Copiapó**, de la siguiente forma:
   ficha de la vista Día y un recuadro dentro de la cita (Admin y
   especialista, `faltaFirmarAvisoHtml`), que le dice que la clienta firme
   con el mismo nombre de la cita (él pidió quitar "se vincula solo", sonaba
-  raro). Se va sola cuando la ficha se
+  raro). En una ficha angosta (3–4 citas a la misma hora en el teléfono)
+  la etiqueta no cabe y se cambia por un ✍️ en la esquina (`.firma-esquina`,
+  con `@container` sobre `.appt.con-firma`). Medido en 320–430px en modo
+  especialista (e2e, 19). Se ve también en modo Admin (Juan Diego: "no está
+  de más"). Se va sola cuando la ficha se
   vincula (automático si el nombre es igual). Un temporizador de 1 minuto
   redibuja la vista Día si cambió a quién le toca (sin modal abierto).
   Probado: e2e (15).

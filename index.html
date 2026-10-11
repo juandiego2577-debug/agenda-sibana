@@ -271,7 +271,9 @@
   .curso-row .cr-right{text-align:right;font-size:12.5px;color:var(--ink-soft);}
   .day-banners{display:flex;flex-direction:column;gap:6px;margin:0 0 10px;}
   .day-banner{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;padding:10px 12px;border-radius:10px;background:rgba(178,58,46,0.12);border:1px solid rgba(178,58,46,0.35);border-left:6px solid #B23A2E;cursor:pointer;}
-  .day-banner.ghost-banner{background:transparent;border:1px dashed var(--ink-soft);border-left:6px solid var(--ink-soft);opacity:.85;}
+  .appt.ghost-appt{background:repeating-linear-gradient(135deg,rgba(90,83,72,0.42) 0 8px,rgba(90,83,72,0.2) 8px 16px);border:1.5px dashed var(--ink-soft);border-left:7px dashed var(--ink-soft);color:#E7DFCE;box-shadow:none;opacity:.88;}
+  .appt.ghost-appt .t-name{opacity:.85;}
+  .ghost-tag{background:rgba(30,15,22,0.6);color:#FFF3D6;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;white-space:nowrap;}
   .day-banner .db-who{font-weight:700;font-size:13.5px;color:var(--ink);}
   .day-banner .db-when{font-size:12.5px;color:var(--ink-soft);}
   .wd-block,.mc-block{font-size:10.5px;color:#E7A39A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:3px;flex-wrap:wrap;}
@@ -284,7 +286,7 @@
   .block-kind input{display:none;}
   .block-kind label.on{background:var(--gold);color:#1a140c;font-weight:700;}
   .personas-badge{background:rgba(30,15,22,0.6);color:#FFF3D6;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;flex-shrink:0;white-space:nowrap;letter-spacing:.2px;margin-left:4px;}
-  .firma-badge{background:rgba(30,15,22,0.6);color:#FFF3D6;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;flex-shrink:0;white-space:nowrap;margin-right:4px;}
+  .firma-badge{background:rgba(30,15,22,0.6);color:#FFF3D6;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;flex-shrink:1;min-width:22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:4px;}
   .firma-aviso{font-size:12.5px;line-height:1.45;padding:9px 11px;border-radius:8px;border:1px dashed var(--ink-soft);margin:0 0 10px;}
   .reprog-badge{background:rgba(30,15,22,0.6);color:#FFF3D6;font-size:9px;font-weight:700;padding:1px 5px;border-radius:999px;flex-shrink:0;white-space:nowrap;margin-right:4px;}
   .reprog-panel{border:1px solid var(--line);border-radius:10px;padding:12px;margin:-4px 0 14px;}
@@ -1563,10 +1565,11 @@ function fechaHoraEnSede(iso){
 // "✍️ Falta firmar" (11/10/2026, pedido de Juan Diego: a las especialistas
 // se les olvida hacer firmar el consentimiento). Se firma en CUALQUIER
 // tratamiento (confirmado por él). El aviso sale SOLO mientras todavía sirve:
-// el mismo día, desde 1 hora antes de la cita hasta que termina — después ya
+// el mismo día, desde 1 hora antes de la cita hasta 30 min después — después ya
 // no se puede hacer nada y quedaría ahí para siempre (él no lo quería así).
 // Se va solo cuando la ficha se vincula (sola si el nombre es igual, o a mano).
 const FIRMA_AVISO_ANTES_MIN = 60;
+const FIRMA_AVISO_DESPUES_MIN = 30; // un rato después de terminar, por si la clienta sigue ahí (pedido de Juan Diego)
 function faltaFirmarAhora(a){
   if(!a || a.consentId || a.cursoId || a.estado==='Cancelada' || a.estado==='NoShow') return false;
   const sv = a.services||[];
@@ -1574,10 +1577,10 @@ function faltaFirmarAhora(a){
   const now = sedeNow();
   if(a.date!==now.date) return false;
   const m = minutesFromMidnight(now.time);
-  return m >= minutesFromMidnight(a.start||'00:00') - FIRMA_AVISO_ANTES_MIN && m < minutesFromMidnight(a.end||a.start||'00:00');
+  return m >= minutesFromMidnight(a.start||'00:00') - FIRMA_AVISO_ANTES_MIN && m < minutesFromMidnight(a.end||a.start||'00:00') + FIRMA_AVISO_DESPUES_MIN;
 }
 function faltaFirmarAvisoHtml(a){
-  return faltaFirmarAhora(a) ? `<div class="firma-aviso">✍️ <b>Falta que la clienta firme el consentimiento.</b> Pídeselo antes de empezar. Si firma con el mismo nombre de la cita, se vincula solo.</div>` : '';
+  return faltaFirmarAhora(a) ? `<div class="firma-aviso">✍️ <b>Falta que la clienta firme el consentimiento.</b> Pídeselo antes de empezar, y que firme con el mismo nombre de la cita: <b>${escapeHtml(a.client||'')}</b>.</div>` : '';
 }
 // Cada minuto, si en la vista Día cambió a quién le toca el aviso, se redibuja.
 let ultimoFaltaFirmar = '';
@@ -3668,13 +3671,29 @@ function dayViewHtml(){
   );
   const dayBlocks = blocksForDate(dateKey);
   const closed = isClosedWeekday(ui.currentDate);
+  // "Cita fantasma" (pedido de Juan Diego): una cita que se reprogramó desde
+  // este día SIGUE apareciendo aquí, en su hora de antes, pero como fantasma
+  // (rayada, punteada, "🔁 Reprogramada → nuevo día"), para que se vea que
+  // había una cita y que se cambió. (Primero, el 10/10, fue un aviso arriba
+  // de la grilla: a él no le gustó.) Va en la columna de su especialista; no
+  // cuenta en nada ni bloquea la hora. Tocarla abre la cita (en su día nuevo).
+  const fantasmas = [];
+  filterBySpecialist(state.appointments.filter(a=>!a.cursoId && Array.isArray(a.reprogramaciones))).forEach(a=>{
+    a.reprogramaciones.forEach((r,ri)=>{
+      if(!r || r.desde!==dateKey || !/^\d{2}:\d{2}$/.test(r.inicio||'')) return;
+      const fin = /^\d{2}:\d{2}$/.test(r.fin||'') && r.fin > r.inicio ? r.fin : addMinutesToHHMM(r.inicio, 60);
+      const sig = a.reprogramaciones[ri+1];
+      const ahora = sig ? {date: sig.desde, start: sig.inicio} : {date: a.date, start: a.start};
+      fantasmas.push({a, r, ahora, start: r.inicio, end: fin, specialist: a.specialist});
+    });
+  });
 
   // Por defecto el grid muestra HOUR_START–HOUR_END, pero si hay una cita o un
   // bloqueo cargado a una hora fuera de ese rango (por ejemplo, por error de
   // tipeo), se amplía automáticamente para que quede visible y se pueda
   // editar, en vez de quedar cortada por el overflow:hidden del contenedor.
   let rangeStart = HOUR_START, rangeEnd = HOUR_END;
-  [...appts, ...dayBlocks, ...dayCourses].forEach(item=>{
+  [...appts, ...dayBlocks, ...dayCourses, ...fantasmas].forEach(item=>{
     const sH = Math.floor(minutesFromMidnight(item.start)/60);
     const eH = Math.ceil(minutesFromMidnight(item.end)/60);
     if(sH < rangeStart) rangeStart = Math.max(0, sH);
@@ -3712,9 +3731,10 @@ function dayViewHtml(){
   // se reparten lado a lado cuando se cruzan (ej. una cita de Jeeymar a la
   // misma hora en que Salomé bloqueó), para que ninguno quede tapado.
   const partBlocks = dayBlocks.filter(b=>!b.fullDay);
-  const sideCols = layoutSideBySide([...appts, ...partBlocks]);
+  const sideCols = layoutSideBySide([...appts, ...partBlocks, ...fantasmas]);
   const apptCols = sideCols.slice(0, appts.length);
-  const blockCols = sideCols.slice(appts.length);
+  const blockCols = sideCols.slice(appts.length, appts.length + partBlocks.length);
+  const ghostCols = sideCols.slice(appts.length + partBlocks.length);
   const sidePos = ({col, cols})=> cols>1 ? `left:calc(6px + (100% - 12px) * ${col} / ${cols});right:auto;width:calc((100% - 12px) / ${cols} - 3px);` : '';
   let specialistBlocks = '';
   partBlocks.forEach((b,i)=>{
@@ -3742,32 +3762,28 @@ function dayViewHtml(){
       <span class="db-when">${escapeHtml(blockWhenLabel(b))}${b.reason?' · '+escapeHtml(b.reason):''}</span>
     </div>`).join('');
 
-  // "Cita fantasma" (10/10/2026, pedido de Juan Diego): una cita que se
-  // reprogramó desde este día deja aquí un aviso, para saber que había una
-  // cita y que la clienta la cambió (y cuándo avisó). No ocupa lugar en la
-  // grilla ni cuenta en nada: solo se ve. Tocarlo abre la cita (en su día nuevo).
-  const fantasmas = [];
-  filterBySpecialist(state.appointments.filter(a=>!a.cursoId && Array.isArray(a.reprogramaciones))).forEach(a=>{
-    a.reprogramaciones.forEach((r,ri)=>{
-      if(!r || r.desde!==dateKey) return;
-      const sig = a.reprogramaciones[ri+1];
-      const ahora = sig ? {date: sig.desde, start: sig.inicio} : {date: a.date, start: a.start};
-      fantasmas.push({a, r, ahora});
-    });
-  });
-  fantasmas.sort((x,y)=>String(x.r.inicio||'').localeCompare(String(y.r.inicio||'')));
-  const fantasmasHtml = fantasmas.map(({a, r, ahora})=>{
+  let ghostBlocks = '';
+  fantasmas.forEach((g,gi)=>{
+    const {a, r, ahora} = g;
+    const startMin = minutesFromMidnight(g.start) - rangeStart*60;
+    const endMin = minutesFromMidnight(g.end) - rangeStart*60;
+    const top = (startMin/60)*SLOT_PX;
+    const height = Math.max(((endMin-startMin)/60)*SLOT_PX, 26);
+    const isCompact = height < COMPACT_HEIGHT_PX;
     const avisoDt = new Date(r.en);
     const aviso = isNaN(avisoDt) ? '' : ` · avisó el ${avisoDt.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'})}`;
-    const hora = /^\d{2}:\d{2}$/.test(r.inicio||'') ? r.inicio+(/^\d{2}:\d{2}$/.test(r.fin||'')?'–'+r.fin:'')+' · ' : '';
-    const destino = ahora.date===dateKey ? `ahora a las ${escapeHtml(ahora.start||'')}` : `ahora el ${fechaCortaConDia(ahora.date)}${/^\d{2}:\d{2}$/.test(ahora.start||'')?' a las '+ahora.start:''}`;
+    const destino = ahora.date===dateKey ? `a las ${escapeHtml(ahora.start||'')}` : `${fechaCortaConDia(ahora.date)}${/^\d{2}:\d{2}$/.test(ahora.start||'')?' a las '+ahora.start:''}`;
     const estado = r.estadoAntes==='Cancelada' ? ' (cancelada)' : (r.estadoAntes==='NoShow' ? ' (no llegó)' : '');
-    return `
-    <div class="day-banner ghost-banner" style="border-left-color:${specialistColor(a.specialist)}" data-act="edit-appt" data-id="${escapeHtml(a.id)}">
-      <span class="db-who">🔁 ${hora}${escapeHtml(a.client||'Sin nombre')}${a.specialist?' · '+escapeHtml(a.specialist):''}</span>
-      <span class="db-when">Reprogramada${estado} → ${destino}${aviso}</span>
-    </div>`;
-  }).join('');
+    const col = a.specialist ? `border-left-color:${specialistColor(a.specialist)};` : '';
+    ghostBlocks += `
+      <div class="appt ghost-appt${isCompact?' compact':''}" style="top:${top}px;height:${height}px;${col}${sidePos(ghostCols[gi])}" data-act="edit-appt" data-id="${escapeHtml(a.id)}" title="Reprogramada">
+        ${isCompact
+          ? `<div class="t-time">${g.start}–${g.end}</div><div class="t-name-compact">🔁 ${escapeHtml(a.client||'Sin nombre')} · reprogramada → ${destino}</div>`
+          : `<div class="t-time">${g.start}–${g.end}<span class="ghost-tag">🔁 Reprogramada${estado}</span></div>
+             <div class="t-name">${escapeHtml(a.client||'Sin nombre')}</div>
+             <div class="t-service">→ ${destino}${aviso}</div>`}
+      </div>`;
+  });
 
   let apptBlocks = '';
   appts.forEach((a,ai)=>{
@@ -3824,7 +3840,7 @@ function dayViewHtml(){
   });
 
   return `
-    ${fullDayBanners||fantasmasHtml ? `<div class="day-banners">${fullDayBanners}${fantasmasHtml}</div>` : ''}
+    ${fullDayBanners ? `<div class="day-banners">${fullDayBanners}</div>` : ''}
     <div class="dayrow" style="height:${gridHeight}px">
       <div class="timecol">${timeCol}</div>
       <div class="gridcol" style="height:${gridHeight}px">
@@ -3832,6 +3848,7 @@ function dayViewHtml(){
         ${blockedOverlay}
         ${emptyClicks}
         ${specialistBlocks}
+        ${ghostBlocks}
         ${apptBlocks}
         ${courseBlocks}
       </div>

@@ -1097,6 +1097,20 @@ para servir también a **Copiapó**, de la siguiente forma:
   `noHace`/`duraciones` (se guardan por nombre, ver lección 6). Campos dentro
   de cada especialista: no exigió subir `APP_VERSION`. Probado contra el
   emulador: e2e (35).
+- **Retoque → la especialista de la sesión inicial (11/10/2026, pedido de
+  Juan Diego: casi siempre la misma especialista hace el retoque, y había
+  que ir a buscar la cita inicial):** en el formulario de la cita, si hay un
+  servicio con "retoque" y una clienta, `sesionInicialDeRetoque` busca su
+  última cita anterior (no cancelada/no llegó, no retoque/garantía/curso)
+  con un tratamiento que lleva retoque (`servicioLlevaRetoque`); si el
+  retoque dice de qué es ("Retoque Delineado de Ojos"), gana la que más se
+  parece por nombre (`palabrasTratamiento`). Esa especialista va PRIMERA en
+  la lista con "⭐ hizo la sesión inicial (fecha)" y debajo dice "⭐ La sesión
+  inicial (X, fecha) la hizo Y". En una cita NUEVA se elige sola si no había
+  nadie elegido (`ui.modal._retoqueAuto`); si se elige otra a mano, no se
+  cambia. Las demás siguen en la lista. Se recalcula al cambiar
+  tratamientos, clienta (autocompletado o al salir del campo) o fecha.
+  Probado: e2e (12).
 - **⭐ Garantías por especialista (09/10/2026, en vez del "sistema de
   puntos" que pensó Juan Diego; solo dueños — `puedeVerGarantias()`):
   pestaña propia arriba, "⭐ Garantías", después de Stock (`ui.section =

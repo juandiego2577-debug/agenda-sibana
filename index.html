@@ -4384,7 +4384,34 @@ function serviciosParaFiltro(servicios){
 function noHaceDe(esp, servicios){
   return serviciosParaFiltro(servicios).filter(n=>!especialistaHace(esp, n));
 }
-function opcionesEspecialistaHtml(servicios, actual){
+// ---- Retoque: quién hizo la sesión inicial (11/10/2026, pedido de Juan
+// Diego: casi siempre el retoque lo hace la misma especialista, y antes había
+// que ir a buscar la cita inicial para saber quién era) ----
+// Última cita de esa clienta (antes de esta fecha, no cancelada) con un
+// tratamiento que lleva retoque; si el retoque dice de qué es ("Retoque
+// Delineado de Ojos"), gana la que más se parece por nombre.
+function palabrasTratamiento(n){
+  return normalizeName(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\([^)]*\)/g,' ')
+    .split(/[^a-zñ]+/).filter(w=>w.length>=4 && w!=='retoque');
+}
+function sesionInicialDeRetoque(cliente, servicios, fecha, excluirId){
+  const retoques = (servicios||[]).filter(x=>/retoque/i.test(x||''));
+  const n = normalizeName(cliente||'');
+  if(!retoques.length || !n) return null;
+  const buscadas = new Set(retoques.flatMap(palabrasTratamiento));
+  const cands = state.appointments.filter(a=> a.id!==excluirId && normalizeName(a.client||'')===n && a.specialist
+    && !a.cursoId && a.estado!=='Cancelada' && a.estado!=='NoShow' && (!fecha || a.date <= fecha)
+    && !isRetoqueAppt(a) && !isGarantiaAppt(a) && (a.services||[]).some(servicioLlevaRetoque));
+  if(!cands.length) return null;
+  const puntaje = a=> Math.max(0, ...(a.services||[]).map(x=>palabrasTratamiento(x).filter(w=>buscadas.has(w)).length));
+  cands.sort((x,y)=> (puntaje(y)-puntaje(x)) || (y.date+(y.start||'')).localeCompare(x.date+(x.start||'')));
+  return cands[0];
+}
+function sesionInicialDelForm(servicios){
+  const v = id=>{ const el = document.getElementById(id); return el ? el.value : ''; };
+  return sesionInicialDeRetoque(v('f-client'), servicios, v('f-date'), ui.modal && ui.modal.data && ui.modal.data.id);
+}
+function opcionesEspecialistaHtml(servicios, actual, inicial){
   const aptas = state.specialists.filter(s=>noHaceDe(s.name, servicios).length===0);
   // Si nadie hace todo lo elegido junto, se muestran todas (con el aviso).
   const lista = aptas.length ? aptas : state.specialists;
@@ -4400,15 +4427,24 @@ function opcionesEspecialistaHtml(servicios, actual){
     const fx = filaDe(x.name), fy = filaDe(y.name);
     const px = fx ? ranking.indexOf(fx) : 999, py = fy ? ranking.indexOf(fy) : 999;
     return px - py;
-  }) : lista;
+  }) : lista.slice();
+  // Retoque: la que hizo la sesión inicial va primera y marcada con ⭐.
+  const esInicial = nombre=> !!(inicial && normalizeName(inicial.specialist)===normalizeName(nombre));
+  ordenada.sort((x,y)=> esInicial(y.name) - esInicial(x.name));
   return `<option value="">— Sin asignar —</option>${extra}` + ordenada.map(s=>{
     const falta = aptas.length ? [] : noHaceDe(s.name, servicios);
     const f = filaDe(s.name);
     const gar = f ? ` ${f.medalla ? f.medalla+' ' : ''}${f.pct}% bien · ${f.c.n} trabajo${f.c.n===1?'':'s'}` : '';
-    return `<option value="${escapeHtml(s.name)}" ${actual===s.name?'selected':''}>${escapeHtml(s.name)}${gar}${falta.length ? ` (no hace ${escapeHtml(summarizeServices(falta))})` : ''}</option>`;
+    const ini = esInicial(s.name) ? ` ⭐ hizo la sesión inicial (${fechaCortaConDia(inicial.date)})` : '';
+    return `<option value="${escapeHtml(s.name)}" ${actual===s.name?'selected':''}>${escapeHtml(s.name)}${ini}${ini ? '' : gar}${falta.length ? ` (no hace ${escapeHtml(summarizeServices(falta))})` : ''}</option>`;
   }).join('');
 }
-function filtroEspecialistaHint(servicios, actual){
+function filtroEspecialistaHint(servicios, actual, inicial){
+  const ini = inicial ? `⭐ La sesión inicial (${escapeHtml(summarizeServices((inicial.services||[]).filter(servicioLlevaRetoque)))}, ${fechaCortaConDia(inicial.date)}) la hizo <b>${escapeHtml(inicial.specialist)}</b>.` : '';
+  const resto = filtroEspecialistaHintBase(servicios, actual);
+  return ini && resto ? ini + '<br>' + resto : (ini || resto);
+}
+function filtroEspecialistaHintBase(servicios, actual){
   const sv = serviciosParaFiltro(servicios);
   const algunaConPerfil = state.specialists.some(s=>Array.isArray(s.noHace) && s.noHace.length);
   if(!sv.length || !algunaConPerfil) return '';
@@ -4425,12 +4461,21 @@ function actualizarPerfilEnForm(){
   if(!sel) return;
   const servicios = [];
   getServiceQuantities().forEach(({idx})=>{ const sv = state.services[idx]; if(sv) servicios.push(sv.name); });
-  const actual = sel.value;
-  const nuevo = opcionesEspecialistaHtml(servicios, actual);
+  let actual = sel.value;
+  const inicial = sesionInicialDelForm(servicios);
+  // En una cita NUEVA de retoque, se elige sola la que hizo la sesión inicial
+  // (si todavía no se eligió a nadie, o si la había elegido esto mismo antes).
+  let autoElegida = false;
+  if(ui.modal && ui.modal.mode==='new' && inicial && inicial.specialist!==actual && (!actual || actual===ui.modal._retoqueAuto)){
+    actual = inicial.specialist; autoElegida = true;
+    Object.defineProperty(ui.modal, '_retoqueAuto', {value: actual, enumerable:false, writable:true, configurable:true});
+  }
+  const nuevo = opcionesEspecialistaHtml(servicios, actual, inicial);
   if(sel.innerHTML !== nuevo) sel.innerHTML = nuevo;
   sel.value = actual;
+  if(autoElegida) setTimeout(ajustarDuracionGarantia, 0); // su tiempo propio, si tiene
   const hint = document.getElementById('spec-filtro-hint');
-  if(hint) hint.innerHTML = filtroEspecialistaHint(servicios, actual);
+  if(hint) hint.innerHTML = filtroEspecialistaHint(servicios, actual, inicial);
   // Lo que ella no hace queda en gris y no se puede sumar (sí quitar).
   document.querySelectorAll('[data-svc-row]').forEach(row=>{
     const sv = state.services[Number(row.dataset.svcRow)];
@@ -4571,8 +4616,8 @@ function apptModalHtml(){
       </div>
       ${isEdit ? `<button type="button" class="linklike" id="toggle-crema-policy-btn" style="font-size:11px;margin:-6px 0 12px;display:block;">${d.cremaIncluidaPolitica ? 'Esta cita en realidad debía cobrar la crema aparte — cambiar a la condición anterior' : 'Esta cita en realidad debía tener la crema incluida — cambiar a la condición nueva'}</button>` : ''}
       <div class="field"><label>Especialista</label>
-        <select id="f-specialist">${opcionesEspecialistaHtml(selectedServices, d.specialist||'')}</select>
-        <div class="hint" id="spec-filtro-hint" style="margin:4px 0 0;">${filtroEspecialistaHint(selectedServices, d.specialist||'')}</div>
+        <select id="f-specialist">${opcionesEspecialistaHtml(selectedServices, d.specialist||'', sesionInicialDeRetoque(d.client, selectedServices, d.date, d.id))}</select>
+        <div class="hint" id="spec-filtro-hint" style="margin:4px 0 0;">${filtroEspecialistaHint(selectedServices, d.specialist||'', sesionInicialDeRetoque(d.client, selectedServices, d.date, d.id))}</div>
       </div>
       </div>
       <div class="appt-sec sec-pago">
@@ -9193,6 +9238,7 @@ function saveScheduleFromForm(){
 // document para que sigan funcionando después de cada render() del modal.
 document.addEventListener('change', e=>{
   if(e.target && ['f-specialist','f-client','f-date','f-start','f-traspaso','f-traspaso-monto'].includes(e.target.id)) actualizarTraspasoGarantia();
+  if(e.target && (e.target.id==='f-client' || e.target.id==='f-date')) actualizarPerfilEnForm();
   if(e.target && e.target.id==='f-specialist'){
     actualizarPerfilEnForm();
     // En una cita NUEVA la hora de término sigue a lo que se demora esa
@@ -9293,6 +9339,7 @@ document.addEventListener('mousedown', e=>{
   const box = document.getElementById('client-ac');
   if(box){ box.style.display='none'; box.innerHTML=''; }
   actualizarTraspasoGarantia();
+  actualizarPerfilEnForm();
 });
 
 startRealtimeSync();

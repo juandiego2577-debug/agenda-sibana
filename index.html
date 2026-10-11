@@ -2322,6 +2322,7 @@ function recomputeServiceFields(){
   if(startInput && endInput && startInput.value){
     endInput.value = addMinutesToHHMM(startInput.value, totalDuration);
   }
+  actualizarPerfilEnForm(); // con la hora de término nueva (bloqueos)
 }
 
 // ---------------- Carga / guardado (Firestore, en tiempo real) ----------------
@@ -4407,11 +4408,24 @@ function sesionInicialDeRetoque(cliente, servicios, fecha, excluirId){
   cands.sort((x,y)=> (puntaje(y)-puntaje(x)) || (y.date+(y.start||'')).localeCompare(x.date+(x.start||'')));
   return cands[0];
 }
+// ---- Especialista que bloqueó ese horario (11/10/2026, pedido de Juan
+// Diego: salía en la lista y al guardar recién decía que estaba bloqueada) ----
+// Mismo criterio que al guardar (findCoveringBlock). En la lista sale al
+// final, en gris y sin poder elegirse: "Lucy 🚫 bloqueó esta hora". Si la
+// cita YA era de ella (se bloqueó después), se deja elegida con el aviso.
+function horarioDelForm(){
+  const v = id=>{ const el = document.getElementById(id); return el ? el.value : ''; };
+  return {date: v('f-date'), start: v('f-start'), end: v('f-end')};
+}
+function bloqueoDeEspecialista(nombre, h){
+  if(!nombre || !h || !/^\d{4}-\d{2}-\d{2}$/.test(h.date||'') || !/^\d{2}:\d{2}$/.test(h.start||'') || !/^\d{2}:\d{2}$/.test(h.end||'') || h.end <= h.start) return null;
+  return findCoveringBlock(parseKey(h.date), h.start, h.end, nombre) || null;
+}
 function sesionInicialDelForm(servicios){
   const v = id=>{ const el = document.getElementById(id); return el ? el.value : ''; };
   return sesionInicialDeRetoque(v('f-client'), servicios, v('f-date'), ui.modal && ui.modal.data && ui.modal.data.id);
 }
-function opcionesEspecialistaHtml(servicios, actual, inicial){
+function opcionesEspecialistaHtml(servicios, actual, inicial, horario){
   const aptas = state.specialists.filter(s=>noHaceDe(s.name, servicios).length===0);
   // Si nadie hace todo lo elegido junto, se muestran todas (con el aviso).
   const lista = aptas.length ? aptas : state.specialists;
@@ -4431,15 +4445,27 @@ function opcionesEspecialistaHtml(servicios, actual, inicial){
   // Retoque: la que hizo la sesión inicial va primera y marcada con ⭐.
   const esInicial = nombre=> !!(inicial && normalizeName(inicial.specialist)===normalizeName(nombre));
   ordenada.sort((x,y)=> esInicial(y.name) - esInicial(x.name));
+  // Las que bloquearon ese horario van al final.
+  const bloqueada = nombre=> !!bloqueoDeEspecialista(nombre, horario);
+  ordenada.sort((x,y)=> bloqueada(x.name) - bloqueada(y.name));
   return `<option value="">— Sin asignar —</option>${extra}` + ordenada.map(s=>{
     const falta = aptas.length ? [] : noHaceDe(s.name, servicios);
     const f = filaDe(s.name);
     const gar = f ? ` ${f.medalla ? f.medalla+' ' : ''}${f.pct}% bien · ${f.c.n} trabajo${f.c.n===1?'':'s'}` : '';
     const ini = esInicial(s.name) ? ' ⭐' : ''; // corto a pedido de Juan Diego; el detalle va en el mensaje de abajo
+    if(bloqueada(s.name)){
+      return `<option value="${escapeHtml(s.name)}" ${actual===s.name?'selected':'disabled'}>${escapeHtml(s.name)}${ini} 🚫 bloqueó esta hora</option>`;
+    }
     return `<option value="${escapeHtml(s.name)}" ${actual===s.name?'selected':''}>${escapeHtml(s.name)}${ini}${ini ? '' : gar}${falta.length ? ` (no hace ${escapeHtml(summarizeServices(falta))})` : ''}</option>`;
   }).join('');
 }
-function filtroEspecialistaHint(servicios, actual, inicial){
+function filtroEspecialistaHint(servicios, actual, inicial, horario){
+  const b = bloqueoDeEspecialista(actual, horario);
+  const bloq = b ? `🚫 <b>${escapeHtml(actual)}</b> bloqueó ${b.fullDay ? 'todo ese día' : `de ${escapeHtml(b.start)} a ${escapeHtml(b.end)}`}${b.reason ? ' ('+escapeHtml(b.reason)+')' : ''}: elige otra especialista u otra hora.` : '';
+  const sinBloq = filtroEspecialistaHintSinBloqueo(servicios, actual, inicial);
+  return bloq && sinBloq ? bloq + '<br>' + sinBloq : (bloq || sinBloq);
+}
+function filtroEspecialistaHintSinBloqueo(servicios, actual, inicial){
   const ini = inicial ? `⭐ La sesión inicial (${escapeHtml(summarizeServices((inicial.services||[]).filter(servicioLlevaRetoque)))}, ${fechaCortaConDia(inicial.date)}) la hizo <b>${escapeHtml(inicial.specialist)}</b>.` : '';
   const resto = filtroEspecialistaHintBase(servicios, actual);
   return ini && resto ? ini + '<br>' + resto : (ini || resto);
@@ -4466,16 +4492,17 @@ function actualizarPerfilEnForm(){
   // En una cita NUEVA de retoque, se elige sola la que hizo la sesión inicial
   // (si todavía no se eligió a nadie, o si la había elegido esto mismo antes).
   let autoElegida = false;
-  if(ui.modal && ui.modal.mode==='new' && inicial && inicial.specialist!==actual && (!actual || actual===ui.modal._retoqueAuto)){
+  const horario = horarioDelForm();
+  if(ui.modal && ui.modal.mode==='new' && inicial && inicial.specialist!==actual && (!actual || actual===ui.modal._retoqueAuto) && !bloqueoDeEspecialista(inicial.specialist, horario)){
     actual = inicial.specialist; autoElegida = true;
     Object.defineProperty(ui.modal, '_retoqueAuto', {value: actual, enumerable:false, writable:true, configurable:true});
   }
-  const nuevo = opcionesEspecialistaHtml(servicios, actual, inicial);
+  const nuevo = opcionesEspecialistaHtml(servicios, actual, inicial, horario);
   if(sel.innerHTML !== nuevo) sel.innerHTML = nuevo;
   sel.value = actual;
   if(autoElegida) setTimeout(ajustarDuracionGarantia, 0); // su tiempo propio, si tiene
   const hint = document.getElementById('spec-filtro-hint');
-  if(hint) hint.innerHTML = filtroEspecialistaHint(servicios, actual, inicial);
+  if(hint) hint.innerHTML = filtroEspecialistaHint(servicios, actual, inicial, horario);
   // Lo que ella no hace queda en gris y no se puede sumar (sí quitar).
   document.querySelectorAll('[data-svc-row]').forEach(row=>{
     const sv = state.services[Number(row.dataset.svcRow)];
@@ -4616,8 +4643,8 @@ function apptModalHtml(){
       </div>
       ${isEdit ? `<button type="button" class="linklike" id="toggle-crema-policy-btn" style="font-size:11px;margin:-6px 0 12px;display:block;">${d.cremaIncluidaPolitica ? 'Esta cita en realidad debía cobrar la crema aparte — cambiar a la condición anterior' : 'Esta cita en realidad debía tener la crema incluida — cambiar a la condición nueva'}</button>` : ''}
       <div class="field"><label>Especialista</label>
-        <select id="f-specialist">${opcionesEspecialistaHtml(selectedServices, d.specialist||'', sesionInicialDeRetoque(d.client, selectedServices, d.date, d.id))}</select>
-        <div class="hint" id="spec-filtro-hint" style="margin:4px 0 0;">${filtroEspecialistaHint(selectedServices, d.specialist||'', sesionInicialDeRetoque(d.client, selectedServices, d.date, d.id))}</div>
+        <select id="f-specialist">${opcionesEspecialistaHtml(selectedServices, d.specialist||'', sesionInicialDeRetoque(d.client, selectedServices, d.date, d.id), d)}</select>
+        <div class="hint" id="spec-filtro-hint" style="margin:4px 0 0;">${filtroEspecialistaHint(selectedServices, d.specialist||'', sesionInicialDeRetoque(d.client, selectedServices, d.date, d.id), d)}</div>
       </div>
       </div>
       <div class="appt-sec sec-pago">
@@ -7019,6 +7046,7 @@ function ajustarDuracionGarantia(){
   const startInput = document.getElementById('f-start'), endInput = document.getElementById('f-end');
   if(startInput && endInput && startInput.value) endInput.value = addMinutesToHHMM(startInput.value, totalDuration);
   actualizarTraspasoGarantia();
+  actualizarPerfilEnForm(); // la hora de término cambió (bloqueos)
 }
 // Muestra u oculta "¿Garantía de qué tratamiento?" según si está marcada la
 // garantía, y deja sugerido el último tratamiento de la clienta.
@@ -9238,7 +9266,6 @@ function saveScheduleFromForm(){
 // document para que sigan funcionando después de cada render() del modal.
 document.addEventListener('change', e=>{
   if(e.target && ['f-specialist','f-client','f-date','f-start','f-traspaso','f-traspaso-monto'].includes(e.target.id)) actualizarTraspasoGarantia();
-  if(e.target && (e.target.id==='f-client' || e.target.id==='f-date')) actualizarPerfilEnForm();
   if(e.target && e.target.id==='f-specialist'){
     actualizarPerfilEnForm();
     // En una cita NUEVA la hora de término sigue a lo que se demora esa
@@ -9273,6 +9300,12 @@ document.addEventListener('change', e=>{
     const box = document.getElementById('field-abono-devuelto');
     if(box) box.style.display = (e.target.value==='Cancelada'||e.target.value==='NoShow') ? 'flex' : 'none';
   }
+});
+
+// Después del listener de arriba (que ya movió la hora de término): la lista
+// de especialistas depende de la clienta (retoque), la fecha y el horario.
+document.addEventListener('change', e=>{
+  if(e.target && ['f-client','f-date','f-start','f-end'].includes(e.target.id)) actualizarPerfilEnForm();
 });
 
 document.addEventListener('input', e=>{

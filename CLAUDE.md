@@ -1097,6 +1097,18 @@ para servir también a **Copiapó**, de la siguiente forma:
   `noHace`/`duraciones` (se guardan por nombre, ver lección 6). Campos dentro
   de cada especialista: no exigió subir `APP_VERSION`. Probado contra el
   emulador: e2e (35).
+- **Especialista que bloqueó ese horario (11/10/2026, pedido de Juan
+  Diego: salía en la lista y recién al guardar decía que estaba bloqueada):**
+  en el formulario de la cita, cada especialista con un bloqueo que toca el
+  horario elegido (mismo criterio que al guardar: `findCoveringBlock`, vía
+  `bloqueoDeEspecialista` + `horarioDelForm`) sale AL FINAL de la lista, en
+  gris y sin poder elegirse: "Lucy 🚫 bloqueó esta hora". Un bloqueo de
+  "Todas" las deja a todas así. Si la cita YA era de ella (se bloqueó
+  después) o ya estaba elegida y se cambia la hora, queda elegida y debajo
+  avisa "🚫 Lucy bloqueó de 14:00 a 16:00 (motivo): elige otra especialista
+  u otra hora". Se recalcula al cambiar fecha, hora de inicio/término o
+  tratamientos (que mueven la hora de término). El retoque no elige solo a
+  la de la sesión inicial si ella bloqueó esa hora. Probado: e2e (12).
 - **Retoque → la especialista de la sesión inicial (11/10/2026, pedido de
   Juan Diego: casi siempre la misma especialista hace el retoque, y había
   que ir a buscar la cita inicial):** en el formulario de la cita, si hay un

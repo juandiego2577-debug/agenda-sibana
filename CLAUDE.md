@@ -1081,6 +1081,12 @@ para servir también a **Copiapó**, de la siguiente forma:
   arriba de la grilla, `.ghost-banner`: a Juan Diego NO le gustó, pidió que
   la cita siga en el día "de otra forma"; cambiado el 11/10.) Probado: e2e
   (14 + 5).
+  **Bug real (12/10/2026):** "la hora vuelve a la de antes al reprogramar".
+  El cuadro "📅 Reprogramar" tiene su propia "Nueva hora", que venía con la
+  hora ORIGINAL; si Juan Diego cambiaba la "Hora inicio" de arriba y después
+  usaba Reprogramar, se guardaba la hora vieja. Ahora al abrir el cuadro toma
+  el día (si cambió) y la hora de arriba, y si con el cuadro abierto se
+  cambian arriba, también se copian. Probado: e2e (7).
 - **Formulario de la cita más corto (06/10/2026, pedido de Juan Diego: "se
   ve muy largo para lo poco que se llena"):** mismos campos y mismo orden,
   sin esconder nada (personas y "abono ya pagado" siguen a la vista, ver
@@ -1229,6 +1235,15 @@ para servir también a **Copiapó**, de la siguiente forma:
   (PR #109, junto con "Quitar" de Retoques y el perfil de especialistas).**
   Él sabe que suma algo más al formulario (que intenta mantener corto) y
   decidió que vale la pena y que ese es el mejor lugar.
+- **EN PAUSA — línea de "ahora" y resumen del día en la vista Día
+  (12/10/2026, Juan Diego todavía decide si las quiere: "están bien pero no
+  suman mucho"):** ya construidas y probadas, apagadas con
+  `VISTA_DIA_EXTRAS = false`. Línea roja con la hora (`lineaAhoraHtml`,
+  solo el día de hoy, se mueve cada minuto con `moverLineaAhora`) y arriba
+  de la grilla "Hoy · 📅 6 citas · ✅ 2 realizadas · 🟣 2 por confirmar · 💸 2
+  sin abono · ✍️ 4 por firmar" (`resumenDiaHtml`; respeta el filtro de
+  especialista; lo que vale 0 no sale; otro día dice "Este día"). Para
+  publicarlas: poner `true` (él puede pedir solo una de las dos).
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos

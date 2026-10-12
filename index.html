@@ -1600,7 +1600,11 @@ function faltaFirmarAvisoHtml(a){
 // Juan Diego, "más visual") ----
 // La línea roja marca la hora actual (de la sede) cuando se mira el día de
 // hoy; se mueve sola cada minuto sin redibujar toda la agenda.
+// EN PAUSA (12/10/2026): Juan Diego todavía no decide si publicarlas. Para
+// mostrarlas, poner VISTA_DIA_EXTRAS = true.
+const VISTA_DIA_EXTRAS = false;
 function lineaAhoraHtml(dateKey, rangeStart, rangeEnd){
+  if(!VISTA_DIA_EXTRAS) return '';
   const now = sedeNow();
   if(dateKey!==now.date) return '';
   const m = minutesFromMidnight(now.time);
@@ -1621,6 +1625,7 @@ function moverLineaAhora(){
 // vistazo (no plata; eso sigue abajo). Cuenta lo mismo que se ve en las
 // fichas (respeta el filtro de especialista).
 function resumenDiaHtml(dateKey, appts){
+  if(!VISTA_DIA_EXTRAS) return '';
   const activas = appts.filter(a=>a.estado!=='Cancelada' && a.estado!=='NoShow');
   if(!activas.length) return '';
   const now = sedeNow();
@@ -8146,6 +8151,13 @@ function attachEvents(){
   if(reprogOpen){
     const panel = document.getElementById('reprog-panel');
     reprogOpen.addEventListener('click', ()=>{
+      // Si ya se cambió el día o la hora arriba en el formulario, el cuadro
+      // parte con eso (bug real 12/10/2026: la "Nueva hora" venía con la hora
+      // original y, al guardar, la cita volvía a esa hora).
+      const d0 = ui.modal && ui.modal.data;
+      const fDate = document.getElementById('f-date'), fStart = document.getElementById('f-start');
+      if(d0 && fDate && fDate.value && fDate.value!==d0.date) document.getElementById('reprog-date').value = fDate.value;
+      if(fStart && fStart.value) document.getElementById('reprog-start').value = fStart.value;
       panel.style.display = 'block';
       reprogOpen.style.display = 'none';
       document.getElementById('reprog-date').focus();
@@ -9462,6 +9474,15 @@ document.addEventListener('change', e=>{
 // de especialistas depende de la clienta (retoque), la fecha y el horario.
 document.addEventListener('change', e=>{
   if(e.target && ['f-client','f-date','f-start','f-end'].includes(e.target.id)) actualizarPerfilEnForm();
+  // Con el cuadro "Reprogramar" abierto, cambiar el día u hora de arriba
+  // también los cambia en el cuadro (es lo que se guarda).
+  if(e.target && (e.target.id==='f-start' || e.target.id==='f-date')){
+    const panel = document.getElementById('reprog-panel');
+    if(panel && panel.style.display!=='none'){
+      const destino = document.getElementById(e.target.id==='f-start' ? 'reprog-start' : 'reprog-date');
+      if(destino && e.target.value) destino.value = e.target.value;
+    }
+  }
 });
 
 document.addEventListener('input', e=>{

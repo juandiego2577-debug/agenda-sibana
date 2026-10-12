@@ -859,9 +859,8 @@ para servir también a **Copiapó**, de la siguiente forma:
 - **Finanzas "en ajuste" (oct 2026, a pedido del usuario):** los números de
   Finanzas todavía no son confiables mientras se termina de ajustar la
   agenda ("si nos guiáramos por Finanzas, pagaríamos mal"). Por eso
-  **"Mis ganancias" está OCULTA para las especialistas**
-  (`MIS_GANANCIAS_VISIBLE = false`: sin pestaña, y si algo las manda a
-  Finanzas vuelven a la agenda) — no quería que creyeran que les
+  **"Mis ganancias" estuvo OCULTA para las especialistas** (hasta el
+  12/10/2026, cuando volvió rehecha como "💵 Mi pago", ver más abajo) — no quería que creyeran que les
   corresponde un monto que no es. El código sigue intacto para volver a
   mostrarla. Admin conserva Finanzas con un aviso "⚠️ En ajuste… no usar
   para calcular pagos" arriba. La identidad "¿Quién eres?" sigue (vales y
@@ -902,7 +901,51 @@ para servir también a **Copiapó**, de la siguiente forma:
   total de comisiones del mes. Probado contra el emulador (Firestore +
   Auth) con la agenda real: 38 + 3 + 13 pruebas (incluye garantía nueva
   desde el formulario, textos con trampa, Buenos Aires con dólar).
-- **"Mis ganancias"** (OCULTA por ahora, ver arriba): en modo Especialista, la pestaña de Finanzas muestra
+- **Solo cuentan las citas cerradas + "Mi pago" para las especialistas
+  (12/10/2026, pedido de Juan Diego):** al revisar a mano los
+  cuadernos de la semana 05–10/10 se vio que las cuentas del cuaderno estaban
+  bien y que las diferencias con la agenda venían de citas sin cerrar (una
+  cancelada contada como hecha, servicios que no se hicieron) y vales sin
+  anotar. Como incentivo: desde la semana de pago del lunes
+  `PAGO_SOLO_CERRADAS_DESDE` ('2026-10-12') una cita suma en el pago SOLO si
+  está Realizada (`payoutWeekData`: `porCerrar`, `comisionAlCerrar`,
+  `g.montoPorCerrar`; cursos excluidos de la regla); las semanas anteriores
+  no cambian. Pagos (Admin) lo muestra tachado "🔒 Todavía no suma". "Mis
+  ganancias" (`misGananciasPageHtml`) se rehízo: semana de pago lun–sáb
+  desde el 12/10 con flechas, "Llevas esta semana", recuadro "🔒 $X
+  todavía no te suman" con sus citas por cerrar, recuadro de vales con "💵
+  Anotar un vale", el mismo detalle cita por cita que Pagos
+  (`pagoCitaFilaHtml`, compartido), ajustes/garantías solo lectura, "Ya te
+  pagamos" e historial. Juan Diego la ve en Pagos → detalle → "👁 Ver lo
+  que ve <nombre>" (modal `ganancias-preview`). Se quitó el ajuste viejo "Mis ganancias visible
+  desde" (`misGananciasDesde` ya no se usa). Textos pedidos por él: "dinero",
+  nunca "plata"; "Cómo se calcula" sin la crema (ya viene incluida) ni el
+  abono de cancelaciones (ya lo saben). **Dos diseños a prueba**
+  (`MIS_GANANCIAS_DISENO` = 'detallado' | 'simple', en la vista previa se
+  cambian con "1 · Detallado / 2 · Simple"): el simple es una boleta arriba
+  (total grande + tus citas/ajustes/vales), "Te faltan N citas por cerrar"
+  como botones grandes, "Anotar un vale" y la lista de citas cerradas en
+  una línea (la cuenta se ve al tocarla, `<details>`). Juan Diego no supo cuál
+  elegir y lo dejó a criterio: quedó el **simple** (se lee rápido en el
+  teléfono, lo que queremos que hagan —cerrar citas y anotar vales— son
+  botones grandes, y la cuenta sigue a un toque). Al tocar una cita se ve
+  la cuenta paso a paso, una línea por paso (Precio / Crema / Micropigmentación
+  (del negocio) / Queda / Tu parte (50%), `apptCuentaPasosHtml`, con los
+  números de las mismas funciones del pago), con una flecha › que gira. Él
+  pidió esto porque el detallado eran "muchas letras pegadas". La pestaña de
+  la especialista se llama **"💵 Mi pago"** (antes "📊 Mis ganancias") y va
+  AL FINAL, después de Stock (antes de esto ellas veían Agenda | Stock: no se
+  mueve ningún botón). `MIS_GANANCIAS_VISIBLE = true` (él decidió publicarlo
+  directo, sin etapa escondida). **Nunca decir que se paga "el domingo"**
+  (ni en "Mi pago" ni en Pagos de Admin): a veces el pago se atrasa (pedido
+  de Juan Diego, 12/10/2026); se dice "Llevas esta semana", "Te vamos a
+  pagar", "A pagar". **`APP_VERSION` 6** con esto (cambia cómo se interpreta
+  el pago y así todos los teléfonos ven "🔄 Hay una versión nueva… Recargar"
+  apenas uno con la versión nueva guarde). Ojo: ese aviso SOLO aparece
+  cuando se sube `APP_VERSION`; un cambio que no lo sube llega a cada
+  teléfono recién cuando la agenda se vuelve a abrir. Probado: e2e (37, incluye
+  una cita de 2 personas: "Precio (2 personas)" y "Micropigmentación × 2").
+- **"Mis ganancias"** (versión vieja, reemplazada por la de arriba): en modo Especialista, la pestaña de Finanzas muestra
   esto en vez del panel completo de Admin — cada especialista elige su
   nombre una vez (se recuerda por dispositivo, `STAFF_IDENTITY_KEY`) y ve
   solo sus propias citas/ingresos/comisión del mes, nada de las demás.

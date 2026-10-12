@@ -927,8 +927,10 @@ para servir también a **Copiapó**, de la siguiente forma:
   cambian con "1 · Detallado / 2 · Simple"): el simple es una boleta arriba
   (total grande + tus citas/ajustes/vales), "Te faltan N citas por cerrar"
   como botones grandes, "Anotar un vale" y la lista de citas cerradas en
-  una línea (la cuenta se ve al tocarla, `<details>`). Él cree que se queda
-  con el detallado. Probado: e2e (29).
+  una línea (la cuenta se ve al tocarla, `<details>`). Juan Diego no supo cuál
+  elegir y lo dejó a criterio: quedó el **simple** (se lee rápido en el
+  teléfono, lo que queremos que hagan —cerrar citas y anotar vales— son
+  botones grandes, y la cuenta sigue a un toque). Probado: e2e (29).
 - **"Mis ganancias"** (versión vieja, reemplazada por la de arriba): en modo Especialista, la pestaña de Finanzas muestra
   esto en vez del panel completo de Admin — cada especialista elige su
   nombre una vez (se recuerda por dispositivo, `STAFF_IDENTITY_KEY`) y ve

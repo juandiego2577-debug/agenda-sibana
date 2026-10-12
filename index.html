@@ -457,6 +457,7 @@
   .pago-aviso{border:1px solid var(--warn);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;}
   .pago-aviso.peligro{border-color:var(--danger);}
   .pago-aviso.ok{border-color:var(--ok);}
+  .pago-aviso.gan-proximas{border-color:var(--line);}
   .pago-fila.por-cerrar > div:first-child > div:first-child, .pago-fila.por-cerrar .monto s{opacity:.75;}
   .pago-fila .pago-cierre{color:var(--warn);}
   .gan-page{max-width:720px;}
@@ -3606,7 +3607,7 @@ function mergeDocs(base, mine, theirs){
 // muestra el aviso de recargar — así una versión vieja nunca puede estropear
 // nada. Subir este número cada vez que se publica un cambio en cómo se
 // guardan los datos.
-const APP_VERSION = 6;
+const APP_VERSION = 7;
 let appOutdated = false;
 let appOffline = false;
 function renderSyncBanner(){
@@ -4486,6 +4487,13 @@ function sedeNow(){
   const s = new Date().toLocaleString('sv-SE',{timeZone:SEDE.zonaHoraria}); // "2026-10-03 21:05:00"
   return {date: s.slice(0,10), time: s.slice(11,16)};
 }
+// ¿Ya llegó la hora de esta cita? (hora de la sede). Una especialista solo
+// puede marcarla como realizada desde que empieza (pedido de Juan Diego,
+// 12/10/2026: con "Mi pago" se podían cerrar citas futuras para que sumaran).
+function citaYaEmpezo(a){
+  const n = sedeNow();
+  return (a.date||'') < n.date || (a.date===n.date && (a.start||'00:00') <= n.time);
+}
 
 function postcareStatusHtml(a, style){
   if(!SEDE.correoPostratamiento) return ''; // esta sede todavía no tiene envío de correos
@@ -4683,7 +4691,8 @@ function apptViewOnlyHtml(d){
         <select id="f-staff-metodoSaldo">${paymentSelectOptions(d.metodoSaldo)}</select>
       </div>
       ${staffSplitHtml(d)}
-      <button type="button" class="btn btn-primary" style="width:100%;margin:0 0 14px;" data-act="staff-mark-realizada" data-id="${escapeHtml(d.id)}">${d.estado==='Realizada' ? '💾 Guardar método de pago' : '✅ Marcar como realizada y guardar el pago'}</button>` : ''}
+      ${(d.estado==='Realizada' || citaYaEmpezo(d)) ? `<button type="button" class="btn btn-primary" style="width:100%;margin:0 0 14px;" data-act="staff-mark-realizada" data-id="${escapeHtml(d.id)}">${d.estado==='Realizada' ? '💾 Guardar método de pago' : '✅ Marcar como realizada y guardar el pago'}</button>`
+        : `<div class="hint" style="margin:0 0 14px;text-align:center;">⏳ Vas a poder marcarla como realizada cuando empiece la cita (${diaCorto(d.date)} a las ${escapeHtml(d.start||'')}).</div>`}` : ''}
       ${pagoMarcadoHtml(d)}
       ${d.notas ? `<div class="field"><label>Notas</label><div>${escapeHtml(d.notas)}</div></div>` : ''}
       <div class="modal-actions">
@@ -6207,19 +6216,30 @@ function misGananciasPageHtml(nombre, vistaPrevia){
   }
 
   // Incentivo: lo que todavía no suma porque la cita no está cerrada.
-  const porCerrar = g.citas.filter(c=>c.porCerrar && c.comisionAlCerrar>0);
+  const pendientes = g.citas.filter(c=>c.porCerrar && c.comisionAlCerrar>0);
+  // Por cerrar: las que ya empezaron (se pueden marcar). Próximas: todavía no.
+  const porCerrar = pendientes.filter(c=>citaYaEmpezo(c.a));
+  const proximas = pendientes.filter(c=>!citaYaEmpezo(c.a));
+  const montoPorCerrar = porCerrar.reduce((t,c)=>t+c.comisionAlCerrar,0);
+  const montoProximas = proximas.reduce((t,c)=>t+c.comisionAlCerrar,0);
   const pasadas = porCerrar.filter(c=>c.a.date<hoy);
   let cerrarHtml = '';
   if(porCerrar.length){
     const lista = porCerrar.map(c=>`<li><button type="button" class="linklike" data-act="edit-appt" data-id="${escapeHtml(c.a.id)}">${diaCorto(c.a.date)} ${escapeHtml(c.a.start||'')} · ${escapeHtml(c.a.client||'(sin nombre)')}</button> <b>+${fmtCLP(c.comisionAlCerrar)}</b>${c.a.date<hoy ? ' <span class="pago-mal">ya pasó</span>' : ''}</li>`).join('');
     cerrarHtml = `<div class="pago-aviso ${pasadas.length?'peligro':''} gan-cerrar">
-      <div class="gan-cerrar-top">🔒 <b>${fmtCLP(g.montoPorCerrar)} todavía no te suman</b></div>
+      <div class="gan-cerrar-top">🔒 <b>${fmtCLP(montoPorCerrar)} todavía no te suman</b></div>
       Solo cuentan las citas cerradas. Abre cada una y toca <b>"✅ Marcar como realizada"</b> apenas termines${pasadas.length ? ` — <b>${pasadas.length===1 ? '1 ya pasó' : pasadas.length+' ya pasaron'}</b> y ${pasadas.length===1?'sigue':'siguen'} sin cerrar` : ''}:
       <ul>${lista}</ul>
       <div class="hint" style="margin:6px 0 0;">Si la clienta canceló o no llegó, avísale a Sibana para que la marque.</div>
     </div>`;
-  } else if(g.citas.length){
+  } else if(g.citas.length && !proximas.length){
     cerrarHtml = `<div class="pago-aviso ok gan-cerrar">✅ <b>Todas tus citas de esta semana están cerradas.</b></div>`;
+  } else if(g.citas.length){
+    cerrarHtml = `<div class="pago-aviso ok gan-cerrar">✅ <b>Tus citas que ya pasaron están cerradas.</b></div>`;
+  }
+  if(proximas.length){
+    cerrarHtml += `<div class="pago-aviso gan-proximas">📅 <b>Te ${proximas.length===1?'queda 1 cita':`quedan ${proximas.length} citas`} esta semana</b> (+${fmtCLP(montoProximas)} cuando las hagas y las marques como realizadas):
+      <ul>${proximas.map(c=>`<li>${diaCorto(c.a.date)} ${escapeHtml(c.a.start||'')} · ${escapeHtml(c.a.client||'(sin nombre)')} <b>+${fmtCLP(c.comisionAlCerrar)}</b></li>`).join('')}</ul></div>`;
   }
 
   const filas = g.citas.map(c=>pagoCitaFilaHtml(c)).join('') || `<div class="hint">No tienes citas esta semana.</div>`;
@@ -6264,7 +6284,7 @@ function misGananciasPageHtml(nombre, vistaPrevia){
         <div class="curdate">${rangoSemanaTexto(w.start, w.end)}<div class="hint" style="margin:2px 0 0;font-family:inherit;font-size:11.5px;">${etiqueta}</div></div>
         <button class="arrow" data-act="gan-next" ${ui.ganSemana<actual?'':'disabled'}>›</button>
       </div>`;
-  if(diseno==='simple') return gananciasSimpleHtml({identity, primerNombre, vistaPrevia, previaHtml, navHtml, comoSeCalcula, w, g, estado, porCerrar, hoy, historial});
+  if(diseno==='simple') return gananciasSimpleHtml({identity, primerNombre, vistaPrevia, previaHtml, navHtml, comoSeCalcula, w, g, estado, porCerrar, proximas, montoProximas, hoy, historial});
   return `
     <div class="fin-page gan-page">
       ${previaHtml}
@@ -6289,7 +6309,7 @@ function misGananciasPageHtml(nombre, vistaPrevia){
           ${g.totalAjustes ? `<div><span>Ajustes</span><span>${fmtSigno(g.totalAjustes)}</span></div>` : ''}
           ${g.totalVales ? `<div><span>Vales</span><span>−${fmtCLP(g.totalVales)}</span></div>` : ''}
           <div class="neto"><span>${estado==='pagado' ? 'Te pagamos' : 'A pagar'}</span><span>${fmtNeto(estado==='pagado' ? g.pago.neto : g.neto)}</span></div>
-          ${g.montoPorCerrar ? `<div class="hint" style="margin:4px 0 0;">+ ${fmtCLP(g.montoPorCerrar)} más cuando cierres ${g.porCerrar===1?'la cita que falta':`las ${g.porCerrar} citas que faltan`}.</div>` : ''}
+          ${g.montoPorCerrar ? `<div class="hint" style="margin:4px 0 0;">+ ${fmtCLP(g.montoPorCerrar)} más cuando hagas y cierres las citas que faltan.</div>` : ''}
         </div>
       </div></div>
       ${historial.length>1 ? `<h3 class="fin-sub">Tus semanas</h3><table class="fin-table pago-hist"><thead><tr><th>Semana (lun–sáb)</th><th>Pago</th><th>Estado</th></tr></thead><tbody>${historial.join('')}</tbody></table>` : ''}
@@ -6321,7 +6341,7 @@ function apptCuentaPasosHtml(a){
   return pasos.join('');
 }
 function gananciasSimpleHtml(o){
-  const {g, w, estado, porCerrar, hoy} = o;
+  const {g, w, estado, porCerrar, proximas, montoProximas, hoy} = o;
   const pagado = estado==='pagado';
   const monto = pagado ? g.pago.neto : g.neto;
   const titulo = pagado ? '✅ Ya te pagamos' : (w.terminada ? 'Te vamos a pagar' : 'Llevas esta semana');
@@ -6334,11 +6354,16 @@ function gananciasSimpleHtml(o){
     linea(pagado ? 'Te pagamos' : 'A pagar', fmtNeto(monto), 'total'),
   ].join('');
   const faltan = porCerrar.length ? `
-      <div class="gs-titulo">⚠️ Te faltan ${porCerrar.length===1 ? '1 cita' : porCerrar.length+' citas'} por cerrar</div>
+      <div class="gs-titulo">⚠️ ${porCerrar.length===1 ? 'Te falta 1 cita' : 'Te faltan '+porCerrar.length+' citas'} por cerrar</div>
       <div class="hint" style="margin:0 0 8px;">Tócala y marca <b>"✅ Realizada"</b> para que te sume.</div>
       ${porCerrar.map(c=>`<button type="button" class="gs-cerrar ${c.a.date<hoy?'tarde':''}" data-act="edit-appt" data-id="${escapeHtml(c.a.id)}">
         <span><b>${escapeHtml(c.a.client||'(sin nombre)')}</b><small>${diaCorto(c.a.date)} ${escapeHtml(c.a.start||'')}${c.a.date<hoy?' · ya pasó':''}</small></span>
-        <span class="gs-mas">+${fmtCLP(c.comisionAlCerrar)} ›</span></button>`).join('')}` : (g.citas.length ? `<div class="gs-listo">✅ Todas tus citas están cerradas</div>` : '');
+        <span class="gs-mas">+${fmtCLP(c.comisionAlCerrar)} ›</span></button>`).join('')}` : (g.citas.length ? `<div class="gs-listo">✅ ${proximas.length ? 'Tus citas que ya pasaron están cerradas' : 'Todas tus citas están cerradas'}</div>` : '');
+  const proximasHtml = proximas.length ? `
+      <div class="gs-titulo">📅 Próximas esta semana</div>
+      <div class="hint" style="margin:0 0 6px;">Te suman cuando las hagas y las marques como realizadas.</div>
+      ${proximas.map(c=>`<div class="gs-linea chica"><span>${diaCorto(c.a.date)} ${escapeHtml(c.a.start||'')} · ${escapeHtml(c.a.client||'(sin nombre)')}</span><span>+${fmtCLP(c.comisionAlCerrar)}</span></div>`).join('')}
+      <div class="gs-linea chica" style="font-weight:600;"><span>Total</span><span>+${fmtCLP(montoProximas)}</span></div>` : '';
   const cerradas = g.citas.filter(c=>!(c.porCerrar && c.comisionAlCerrar>0));
   const lista = cerradas.map(c=>{
     const nota = c.a.estado==='Cancelada' ? ' · cancelada' : c.a.estado==='NoShow' ? ' · no llegó' : '';
@@ -6356,9 +6381,10 @@ function gananciasSimpleHtml(o){
         <div class="gs-sub">${titulo}</div>
         <div class="gs-grande">${fmtNeto(monto)}</div>
         ${boleta}
-        ${!pagado && g.montoPorCerrar ? `<div class="gs-pista">+ ${fmtCLP(g.montoPorCerrar)} más cuando cierres lo que falta</div>` : ''}
+        ${!pagado && g.montoPorCerrar ? `<div class="gs-pista">+ ${fmtCLP(g.montoPorCerrar)} más cuando hagas y cierres las citas que faltan</div>` : ''}
       </div>
       ${faltan ? `<div class="gs-card">${faltan}</div>` : ''}
+      ${proximasHtml ? `<div class="gs-card">${proximasHtml}</div>` : ''}
       <button type="button" class="btn btn-primary gs-vale" data-act="open-vales">💵 Anotar un vale</button>
       <div class="hint" style="text-align:center;margin:-4px 0 14px;">¿Sacaste dinero de la caja? Anótalo apenas lo saques. Así tu pago sale exacto.</div>
       <div class="gs-card">
@@ -8944,6 +8970,10 @@ function onAction(e){
       const id = e.currentTarget.dataset.id;
       const appt = state.appointments.find(a=>a.id===id);
       if(!appt) break;
+      if(appt.estado!=='Realizada' && !citaYaEmpezo(appt)){
+        showAlert('Esta cita todavía no empieza. Vas a poder marcarla como realizada desde la hora de la cita.');
+        break;
+      }
       const select = document.getElementById('f-staff-metodoSaldo');
       const metodo = select ? select.value : '';
       if(!metodo){

@@ -902,7 +902,26 @@ para servir también a **Copiapó**, de la siguiente forma:
   total de comisiones del mes. Probado contra el emulador (Firestore +
   Auth) con la agenda real: 38 + 3 + 13 pruebas (incluye garantía nueva
   desde el formulario, textos con trampa, Buenos Aires con dólar).
-- **"Mis ganancias"** (OCULTA por ahora, ver arriba): en modo Especialista, la pestaña de Finanzas muestra
+- **Solo cuentan las citas cerradas + "Mis ganancias" nueva (12/10/2026,
+  pedido de Juan Diego, NO publicado todavía):** al revisar a mano los
+  cuadernos de la semana 05–10/10 se vio que las cuentas del cuaderno estaban
+  bien y que las diferencias con la agenda venían de citas sin cerrar (una
+  cancelada contada como hecha, servicios que no se hicieron) y vales sin
+  anotar. Como incentivo: desde la semana de pago del lunes
+  `PAGO_SOLO_CERRADAS_DESDE` ('2026-10-12') una cita suma en el pago SOLO si
+  está Realizada (`payoutWeekData`: `porCerrar`, `comisionAlCerrar`,
+  `g.montoPorCerrar`; cursos excluidos de la regla); las semanas anteriores
+  no cambian. Pagos (Admin) lo muestra tachado "🔒 Todavía no suma". "Mis
+  ganancias" (`misGananciasPageHtml`) se rehízo: semana de pago lun–sáb
+  desde el 12/10 con flechas, "Llevas para el domingo", recuadro "🔒 $X
+  todavía no te suman" con sus citas por cerrar, recuadro de vales con "💵
+  Anotar un vale", el mismo detalle cita por cita que Pagos
+  (`pagoCitaFilaHtml`, compartido), ajustes/garantías solo lectura, "Ya te
+  pagamos" e historial. Sigue OCULTA (`MIS_GANANCIAS_VISIBLE = false`); Juan
+  Diego la ve en Pagos → detalle → "👁 Ver lo que ve <nombre>" (modal
+  `ganancias-preview`). Se quitó el ajuste viejo "Mis ganancias visible
+  desde" (`misGananciasDesde` ya no se usa). Probado: e2e (18).
+- **"Mis ganancias"** (versión vieja, reemplazada por la de arriba): en modo Especialista, la pestaña de Finanzas muestra
   esto en vez del panel completo de Admin — cada especialista elige su
   nombre una vez (se recuerda por dispositivo, `STAFF_IDENTITY_KEY`) y ve
   solo sus propias citas/ingresos/comisión del mes, nada de las demás.

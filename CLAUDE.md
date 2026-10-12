@@ -937,8 +937,15 @@ para servir también a **Copiapó**, de la siguiente forma:
   la especialista se llama **"💵 Mi pago"** (antes "📊 Mis ganancias") y va
   AL FINAL, después de Stock (antes de esto ellas veían Agenda | Stock: no se
   mueve ningún botón). `MIS_GANANCIAS_VISIBLE = true` (él decidió publicarlo
-  directo, sin etapa escondida). Probado: e2e (33, incluye una cita de 2
-  personas: "Precio (2 personas)" y "Micropigmentación × 2").
+  directo, sin etapa escondida). **Nunca decir que se paga "el domingo"**
+  (ni en "Mi pago" ni en Pagos de Admin): a veces el pago se atrasa (pedido
+  de Juan Diego, 12/10/2026); se dice "Llevas esta semana", "Te vamos a
+  pagar", "A pagar". **`APP_VERSION` 6** con esto (cambia cómo se interpreta
+  el pago y así todos los teléfonos ven "🔄 Hay una versión nueva… Recargar"
+  apenas uno con la versión nueva guarde). Ojo: ese aviso SOLO aparece
+  cuando se sube `APP_VERSION`; un cambio que no lo sube llega a cada
+  teléfono recién cuando la agenda se vuelve a abrir. Probado: e2e (37, incluye
+  una cita de 2 personas: "Precio (2 personas)" y "Micropigmentación × 2").
 - **"Mis ganancias"** (versión vieja, reemplazada por la de arriba): en modo Especialista, la pestaña de Finanzas muestra
   esto en vez del panel completo de Admin — cada especialista elige su
   nombre una vez (se recuerda por dispositivo, `STAFF_IDENTITY_KEY`) y ve

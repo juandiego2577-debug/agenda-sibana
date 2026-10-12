@@ -3606,7 +3606,7 @@ function mergeDocs(base, mine, theirs){
 // muestra el aviso de recargar — así una versión vieja nunca puede estropear
 // nada. Subir este número cada vez que se publica un cambio en cómo se
 // guardan los datos.
-const APP_VERSION = 5;
+const APP_VERSION = 6;
 let appOutdated = false;
 let appOffline = false;
 function renderSyncBanner(){
@@ -6192,7 +6192,6 @@ function misGananciasPageHtml(nombre, vistaPrevia){
   const w = payoutWeekData(parseKey(ui.ganSemana));
   const g = w.especialistas.find(x=>normalizeName(x.name)===normalizeName(identity))
     || {name: identity, citas:[], traspasos:[], ajustes:[], vales:[], comision:0, totalTraspasos:0, totalAjustes:0, totalVales:0, neto:0, porCerrar:0, montoPorCerrar:0, pago:null};
-  const domingo = addDays(w.start, 6);
   const etiqueta = w.enCurso ? 'Semana en curso' : (w.terminada ? 'Semana terminada' : 'Semana que viene');
   const hoy = hoySedeKey();
   const estado = estadoPago(g);
@@ -6204,7 +6203,7 @@ function misGananciasPageHtml(nombre, vistaPrevia){
   } else if(estado==='cambio'){
     grande = `<div class="fin-card highlight gan-total"><div class="lbl">Te pagamos ${fmtNeto(g.pago.neto)} ${pagoFechaTexto(g.pago.actualizadoEn||g.pago.pagadoEn)}</div><div class="val">Ahora da ${fmtNeto(g.neto)}</div><div class="hint" style="margin:2px 0 0;">Después se corrigió algo de esta semana: lo revisamos contigo.</div></div>`;
   } else {
-    grande = `<div class="fin-card highlight gan-total"><div class="lbl">${w.terminada ? 'Te pagamos' : 'Llevas para el'} domingo ${domingo.getDate()} de ${MONTHS[domingo.getMonth()]}</div><div class="val">${fmtNeto(g.neto)}</div>${w.terminada ? '' : `<div class="hint" style="margin:2px 0 0;">Va subiendo a medida que cierras tus citas.</div>`}</div>`;
+    grande = `<div class="fin-card highlight gan-total"><div class="lbl">${w.terminada ? 'Te vamos a pagar' : 'Llevas esta semana'}</div><div class="val">${fmtNeto(g.neto)}</div>${w.terminada ? '' : `<div class="hint" style="margin:2px 0 0;">Va subiendo a medida que cierras tus citas.</div>`}</div>`;
   }
 
   // Incentivo: lo que todavía no suma porque la cita no está cerrada.
@@ -6262,10 +6261,10 @@ function misGananciasPageHtml(nombre, vistaPrevia){
   const navHtml = `
       <div class="fin-monthnav">
         <button class="arrow" data-act="gan-prev" ${ui.ganSemana>primera?'':'disabled'}>‹</button>
-        <div class="curdate">${rangoSemanaTexto(w.start, w.end)}<div class="hint" style="margin:2px 0 0;font-family:inherit;font-size:11.5px;">${etiqueta} · se paga el domingo ${domingo.getDate()} ${MONTHS[domingo.getMonth()].slice(0,3)}</div></div>
+        <div class="curdate">${rangoSemanaTexto(w.start, w.end)}<div class="hint" style="margin:2px 0 0;font-family:inherit;font-size:11.5px;">${etiqueta}</div></div>
         <button class="arrow" data-act="gan-next" ${ui.ganSemana<actual?'':'disabled'}>›</button>
       </div>`;
-  if(diseno==='simple') return gananciasSimpleHtml({identity, primerNombre, vistaPrevia, previaHtml, navHtml, comoSeCalcula, w, g, estado, domingo, porCerrar, hoy, historial});
+  if(diseno==='simple') return gananciasSimpleHtml({identity, primerNombre, vistaPrevia, previaHtml, navHtml, comoSeCalcula, w, g, estado, porCerrar, hoy, historial});
   return `
     <div class="fin-page gan-page">
       ${previaHtml}
@@ -6289,7 +6288,7 @@ function misGananciasPageHtml(nombre, vistaPrevia){
           ${g.totalTraspasos ? `<div><span>Garantías</span><span>${fmtSigno(g.totalTraspasos)}</span></div>` : ''}
           ${g.totalAjustes ? `<div><span>Ajustes</span><span>${fmtSigno(g.totalAjustes)}</span></div>` : ''}
           ${g.totalVales ? `<div><span>Vales</span><span>−${fmtCLP(g.totalVales)}</span></div>` : ''}
-          <div class="neto"><span>${estado==='pagado' ? 'Te pagamos' : 'A pagar el domingo'}</span><span>${fmtNeto(estado==='pagado' ? g.pago.neto : g.neto)}</span></div>
+          <div class="neto"><span>${estado==='pagado' ? 'Te pagamos' : 'A pagar'}</span><span>${fmtNeto(estado==='pagado' ? g.pago.neto : g.neto)}</span></div>
           ${g.montoPorCerrar ? `<div class="hint" style="margin:4px 0 0;">+ ${fmtCLP(g.montoPorCerrar)} más cuando cierres ${g.porCerrar===1?'la cita que falta':`las ${g.porCerrar} citas que faltan`}.</div>` : ''}
         </div>
       </div></div>
@@ -6322,10 +6321,10 @@ function apptCuentaPasosHtml(a){
   return pasos.join('');
 }
 function gananciasSimpleHtml(o){
-  const {g, w, estado, domingo, porCerrar, hoy} = o;
+  const {g, w, estado, porCerrar, hoy} = o;
   const pagado = estado==='pagado';
   const monto = pagado ? g.pago.neto : g.neto;
-  const titulo = pagado ? '✅ Ya te pagamos' : (w.terminada ? 'Te pagamos el' : 'Llevas para el') + ` domingo ${domingo.getDate()} de ${MONTHS[domingo.getMonth()]}`;
+  const titulo = pagado ? '✅ Ya te pagamos' : (w.terminada ? 'Te vamos a pagar' : 'Llevas esta semana');
   const linea = (txt, val, cls) => `<div class="gs-linea ${cls||''}"><span>${txt}</span><span>${val}</span></div>`;
   const boleta = [
     linea('Tus citas', fmtCLP(g.comision)),
@@ -6393,7 +6392,7 @@ function payoutWeekBoxHtml(specialist){
     <div class="fin-cards">
       <div class="fin-card"><div class="lbl">Comisión de la semana</div><div class="val">${fmtCLP(w.comision)}</div></div>
       <div class="fin-card"><div class="lbl">Vales sacados</div><div class="val">${w.vales>0?'−'+fmtCLP(w.vales):fmtCLP(0)}</div></div>
-      <div class="fin-card highlight"><div class="lbl">Neto a pagar el domingo</div><div class="val">${fmtCLP(w.neto)}</div></div>
+      <div class="fin-card highlight"><div class="lbl">Neto a pagar</div><div class="val">${fmtCLP(w.neto)}</div></div>
     </div>`;
 }
 
@@ -6576,7 +6575,7 @@ function pagosPageHtml(){
   return `
     <div class="fin-monthnav">
       <button class="arrow" data-act="pagos-prev" ${puedeAtras?'':'disabled'}>‹</button>
-      <div class="curdate">${rangoSemanaTexto(w.start, w.end)}<div class="hint" style="margin:2px 0 0;font-family:inherit;font-size:11.5px;">${etiqueta} · se paga el domingo ${domingo.getDate()} ${MONTHS[domingo.getMonth()].slice(0,3)}</div></div>
+      <div class="curdate">${rangoSemanaTexto(w.start, w.end)}<div class="hint" style="margin:2px 0 0;font-family:inherit;font-size:11.5px;">${etiqueta}</div></div>
       <button class="arrow" data-act="pagos-next" ${puedeAdelante?'':'disabled'}>›</button>
     </div>
     ${ui.pagoSemana!==actual ? `<div style="text-align:center;margin:-8px 0 14px;"><button type="button" class="linklike" data-act="pagos-hoy">Volver a la semana en curso</button></div>` : ''}
@@ -6679,7 +6678,7 @@ function pagoDetalleHtml(g, w){
         ${g.totalTraspasos ? `<div><span>Garantías</span><span>${fmtSigno(g.totalTraspasos)}</span></div>` : ''}
         ${g.totalAjustes ? `<div><span>Ajustes</span><span>${fmtSigno(g.totalAjustes)}</span></div>` : ''}
         ${g.totalVales ? `<div><span>Vales</span><span>−${fmtCLP(g.totalVales)}</span></div>` : ''}
-        <div class="neto"><span>A pagar el domingo</span><span>${fmtNeto(g.neto)}</span></div>
+        <div class="neto"><span>A pagar</span><span>${fmtNeto(g.neto)}</span></div>
       </div>
     </div>`;
 }
@@ -7206,7 +7205,7 @@ function finanzasResumenHtml(year, month){
     </table>
 
     <h3 class="fin-sub">💵 Pago de esta semana (lun–sáb, ${payoutRangeLabel})</h3>
-    <div class="hint" style="margin-bottom:8px;">Lo que le corresponde cobrar a cada especialista por esta semana, ya con los vales que sacó de la caja descontados. Se paga el domingo. Esta semana (lun–sáb) es distinta del "Corte semanal" de más abajo, que solo reporta ingresos por semana calendario (lun–dom).</div>
+    <div class="hint" style="margin-bottom:8px;">Lo que le corresponde cobrar a cada especialista por esta semana, ya con los vales que sacó de la caja descontados. Esta semana (lun–sáb) es distinta del "Corte semanal" de más abajo, que solo reporta ingresos por semana calendario (lun–dom).</div>
     <table class="fin-table">
       <thead><tr><th>Especialista</th><th>Comisión</th><th>Vales</th><th>Neto a pagar</th></tr></thead>
       <tbody>${payoutRows}</tbody>

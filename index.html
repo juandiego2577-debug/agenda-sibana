@@ -4414,6 +4414,42 @@ function sesionInicialDeRetoque(cliente, servicios, fecha, excluirId){
 // Mismo criterio que al guardar (findCoveringBlock). En la lista sale al
 // final, en gris y sin poder elegirse: "Lucy 🚫 bloqueó esta hora". Si la
 // cita YA era de ella (se bloqueó después), se deja elegida con el aviso.
+// ---- "El abono ya se pagó en una cita anterior" (11/10/2026, pedido de
+// Juan Diego: con "📅 Reprogramar" casi nunca hace falta y confundía) ----
+// La casilla solo aparece si esa clienta tiene una cita Cancelada / No llegó
+// con abono cobrado, no devuelto y todavía no usado en otra cita (o si esta
+// cita ya la tenía marcada). Se cuentan los abonos perdidos menos las otras
+// citas de ella que ya marcaron "abono previo".
+function abonoPendienteDeClienta(cliente, excluirId){
+  const n = nombreExacto(cliente);
+  if(!n) return null;
+  const suyas = state.appointments.filter(a=>a.id!==excluirId && !a.cursoId && nombreExacto(a.client)===n);
+  const perdidos = suyas.filter(a=>(a.estado==='Cancelada'||a.estado==='NoShow') && (Number(a.abono)||0)>0 && !a.abonoDevuelto && !a.abonoPrevio)
+    .sort((x,y)=>(y.date+(y.start||'')).localeCompare(x.date+(x.start||'')));
+  const usados = suyas.filter(a=>a.abonoPrevio && a.estado!=='Cancelada' && a.estado!=='NoShow').length;
+  return perdidos.length > usados ? perdidos[0] : null;
+}
+function abonoPendienteTexto(p){
+  if(!p) return '';
+  return ` — tiene ${fmtCLP(Number(p.abono)||0)} de una cita ${p.estado==='NoShow' ? 'a la que no llegó' : 'cancelada'} (${fechaCortaConDia(p.date)})`;
+}
+function actualizarAbonoPrevioEnForm(){
+  const box = document.getElementById('field-abono-previo');
+  const chk = document.getElementById('f-abonoPrevio');
+  if(!box || !chk) return;
+  const el = document.getElementById('f-client');
+  const pend = abonoPendienteDeClienta(el ? el.value : '', ui.modal && ui.modal.data && ui.modal.data.id);
+  const ya = !!(ui.modal && ui.modal.data && ui.modal.data.abonoPrevio);
+  const ver = !!pend || ya;
+  box.style.display = ver ? 'flex' : 'none';
+  const txt = document.getElementById('abono-previo-de');
+  if(txt) txt.textContent = abonoPendienteTexto(pend);
+  if(!ver && chk.checked){
+    chk.checked = false;
+    const m = document.getElementById('field-metodo-abono');
+    if(m) m.style.display = 'block';
+  }
+}
 function horarioDelForm(){
   const v = id=>{ const el = document.getElementById(id); return el ? el.value : ''; };
   return {date: v('f-date'), start: v('f-start'), end: v('f-end')};
@@ -4504,6 +4540,7 @@ function actualizarPerfilEnForm(){
   if(autoElegida) setTimeout(ajustarDuracionGarantia, 0); // su tiempo propio, si tiene
   const hint = document.getElementById('spec-filtro-hint');
   if(hint) hint.innerHTML = filtroEspecialistaHint(servicios, actual, inicial, horario);
+  actualizarAbonoPrevioEnForm(); // depende de la clienta, igual que lo del retoque
   // Lo que ella no hace queda en gris y no se puede sumar (sí quitar).
   document.querySelectorAll('[data-svc-row]').forEach(row=>{
     const sv = state.services[Number(row.dataset.svcRow)];
@@ -4654,10 +4691,11 @@ function apptModalHtml(){
         <div class="field"><label>Precio total</label><input type="number" id="f-price" value="${d.price}"></div>
         <div class="field" id="field-abono-total"><label${d.montoAbono2>0?' style="opacity:.7"':''}>Abono${d.montoAbono2>0?' (suma automática)':''}</label><input type="number" id="f-abono" value="${d.abono}" ${d.montoAbono2>0?'readonly style="opacity:.7"':''}></div>
       </div>
-      <label style="display:flex;align-items:center;gap:8px;margin:-4px 0 12px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;">
+      ${(()=>{ const pend = abonoPendienteDeClienta(d.client, d.id); return `
+      <label id="field-abono-previo" style="display:${(d.abonoPrevio || pend) ? 'flex' : 'none'};align-items:center;gap:8px;margin:-4px 0 12px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;">
         <input type="checkbox" id="f-abonoPrevio" ${d.abonoPrevio?'checked':''} style="width:15px;height:15px;accent-color:var(--wine);flex-shrink:0;">
-        El abono ya se pagó en una cita anterior (no se suma como ingreso)
-      </label>
+        <span>El abono ya se pagó en una cita anterior (no se suma como ingreso)<span id="abono-previo-de">${abonoPendienteTexto(pend)}</span></span>
+      </label>`; })()}
       <label id="field-abono-devuelto" style="display:${(d.estado==='Cancelada'||d.estado==='NoShow')?'flex':'none'};align-items:center;gap:8px;margin:-4px 0 12px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;">
         <input type="checkbox" id="f-abonoDevuelto" ${d.abonoDevuelto?'checked':''} style="width:15px;height:15px;accent-color:var(--wine);flex-shrink:0;">
         Se le devolvió el abono a la clienta (no cuenta como ingreso ni genera comisión)

@@ -289,6 +289,7 @@
   .firma-badge{background:rgba(30,15,22,0.6);color:#FFF3D6;font-size:9px;font-weight:700;padding:1px 6px;border-radius:999px;flex-shrink:1;min-width:22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:4px;}
   /* En una ficha angosta (varias citas a la misma hora, sobre todo en el
      teléfono) la etiqueta no cabe: se cambia por un ✍️ en la esquina. */
+  #f-specialist option:disabled{color:var(--ink-soft);opacity:.6;}
   .appt.con-firma{container-type:inline-size;}
   .firma-esquina{display:none;position:absolute;top:3px;right:3px;font-size:11px;line-height:1;padding:2px 3px;border-radius:999px;background:rgba(30,15,22,0.6);z-index:1;}
   @container (max-width:170px){ .firma-badge{display:none;} .firma-esquina{display:block;} }

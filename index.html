@@ -832,19 +832,30 @@
 // inicio" (y compartir la app desde Android mandaba un archivo base.apk que
 // pedía instalar apps de origen desconocido: NO usar). Ahora:
 // - TELÉFONO abierto en el navegador → pantalla completa "Instala la agenda"
-//   (Android: botón que instala en un toque si el navegador lo permite;
-//   si no, los pasos del menú. iPhone: los pasos de Compartir → "Agregar a
-//   inicio", porque Apple no deja instalar con un botón). Abajo, "Usar en el
-//   navegador por esta vez" (dura hasta cerrar esa pestaña): nunca deja a
-//   nadie sin poder entrar (navegador raro, urgencia, teléfono prestado).
+//   con UN botón "📲 Instalar la agenda": instala en un toque si el
+//   navegador lo permite; si no (iPhone siempre), al tocarlo aparecen ahí los
+//   pasos (menú ⋮ / Compartir → "Agregar a inicio"). Abajo, "Usar en el
+//   navegador por esta vez" (esa pestaña, máx. 30 min): nunca deja a nadie
+//   sin poder entrar (navegador raro, urgencia, teléfono prestado).
 // - Abierta desde el ÍCONO (app instalada, display-mode standalone): nada.
-// - COMPUTADOR: solo una franja arriba con "Instalar" / "Ahora no" (se
-//   recuerda en ese computador), y solo si el navegador puede instalar.
+// - COMPUTADOR: solo una franja arriba con "Instalar" / "Ahora no" (24 h).
 // Va encima de todo y fuera de #root: la agenda (sesión, datos) carga igual
 // por debajo, no toca nada de cómo arranca ni de lo que se guarda.
 (function(){
-  var SALTAR_KEY = 'sibanaInstalarSaltado';      // sessionStorage: "por esta vez"
-  var BANNER_KEY = 'sibanaInstalarBannerOculto'; // localStorage: "Ahora no" en el computador
+  var SALTAR_KEY = 'sibanaInstalarSaltado';      // sessionStorage: "por esta vez" (cuándo se tocó)
+  var BANNER_KEY = 'sibanaInstalarBannerOculto'; // localStorage: "Ahora no" en el computador (cuándo se tocó)
+  // Pedido de Juan Diego ("quiero que de verdad se use la app, que moleste"):
+  // decir que no NUNCA es para siempre. En el teléfono "por esta vez" dura
+  // esa pestaña y como mucho SALTAR_MIN minutos; en el computador "Ahora no"
+  // dura BANNER_HORAS.
+  var SALTAR_MIN = 30, BANNER_HORAS = 24;
+  // El botón "Instalar" sale SIEMPRE (Juan Diego quería solo un botón). Si el
+  // navegador todavía no dio permiso de instalar con un toque
+  // (beforeinstallprompt: Chrome no lo manda si ya está instalada, en
+  // incógnito, ni la primera vez hasta que se toca la página y pasan ~30 s;
+  // Safari nunca), al tocarlo se muestran los pasos ahí mismo.
+  var mostrarPasos = false;
+  function vigente(st, k, ms){ var v = Number(leer(st, k)); return v > 0 && (Date.now() - v) < ms; }
   var promptGuardado = null, instaladaRecien = false;
   function leer(st, k){ try{ return window[st].getItem(k); }catch(e){ return null; } }
   function guardar(st, k, v){ try{ window[st].setItem(k, v); }catch(e){} }
@@ -869,17 +880,19 @@
   window.addEventListener('appinstalled', function(){
     promptGuardado = null; instaladaRecien = true;
     var b = document.getElementById('instalar-banner'); if(b) b.remove();
+    guardar('localStorage', BANNER_KEY, String(Date.now())); // recién instalada: no volver a ofrecerla enseguida
     pintar();
   });
 
   function logo(){ var l = document.querySelector('link[rel="icon"]'); return l ? l.href : ''; }
   function instalarConBoton(){
-    if(!promptGuardado) return;
+    if(!promptGuardado){ mostrarPasos = true; pintar(); return; }
     var p = promptGuardado;
     promptGuardado = null;
-    try{ p.prompt(); }catch(e){ pintar(); return; } // si el teléfono no lo deja: vuelven los pasos del menú
+    try{ p.prompt(); }catch(e){ mostrarPasos = true; pintar(); return; } // si no lo deja: los pasos
     (p.userChoice || Promise.resolve({})).then(function(r){
-      if(r && r.outcome==='accepted'){ instaladaRecien = true; var b = document.getElementById('instalar-banner'); if(b) b.remove(); }
+      if(!(r && r.outcome==='accepted')) mostrarPasos = true; // la cerró sin instalar: quedan los pasos a la vista
+      if(r && r.outcome==='accepted'){ instaladaRecien = true; var b = document.getElementById('instalar-banner'); if(b) b.remove(); guardar('localStorage', BANNER_KEY, String(Date.now())); }
       pintar();
     }).catch(function(){ pintar(); });
   }
@@ -898,29 +911,28 @@
       return cab + '<p class="instalar-lead">Para instalar la agenda, abre este link en <b>'+(esIOS?'Safari':'Chrome')+'</b>.</p>'
         + pasosHtml(['Toca <span class="instalar-ico">⋯</span> arriba a la derecha', 'Elige <b>“Abrir en '+(esIOS?'Safari':'Chrome')+'”</b> (o “Abrir en el navegador”)']) + saltar;
     }
-    var lead = '<p class="instalar-lead">Instálala en tu teléfono y ábrela con un toque desde tu pantalla de inicio.</p>';
-    if(esIOS){
-      return cab + lead + pasosHtml([
+    var html = cab + '<p class="instalar-lead">Instálala en tu teléfono y ábrela con un toque desde tu pantalla de inicio.</p>'
+      + '<button type="button" class="btn btn-primary instalar-btn" id="instalar-btn">📲 Instalar la agenda</button>';
+    if(mostrarPasos && !promptGuardado){
+      html += '<p class="instalar-nota" style="margin:16px 0 10px;">Tu teléfono la instala así:</p>' + pasosHtml(esIOS ? [
         'Toca <span class="instalar-ico">⬆</span> <b>Compartir</b> (en Safari, abajo; en Chrome, arriba)',
         'Elige <b>“Agregar a inicio”</b>',
         'Abre la agenda desde el <b>ícono nuevo</b>'
-      ]) + saltar;
+      ] : [
+        'Toca <span class="instalar-ico">⋮</span> arriba a la derecha',
+        'Elige <b>“Instalar aplicación”</b> o <b>“Agregar a pantalla principal”</b>',
+        'Abre la agenda desde el <b>ícono nuevo</b>'
+      ]) + '<p class="instalar-nota">Si ya la instalaste, ábrela desde el ícono <b>Agenda Sibana</b>.</p>';
+    } else {
+      html += '<p class="instalar-nota">Se instala en segundos.</p>';
     }
-    if(promptGuardado){
-      return cab + lead + '<button type="button" class="btn btn-primary instalar-btn" id="instalar-btn">📲 Instalar la agenda</button>'
-        + '<p class="instalar-nota">Se instala en segundos.</p>' + saltar;
-    }
-    return cab + lead + pasosHtml([
-      'Toca <span class="instalar-ico">⋮</span> arriba a la derecha',
-      'Elige <b>“Instalar aplicación”</b> o <b>“Agregar a pantalla principal”</b>',
-      'Abre la agenda desde el <b>ícono nuevo</b>'
-    ]) + '<p class="instalar-nota">Si ya la instalaste, ábrela desde el ícono <b>Agenda Sibana</b>.</p>' + saltar;
+    return html + saltar;
   }
   function pintar(){
     if(!document.body) return;
     if(estaInstalada()){ var g0 = document.getElementById('instalar-gate'); if(g0) g0.remove(); return; }
     if(esIOS || esAndroid){
-      if(leer('sessionStorage', SALTAR_KEY)==='1') return;
+      if(vigente('sessionStorage', SALTAR_KEY, SALTAR_MIN*60000)) return;
       var g = document.getElementById('instalar-gate');
       if(!g){
         g = document.createElement('div');
@@ -935,27 +947,38 @@
       var bi = document.getElementById('instalar-btn');
       if(bi) bi.addEventListener('click', instalarConBoton);
       document.getElementById('instalar-saltar').addEventListener('click', function(){
-        guardar('sessionStorage', SALTAR_KEY, '1');
+        guardar('sessionStorage', SALTAR_KEY, String(Date.now()));
+        mostrarPasos = false;
         g.remove();
       });
       return;
     }
-    // Computador: franja solo si el navegador sabe instalar y no dijo "Ahora no".
-    if(!promptGuardado || leer('localStorage', BANNER_KEY)==='1' || document.getElementById('instalar-banner')) return;
-    var b = document.createElement('div');
-    b.id = 'instalar-banner';
-    b.innerHTML = '<span>💻 Puedes instalar la agenda en este computador y abrirla en su propia ventana.</span>'
-      + '<button type="button" class="btn btn-primary" id="instalar-banner-si">Instalar</button>'
-      + '<button type="button" class="instalar-banner-no" id="instalar-banner-no">Ahora no</button>';
-    document.body.insertBefore(b, document.body.firstChild);
-    document.getElementById('instalar-banner-si').addEventListener('click', instalarConBoton);
+    // Computador: franja arriba (si no dijo "Ahora no" hace poco).
+    if(vigente('localStorage', BANNER_KEY, BANNER_HORAS*3600000)) return;
+    var b = document.getElementById('instalar-banner');
+    if(!b){
+      b = document.createElement('div');
+      b.id = 'instalar-banner';
+      document.body.insertBefore(b, document.body.firstChild);
+    }
+    b.innerHTML = (mostrarPasos && !promptGuardado)
+      ? '<span>💻 Para instalarla: haz clic en el ícono de instalar a la derecha de la barra de direcciones, o en el menú (⋮ o ⋯) → <b>“Instalar Agenda Sibana”</b> (en Edge: Aplicaciones → Instalar este sitio como una aplicación; en Safari: Archivo → Agregar al Dock).</span>'
+        + '<button type="button" class="instalar-banner-no" id="instalar-banner-no">Ahora no</button>'
+      : '<span>💻 Puedes instalar la agenda en este computador y abrirla en su propia ventana.</span>'
+        + '<button type="button" class="btn btn-primary" id="instalar-banner-si">Instalar</button>'
+        + '<button type="button" class="instalar-banner-no" id="instalar-banner-no">Ahora no</button>';
+    var si = document.getElementById('instalar-banner-si');
+    if(si) si.addEventListener('click', instalarConBoton);
     document.getElementById('instalar-banner-no').addEventListener('click', function(){
-      guardar('localStorage', BANNER_KEY, '1');
+      guardar('localStorage', BANNER_KEY, String(Date.now()));
+      mostrarPasos = false;
       b.remove();
     });
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', pintar);
   else pintar();
+  // Al volver a la pestaña (después de horas) se revisa de nuevo si toca ofrecerla.
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') pintar(); });
 })();
 </script>
 </head>

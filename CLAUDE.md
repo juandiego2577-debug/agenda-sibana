@@ -274,6 +274,14 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
   se contaba dos veces en "Ingreso total"/Finanzas — bug corregido el
   04/10/2026), pero su COMISIÓN es sobre el precio completo (la especialista
   hizo el tratamiento entero).
+  **La casilla solo aparece cuando aplica (11/10/2026, pedido de Juan
+  Diego: con "📅 Reprogramar" casi nunca hace falta y confundía):**
+  `abonoPendienteDeClienta` — la clienta (nombre con `nombreExacto`) tiene
+  una cita Cancelada/NoShow con abono > 0, no devuelto y todavía no usado
+  (abonos perdidos menos sus otras citas ya marcadas con `abonoPrevio`). Al
+  lado dice "— tiene $5.000 de una cita cancelada (mié 07/10)". Una cita que
+  ya la tenía marcada la sigue mostrando. Se recalcula al cambiar la
+  clienta (si se esconde, se desmarca). Probado: e2e (11).
 - **Abono perdido (Cancelada/NoShow) = 100% del negocio, en AMBAS sedes**
   (confirmado con el usuario el 04/10/2026): no genera comisión. En
   Santiago aplica a citas desde `SEDES.santiago.abonoPerdidoSoloNegocioDesde`

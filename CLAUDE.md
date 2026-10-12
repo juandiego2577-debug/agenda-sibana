@@ -282,6 +282,18 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
   lado dice "— tiene $5.000 de una cita cancelada (mié 07/10)". Una cita que
   ya la tenía marcada la sigue mostrando. Se recalcula al cambiar la
   clienta (si se esconde, se desmarca). Probado: e2e (11).
+  **Aviso en vez de casilla (12/10/2026, Juan Diego):** la agenda no sabe si
+  la clienta PERDIÓ el abono (no avisó a tiempo → cita nueva, abono nuevo,
+  sin marcar nada) o lo tiene A FAVOR (avisó a tiempo, o "somos piadosos" →
+  "📅 Reprogramar" esa misma cita). `estadoAbonoPrevio`: si la cita
+  cancelada se puede reprogramar, sale un aviso "💡 X tiene una cita
+  cancelada el … con $5.000 de abono. Si avisó a tiempo, abre esa cita y usa
+  Reprogramar… Si perdió el abono, sigue normal" con el botón "📅 Abrir esa
+  cita para reprogramarla" (`#abono-previo-abrir`, `data-act="edit-appt"`).
+  La casilla queda solo si esa cita NO se puede reprogramar
+  (`motivoNoReprogramar`: abono que entró en una comisión antes del 05/10)
+  o si la cita ya estaba marcada. Regla simple para el equipo: abono a favor
+  → Reprogramar; abono perdido → cita nueva. Probado: e2e (11).
 - **Abono perdido (Cancelada/NoShow) = 100% del negocio, en AMBAS sedes**
   (confirmado con el usuario el 04/10/2026): no genera comisión. En
   Santiago aplica a citas desde `SEDES.santiago.abonoPerdidoSoloNegocioDesde`
@@ -1064,7 +1076,8 @@ para servir también a **Copiapó**, de la siguiente forma:
   el 9/10". Va en la columna de su especialista (entra a `layoutSideBySide`
   como un elemento más), no cuenta en nada ni bloquea la hora (se puede
   agendar encima con "+ Nueva cita"); tocarla abre la cita en su día nuevo.
-  Lo ven Admin y especialistas. (El 10/10 primero se hizo como un aviso
+  Lo ven Admin y especialistas. Si la cita volvió a su hora de antes (ida y
+  vuelta el mismo día), ese fantasma no se dibuja encima de ella. (El 10/10 primero se hizo como un aviso
   arriba de la grilla, `.ghost-banner`: a Juan Diego NO le gustó, pidió que
   la cita siga en el día "de otra forma"; cambiado el 11/10.) Probado: e2e
   (14 + 5).
@@ -1131,7 +1144,11 @@ para servir también a **Copiapó**, de la siguiente forma:
   nadie elegido (`ui.modal._retoqueAuto`); si se elige otra a mano, no se
   cambia. Las demás siguen en la lista. Se recalcula al cambiar
   tratamientos, clienta (autocompletado o al salir del campo) o fecha.
-  Probado: e2e (12).
+  **Revisión del 12/10/2026:** no se elige sola si esa especialista ya no
+  está en la lista (`especialistaPorNombre`), si no hace el retoque
+  (`noHaceDe`), si bloqueó esa hora, o si alguien ya tocó la lista a mano
+  (`ui.modal._especialistaTocada`, también "Sin asignar"; antes volvía a
+  elegirla sola y pisaba la hora de término escrita). Probado: e2e (12 + 3).
 - **⭐ Garantías por especialista (09/10/2026, en vez del "sistema de
   puntos" que pensó Juan Diego; solo dueños — `puedeVerGarantias()`):
   pestaña propia arriba, "⭐ Garantías", después de Stock (`ui.section =
@@ -1236,7 +1253,17 @@ para servir también a **Copiapó**, de la siguiente forma:
   cercana a la hora de la firma. Nunca toca una cita que ya tiene ficha, una
   ficha ya vinculada a otra cita, citas Cancelada/NoShow ni de cursos.
   Funciona también si la cita se anota después de la firma. Se guarda sin
-  dejar "Deshacer" (`recordUndo:false`). Si el nombre no es igual (ej.
+  dejar "Deshacer" (`recordUndo:false`). **Revisión del 12/10/2026:** como
+  TODOS los teléfonos abiertos ven la ficha a la vez, cada uno espera 1,5–7,5
+  s al azar y vuelve a revisar (`vinculoTimer` → `aplicarVinculosConsentimiento`);
+  y `runSave` ya NO reescribe el documento si lo mezclado es igual a lo que
+  hay (`sameValue(merged, theirs)` con la misma `appVersion`) — antes cada
+  teléfono reescribía la agenda entera (cientos de KB a todos). Solo se
+  escuchan fichas de hoy y ayer (`CONSENT_AUTO_DIAS = 1`: cada ficha trae la
+  imagen de la firma). Si firmó dos veces, queda la última y la otra no se
+  pasa a otra cita suya del mismo día. Límite conocido: una ficha con el
+  nombre exacto de una clienta (otra persona con el mismo nombre, o alguien
+  que la firme a propósito) se vincula igual. Si el nombre no es igual (ej.
   "Carla Soto" vs "Carla Soto Díaz"), se sigue vinculando a mano como antes.
   Probado: e2e (12).
 - **"✍️ Falta firmar" (11/10/2026, pedido de Juan Diego: se les olvida hacer

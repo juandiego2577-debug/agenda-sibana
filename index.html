@@ -1556,7 +1556,7 @@ function linkConsentToAppt(apptId, consentId, consentName){
 // de la hora de la firma. Nunca toca una cita que ya tiene ficha, ni una
 // ficha que ya está vinculada a otra cita, ni citas canceladas/no llegó ni
 // de cursos. Se escuchan solo las fichas de los últimos días.
-const CONSENT_AUTO_DIAS = 3;
+const CONSENT_AUTO_DIAS = 1; // hoy y ayer (las fichas traen la firma: no bajar más de lo necesario)
 let fichasRecientes = [];
 let consentAutoUnsub = null, consentAutoDesde = '';
 function nombreExacto(s){
@@ -1592,7 +1592,8 @@ function faltaFirmarAvisoHtml(a){
 let ultimoFaltaFirmar = '';
 setInterval(()=>{
   if(!ui.loaded || ui.modal || document.visibilityState!=='visible') return;
-  const k = state.appointments.filter(faltaFirmarAhora).map(a=>a.id).sort().join(',');
+  const hoy = sedeNow().date;
+  const k = state.appointments.filter(a=>a.date===hoy && faltaFirmarAhora(a)).map(a=>a.id).sort().join(',');
   if(k!==ultimoFaltaFirmar){ ultimoFaltaFirmar = k; render(); }
 }, 60*1000);
 function escucharFichasRecientes(){
@@ -1608,25 +1609,43 @@ function escucharFichasRecientes(){
       vincularConsentimientosSolos();
     }, err=>{ console.error('No se pudieron leer las fichas recientes', err); });
 }
+let vinculoTimer = null;
 function vincularConsentimientosSolos(){
-  if(!ui.loaded || appOutdated || !fichasRecientes.length) return;
+  if(!ui.loaded || appOutdated || !fichasRecientes.length || vinculoTimer) return;
+  if(!vinculosPendientes().size) return;
+  // Todos los teléfonos abiertos ven la ficha nueva a la vez: cada uno espera
+  // unos segundos al azar y vuelve a revisar, así normalmente lo guarda uno
+  // solo y los demás ya lo ven hecho.
+  vinculoTimer = setTimeout(()=>{ vinculoTimer = null; aplicarVinculosConsentimiento(); }, 1500 + Math.random()*6000);
+}
+function vinculosPendientes(){
   const usadas = new Set(state.appointments.filter(a=>a.consentId).map(a=>a.consentId));
+  const tomadas = new Set();
   const asignar = new Map(); // id de la cita -> ficha
   fichasRecientes
-    .slice().sort((x,y)=>String(x.submittedAtClient||'').localeCompare(String(y.submittedAtClient||'')))
+    .slice().sort((x,y)=>String(y.submittedAtClient||'').localeCompare(String(x.submittedAtClient||''))) // la firma más nueva primero
     .forEach(f=>{
       if(usadas.has(f._id)) return;
       const nom = nombreExacto(f.nombre);
       const cuando = fechaHoraEnSede(f.submittedAtClient);
       if(!nom || !cuando) return;
-      const citas = state.appointments.filter(a=> a.date===cuando.date && !a.consentId && !a.cursoId
+      const citas = state.appointments.filter(a=> a.date===cuando.date && !a.consentId && !a.cursoId && !tomadas.has(a.id)
         && a.estado!=='Cancelada' && a.estado!=='NoShow' && nombreExacto(a.client)===nom);
       if(!citas.length) return;
       const firmaMin = minutesFromMidnight(cuando.time);
       const dist = a=> Math.abs(minutesFromMidnight(a.start||'00:00') - firmaMin);
       citas.sort((a,b)=> dist(a)-dist(b));
-      asignar.set(citas[0].id, f); // si firmó dos veces, queda la última firma
+      // Si firmó dos veces para la misma cita, queda la última firma, y la
+      // otra NO se pasa a otra cita suya del mismo día.
+      if([...asignar.values()].some(g=>nombreExacto(g.nombre)===nom && fechaHoraEnSede(g.submittedAtClient).date===cuando.date) && citas.length===1) return;
+      tomadas.add(citas[0].id);
+      asignar.set(citas[0].id, f);
     });
+  return asignar;
+}
+function aplicarVinculosConsentimiento(){
+  if(!ui.loaded || appOutdated) return;
+  const asignar = vinculosPendientes();
   if(!asignar.size) return;
   asignar.forEach((f, apptId)=>{
     const a = state.appointments.find(x=>x.id===apptId);
@@ -3414,6 +3433,13 @@ async function runSave(job, opts){
       const mergedIds = new Set(merged.appointments.map(a=>a.id));
       const lost = theirs.appointments.filter(a=>!mergedIds.has(a.id)).length;
       if(lost > allowedRemoved) throw Object.assign(new Error('Desaparecerían '+lost+' citas'), {sibana:'blocked', lost});
+      // Si lo que quedaría es IGUAL a lo que ya hay (ej. otro teléfono hizo
+      // el mismo cambio un segundo antes, como el vínculo automático del
+      // consentimiento), no se vuelve a escribir: ahorra datos y choques.
+      if(sameValue(merged, theirs) && Number(raw.appVersion||0)===APP_VERSION){
+        committed = Object.assign({}, merged, {appVersion: APP_VERSION});
+        return;
+      }
       tx.set(DOC_REF, Object.assign({}, merged, {
         appVersion: APP_VERSION,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -3688,6 +3714,7 @@ function dayViewHtml(){
   filterBySpecialist(state.appointments.filter(a=>!a.cursoId && Array.isArray(a.reprogramaciones))).forEach(a=>{
     a.reprogramaciones.forEach((r,ri)=>{
       if(!r || r.desde!==dateKey || !/^\d{2}:\d{2}$/.test(r.inicio||'')) return;
+      if(a.date===dateKey && a.start===r.inicio) return; // volvió a su hora de antes: no hay nada que mostrar
       const fin = /^\d{2}:\d{2}$/.test(r.fin||'') && r.fin > r.inicio ? r.fin : addMinutesToHHMM(r.inicio, 60);
       const sig = a.reprogramaciones[ri+1];
       const ahora = sig ? {date: sig.desde, start: sig.inicio} : {date: a.date, start: a.start};
@@ -4429,6 +4456,22 @@ function abonoPendienteDeClienta(cliente, excluirId){
   const usados = suyas.filter(a=>a.abonoPrevio && a.estado!=='Cancelada' && a.estado!=='NoShow').length;
   return perdidos.length > usados ? perdidos[0] : null;
 }
+// 12/10/2026 (Juan Diego): la agenda no sabe si la clienta PERDIÓ el abono
+// (no avisó a tiempo: cita nueva, abono nuevo, sin marcar nada) o lo tiene A
+// FAVOR (avisó a tiempo: se usa "📅 Reprogramar" en esa cita). Por eso, si esa
+// cita se puede reprogramar, en vez de la casilla sale un aviso con un botón
+// para abrirla. La casilla queda solo para lo que no se puede reprogramar
+// (abono que ya entró en una comisión, antes del 05/10) o si ya estaba marcada.
+function estadoAbonoPrevio(cliente, excluirId, yaMarcada){
+  const pend = abonoPendienteDeClienta(cliente, excluirId);
+  if(yaMarcada) return {modo:'casilla', pend};
+  if(!pend) return {modo:'nada', pend:null};
+  return {modo: motivoNoReprogramar(pend) ? 'casilla' : 'aviso', pend};
+}
+function abonoPrevioAvisoTexto(p){
+  if(!p) return '';
+  return `💡 ${p.client||'Esta clienta'} tiene una cita ${p.estado==='NoShow' ? 'a la que no llegó' : 'cancelada'} el ${fechaCortaConDia(p.date)} con ${fmtCLP(Number(p.abono)||0)} de abono. Si avisó a tiempo, abre esa cita y usa "📅 Reprogramar" (así el abono no se cuenta dos veces). Si perdió el abono, sigue con esta cita normal.`;
+}
 function abonoPendienteTexto(p){
   if(!p) return '';
   return ` — tiene ${fmtCLP(Number(p.abono)||0)} de una cita ${p.estado==='NoShow' ? 'a la que no llegó' : 'cancelada'} (${fechaCortaConDia(p.date)})`;
@@ -4438,12 +4481,20 @@ function actualizarAbonoPrevioEnForm(){
   const chk = document.getElementById('f-abonoPrevio');
   if(!box || !chk) return;
   const el = document.getElementById('f-client');
-  const pend = abonoPendienteDeClienta(el ? el.value : '', ui.modal && ui.modal.data && ui.modal.data.id);
   const ya = !!(ui.modal && ui.modal.data && ui.modal.data.abonoPrevio);
-  const ver = !!pend || ya;
+  const {modo, pend} = estadoAbonoPrevio(el ? el.value : '', ui.modal && ui.modal.data && ui.modal.data.id, ya);
+  const ver = modo==='casilla';
   box.style.display = ver ? 'flex' : 'none';
   const txt = document.getElementById('abono-previo-de');
   if(txt) txt.textContent = abonoPendienteTexto(pend);
+  const aviso = document.getElementById('abono-previo-aviso');
+  if(aviso){
+    aviso.style.display = modo==='aviso' ? 'block' : 'none';
+    const t = document.getElementById('abono-previo-aviso-txt');
+    if(t) t.textContent = abonoPrevioAvisoTexto(modo==='aviso' ? pend : null);
+    const b = document.getElementById('abono-previo-abrir');
+    if(b) b.dataset.id = modo==='aviso' && pend ? pend.id : '';
+  }
   if(!ver && chk.checked){
     chk.checked = false;
     const m = document.getElementById('field-metodo-abono');
@@ -4530,7 +4581,9 @@ function actualizarPerfilEnForm(){
   // (si todavía no se eligió a nadie, o si la había elegido esto mismo antes).
   let autoElegida = false;
   const horario = horarioDelForm();
-  if(ui.modal && ui.modal.mode==='new' && inicial && inicial.specialist!==actual && (!actual || actual===ui.modal._retoqueAuto) && !bloqueoDeEspecialista(inicial.specialist, horario)){
+  if(ui.modal && ui.modal.mode==='new' && inicial && inicial.specialist!==actual && !ui.modal._especialistaTocada
+     && (!actual || actual===ui.modal._retoqueAuto) && !bloqueoDeEspecialista(inicial.specialist, horario)
+     && especialistaPorNombre(inicial.specialist) && !noHaceDe(inicial.specialist, servicios).length){
     actual = inicial.specialist; autoElegida = true;
     Object.defineProperty(ui.modal, '_retoqueAuto', {value: actual, enumerable:false, writable:true, configurable:true});
   }
@@ -4691,8 +4744,12 @@ function apptModalHtml(){
         <div class="field"><label>Precio total</label><input type="number" id="f-price" value="${d.price}"></div>
         <div class="field" id="field-abono-total"><label${d.montoAbono2>0?' style="opacity:.7"':''}>Abono${d.montoAbono2>0?' (suma automática)':''}</label><input type="number" id="f-abono" value="${d.abono}" ${d.montoAbono2>0?'readonly style="opacity:.7"':''}></div>
       </div>
-      ${(()=>{ const pend = abonoPendienteDeClienta(d.client, d.id); return `
-      <label id="field-abono-previo" style="display:${(d.abonoPrevio || pend) ? 'flex' : 'none'};align-items:center;gap:8px;margin:-4px 0 12px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;">
+      ${(()=>{ const {modo, pend} = estadoAbonoPrevio(d.client, d.id, !!d.abonoPrevio); return `
+      <div id="abono-previo-aviso" class="hint" style="display:${modo==='aviso' ? 'block' : 'none'};margin:-4px 0 12px;padding:9px 11px;border:1px dashed var(--ink-soft);border-radius:8px;line-height:1.45;">
+        <span id="abono-previo-aviso-txt">${escapeHtml(abonoPrevioAvisoTexto(modo==='aviso' ? pend : null))}</span>
+        <button type="button" class="btn btn-ghost" id="abono-previo-abrir" data-act="edit-appt" data-id="${escapeHtml(modo==='aviso' && pend ? pend.id : '')}" style="display:block;margin-top:8px;font-size:12px;">📅 Abrir esa cita para reprogramarla</button>
+      </div>
+      <label id="field-abono-previo" style="display:${modo==='casilla' ? 'flex' : 'none'};align-items:center;gap:8px;margin:-4px 0 12px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;">
         <input type="checkbox" id="f-abonoPrevio" ${d.abonoPrevio?'checked':''} style="width:15px;height:15px;accent-color:var(--wine);flex-shrink:0;">
         <span>El abono ya se pagó en una cita anterior (no se suma como ingreso)<span id="abono-previo-de">${abonoPendienteTexto(pend)}</span></span>
       </label>`; })()}
@@ -6531,7 +6588,7 @@ function garantiasPageHtml(){
         ${g.specialist ? `<button type="button" class="btn btn-ghost" style="font-size:11.5px;padding:5px 9px;white-space:nowrap;" data-act="gar-asignar" data-id="${escapeHtml(g.id)}" title="Contarla como 1 trabajo + 1 garantía de ${escapeHtml(g.specialist)}">Contársela a ${escapeHtml(g.specialist)}</button>` : ''}
       </div>`).join('')}
     </details>` : ''}
-    <div class="hint" style="margin-top:16px;">Cómo se calcula: se miden los tratamientos que llevan retoque (y cualquier otro que haya tenido una garantía) hechos desde el ${desdeTxt}, sin contar los cancelados ni los que no llegaron. Una garantía se le cuenta a quien hizo el tratamiento, aunque la garantía la haya hecho otra; los retoques no cuentan (son parte normal del proceso). Se ordenan por el % que quedó bien; si empatan, primero la que tiene más trabajos. Las medallas 🥇🥈🥉 son solo para las que tienen al menos ${GARANTIAS_MIN_DATOS} trabajos de ese tratamiento; las que tienen menos van al final, sin medalla ("⚠️ pocos trabajos todavía"), porque con 1 o 2 trabajos un 100% no dice mucho. "La mayoría son de los últimos ${GARANTIAS_VENTANA_DIAS} días" también "la mayoría son de los últimos ${GARANTIAS_VENTANA_DIAS} días" avisa que ese % todavía puede cambiar (una clienta puede volver por garantía hasta unas semanas después).</div>`;
+    <div class="hint" style="margin-top:16px;">Cómo se calcula: se miden los tratamientos que llevan retoque (y cualquier otro que haya tenido una garantía) hechos desde el ${desdeTxt}, sin contar los cancelados ni los que no llegaron. Una garantía se le cuenta a quien hizo el tratamiento, aunque la garantía la haya hecho otra; los retoques no cuentan (son parte normal del proceso). Se ordenan por el % que quedó bien; si empatan, primero la que tiene más trabajos. Las medallas 🥇🥈🥉 son solo para las que tienen al menos ${GARANTIAS_MIN_DATOS} trabajos de ese tratamiento; las que tienen menos van al final, sin medalla ("⚠️ pocos trabajos todavía"), porque con pocos trabajos un 100% no dice mucho. "La mayoría son de los últimos ${GARANTIAS_VENTANA_DIAS} días" avisa que ese % todavía puede cambiar (una clienta puede volver por garantía hasta unas semanas después).</div>`;
 }
 
 function puedeVerGarantias(){ return ui.mode==='admin' && esDueno(); }
@@ -9305,6 +9362,10 @@ function saveScheduleFromForm(){
 // document para que sigan funcionando después de cada render() del modal.
 document.addEventListener('change', e=>{
   if(e.target && ['f-specialist','f-client','f-date','f-start','f-traspaso','f-traspaso-monto'].includes(e.target.id)) actualizarTraspasoGarantia();
+  if(e.target && e.target.id==='f-specialist' && ui.modal){
+    // Elegida a mano (también "Sin asignar"): el retoque ya no la cambia solo.
+    Object.defineProperty(ui.modal, '_especialistaTocada', {value: true, enumerable:false, writable:true, configurable:true});
+  }
   if(e.target && e.target.id==='f-specialist'){
     actualizarPerfilEnForm();
     // En una cita NUEVA la hora de término sigue a lo que se demora esa

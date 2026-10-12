@@ -485,6 +485,13 @@
   .gs-cita summary{display:flex;justify-content:space-between;gap:10px;cursor:pointer;list-style:none;}
   .gs-cita summary::-webkit-details-marker{display:none;}
   .gs-cita summary b{white-space:nowrap;}
+  .gs-flecha{display:inline-block;font-style:normal;margin-left:8px;color:var(--ink-soft);transition:transform .15s;}
+  .gs-cita[open] .gs-flecha{transform:rotate(90deg);}
+  .gs-pasos{margin:8px 0 2px;padding:8px 12px;background:var(--panel);border-radius:8px;}
+  .gs-paso{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;padding:3px 0;color:var(--ink-soft);}
+  .gs-paso.sub{border-top:1px solid var(--line);margin-top:3px;padding-top:6px;color:var(--ink);}
+  .gs-paso.tuya{color:var(--gold);font-weight:700;font-size:14.5px;}
+  .gs-paso.texto{display:block;}
   .modal.gan-modal{max-width:760px;}
   .gan-modal .fin-page{padding:0;}
   .pago-aviso ul{margin:6px 0 0;padding-left:18px;}
@@ -6285,6 +6292,30 @@ function misGananciasPageHtml(nombre, vistaPrevia){
       ${comoSeCalcula}
     </div>`;
 }
+// La cuenta de una cita paso a paso, una línea por paso (para "Mis
+// ganancias", diseño simple). Los números salen de las mismas funciones que
+// el pago (apptCremas, apptDescuentoMicro, apptCommissionBase,
+// apptCommission): esto solo los ordena. Si no hay nada que repartir
+// (cancelada, garantía sin costo…), se usa la explicación en palabras.
+function apptCuentaPasosHtml(a){
+  const precio = Number(a.price)||0;
+  const cancelada = a.estado==='Cancelada' || a.estado==='NoShow';
+  if(cancelada || precio<=0 || a.cursoId) return `<div class="gs-paso texto">${escapeHtml(apptCommissionExplicacion(a))}</div>`;
+  const pct = Math.round(apptComisionPct(a)*100);
+  const fila = (t, v, cls) => `<div class="gs-paso ${cls||''}"><span>${t}</span><span>${v}</span></div>`;
+  const pasos = [fila(apptPersonas(a)>1 ? `Precio (${apptPersonas(a)} personas)` : 'Precio', fmtCLP(precio))];
+  const cremas = apptCremas(a);
+  if(cremas) pasos.push(fila(`Crema${cremas>1?' × '+cremas:''} (del negocio)`, '−'+fmtCLP(CREMA_PRICE*cremas)));
+  const desc = apptDescuentoMicro(a);
+  if(desc){
+    const n = tratamientosConDescuento(a);
+    pasos.push(fila(`Micropigmentación${n>1?' × '+n:''} (del negocio)`, '−'+fmtCLP(desc)));
+  }
+  if(pasos.length>1) pasos.push(fila('Queda', fmtCLP(apptCommissionBase(a)), 'sub'));
+  pasos.push(fila(`Tu parte (${pct}%)`, fmtCLP(apptCommission(a)), 'tuya'));
+  if(a.abonoPrevio) pasos.push(`<div class="gs-paso texto">El abono lo pagó en una cita anterior: tu parte es sobre el precio completo.</div>`);
+  return pasos.join('');
+}
 function gananciasSimpleHtml(o){
   const {g, w, estado, domingo, porCerrar, hoy} = o;
   const pagado = estado==='pagado';
@@ -6307,8 +6338,8 @@ function gananciasSimpleHtml(o){
   const cerradas = g.citas.filter(c=>!(c.porCerrar && c.comisionAlCerrar>0));
   const lista = cerradas.map(c=>{
     const nota = c.a.estado==='Cancelada' ? ' · cancelada' : c.a.estado==='NoShow' ? ' · no llegó' : '';
-    return `<details class="gs-cita"><summary><span>${diaCorto(c.a.date)} · ${escapeHtml(c.a.client||'(sin nombre)')}<small>${escapeHtml(c.a.cursoId ? '📚 '+(c.a.cursoNombre||'Curso') : apptServiciosTexto(c.a))}${nota}</small></span><b>${fmtCLP(c.comision)}</b></summary>
-      <div class="hint" style="margin:4px 0 0;">${escapeHtml(apptCommissionExplicacion(c.a))}</div></details>`;
+    return `<details class="gs-cita"><summary><span>${diaCorto(c.a.date)} · ${escapeHtml(c.a.client||'(sin nombre)')}<small>${escapeHtml(c.a.cursoId ? '📚 '+(c.a.cursoNombre||'Curso') : apptServiciosTexto(c.a))}${nota}</small></span><b>${fmtCLP(c.comision)}<i class="gs-flecha">›</i></b></summary>
+      <div class="gs-pasos">${apptCuentaPasosHtml(c.a)}</div></details>`;
   }).join('');
   const vales = g.vales.map(v=>`<div class="gs-linea chica"><span>${diaCorto(v.date)}${v.notas?' · '+escapeHtml(v.notas):''}</span><span>−${fmtCLP(v.monto)}</span></div>`).join('');
   const traspasos = g.traspasos.map(t=>`<div class="hint" style="margin:4px 0;">${escapeHtml(t.texto)}: <b>${fmtSigno(t.monto)}</b></div>`).join('');
@@ -6328,8 +6359,8 @@ function gananciasSimpleHtml(o){
       <div class="hint" style="text-align:center;margin:-4px 0 14px;">¿Sacaste dinero de la caja? Anótalo apenas lo saques. Así tu pago sale exacto.</div>
       <div class="gs-card">
         <div class="gs-titulo">Tus citas cerradas</div>
+        ${lista ? '<div class="hint" style="margin:-2px 0 6px;">Toca una cita para ver de dónde sale lo que ganas.</div>' : ''}
         ${lista || '<div class="hint" style="margin:0;">Todavía no tienes citas cerradas esta semana.</div>'}
-        ${lista ? '<div class="hint" style="margin:8px 0 0;">Toca una cita para ver cómo se calcula.</div>' : ''}
         ${traspasos}
         ${vales ? `<div class="gs-titulo" style="margin-top:14px;">Tus vales</div>${vales}` : ''}
       </div>

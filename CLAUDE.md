@@ -930,7 +930,11 @@ para servir también a **Copiapó**, de la siguiente forma:
   una línea (la cuenta se ve al tocarla, `<details>`). Juan Diego no supo cuál
   elegir y lo dejó a criterio: quedó el **simple** (se lee rápido en el
   teléfono, lo que queremos que hagan —cerrar citas y anotar vales— son
-  botones grandes, y la cuenta sigue a un toque). Probado: e2e (29).
+  botones grandes, y la cuenta sigue a un toque). Al tocar una cita se ve
+  la cuenta paso a paso, una línea por paso (Precio / Crema / Micropigmentación
+  (del negocio) / Queda / Tu parte (50%), `apptCuentaPasosHtml`, con los
+  números de las mismas funciones del pago), con una flecha › que gira. Él
+  pidió esto porque el detallado eran "muchas letras pegadas". Probado: e2e (30).
 - **"Mis ganancias"** (versión vieja, reemplazada por la de arriba): en modo Especialista, la pestaña de Finanzas muestra
   esto en vez del panel completo de Admin — cada especialista elige su
   nombre una vez (se recuerda por dispositivo, `STAFF_IDENTITY_KEY`) y ve

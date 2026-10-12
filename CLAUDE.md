@@ -902,8 +902,8 @@ para servir también a **Copiapó**, de la siguiente forma:
   total de comisiones del mes. Probado contra el emulador (Firestore +
   Auth) con la agenda real: 38 + 3 + 13 pruebas (incluye garantía nueva
   desde el formulario, textos con trampa, Buenos Aires con dólar).
-- **Solo cuentan las citas cerradas + "Mis ganancias" nueva (12/10/2026,
-  pedido de Juan Diego, NO publicado todavía):** al revisar a mano los
+- **Solo cuentan las citas cerradas + "Mi pago" para las especialistas
+  (12/10/2026, pedido de Juan Diego):** al revisar a mano los
   cuadernos de la semana 05–10/10 se vio que las cuentas del cuaderno estaban
   bien y que las diferencias con la agenda venían de citas sin cerrar (una
   cancelada contada como hecha, servicios que no se hicieron) y vales sin
@@ -917,9 +917,8 @@ para servir también a **Copiapó**, de la siguiente forma:
   todavía no te suman" con sus citas por cerrar, recuadro de vales con "💵
   Anotar un vale", el mismo detalle cita por cita que Pagos
   (`pagoCitaFilaHtml`, compartido), ajustes/garantías solo lectura, "Ya te
-  pagamos" e historial. Sigue OCULTA (`MIS_GANANCIAS_VISIBLE = false`); Juan
-  Diego la ve en Pagos → detalle → "👁 Ver lo que ve <nombre>" (modal
-  `ganancias-preview`). Se quitó el ajuste viejo "Mis ganancias visible
+  pagamos" e historial. Juan Diego la ve en Pagos → detalle → "👁 Ver lo
+  que ve <nombre>" (modal `ganancias-preview`). Se quitó el ajuste viejo "Mis ganancias visible
   desde" (`misGananciasDesde` ya no se usa). Textos pedidos por él: "dinero",
   nunca "plata"; "Cómo se calcula" sin la crema (ya viene incluida) ni el
   abono de cancelaciones (ya lo saben). **Dos diseños a prueba**
@@ -934,7 +933,12 @@ para servir también a **Copiapó**, de la siguiente forma:
   la cuenta paso a paso, una línea por paso (Precio / Crema / Micropigmentación
   (del negocio) / Queda / Tu parte (50%), `apptCuentaPasosHtml`, con los
   números de las mismas funciones del pago), con una flecha › que gira. Él
-  pidió esto porque el detallado eran "muchas letras pegadas". Probado: e2e (30).
+  pidió esto porque el detallado eran "muchas letras pegadas". La pestaña de
+  la especialista se llama **"💵 Mi pago"** (antes "📊 Mis ganancias") y va
+  AL FINAL, después de Stock (antes de esto ellas veían Agenda | Stock: no se
+  mueve ningún botón). `MIS_GANANCIAS_VISIBLE = true` (él decidió publicarlo
+  directo, sin etapa escondida). Probado: e2e (33, incluye una cita de 2
+  personas: "Precio (2 personas)" y "Micropigmentación × 2").
 - **"Mis ganancias"** (versión vieja, reemplazada por la de arriba): en modo Especialista, la pestaña de Finanzas muestra
   esto en vez del panel completo de Admin — cada especialista elige su
   nombre una vez (se recuerda por dispositivo, `STAFF_IDENTITY_KEY`) y ve

@@ -492,6 +492,7 @@
   .gs-paso.sub{border-top:1px solid var(--line);margin-top:3px;padding-top:6px;color:var(--ink);}
   .gs-paso.tuya{color:var(--gold);font-weight:700;font-size:14.5px;}
   .gs-paso.texto{display:block;}
+  .gs-paso > span:last-child{white-space:nowrap;}
   .modal.gan-modal{max-width:760px;}
   .gan-modal .fin-page{padding:0;}
   .pago-aviso ul{margin:6px 0 0;padding-left:18px;}
@@ -3879,8 +3880,9 @@ function sectionTabsHtml(){
   return `
     <div class="section-tabs">
       <button class="${!['finanzas','stock','garantias'].includes(ui.section)?'active':''}" data-act="goto-section" data-section="agenda">📅 Agenda</button>
-      ${(isAdmin || MIS_GANANCIAS_VISIBLE) ? `<button class="${ui.section==='finanzas'?'active':''}" data-act="goto-section" data-section="finanzas">${isAdmin ? '📊 Finanzas' : '📊 Mis ganancias'}</button>` : ''}
+      ${isAdmin ? `<button class="${ui.section==='finanzas'?'active':''}" data-act="goto-section" data-section="finanzas">📊 Finanzas</button>` : ''}
       <button class="${ui.section==='stock'?'active':''}" data-act="goto-section" data-section="stock">📦 Stock</button>
+      ${!isAdmin && MIS_GANANCIAS_VISIBLE ? `<button class="${ui.section==='finanzas'?'active':''}" data-act="goto-section" data-section="finanzas">💵 Mi pago</button>` : ''}
       ${puedeVerGarantias() ? `<button class="${ui.section==='garantias'?'active':''}" data-act="goto-section" data-section="garantias">⭐ Garantías</button>` : ''}
     </div>`;
 }
@@ -6162,9 +6164,12 @@ function payoutWeekSummary(specialist){
 // domingo), y como incentivo ve lo que NO le suma porque la cita sigue sin
 // cerrar (PAGO_SOLO_CERRADAS_DESDE) y un botón para anotar sus vales. Empieza
 // en la semana del 12/10 (las anteriores tienen datos desordenados).
-// OCULTA hasta que Juan Diego la apruebe: mientras tanto él la ve desde
-// Finanzas → Pagos → "👁 Ver lo que ve …". Para publicarla: true.
-const MIS_GANANCIAS_VISIBLE = false;
+// Publicada el 12/10/2026 (Juan Diego la aprobó viendo las capturas). La
+// pestaña se llama "💵 Mi pago" y va AL FINAL de las pestañas de la
+// especialista (después de Stock: nunca mover un botón que ya existía). Él
+// la ve igual desde Finanzas → Pagos → "👁 Ver lo que ve …". En false se
+// vuelve a esconder.
+const MIS_GANANCIAS_VISIBLE = true;
 const MIS_GANANCIAS_DESDE = PAGO_SOLO_CERRADAS_DESDE;
 // Dos diseños a prueba (12/10/2026): 'detallado' (recuadros + cada cita con su
 // cuenta) y 'simple' (una boleta corta arriba, la lista de citas en una línea

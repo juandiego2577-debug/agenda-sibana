@@ -1600,16 +1600,23 @@ para servir también a **Copiapó**, de la siguiente forma:
   menú ⋮); iPhone: Compartir → "Agregar a inicio" (Apple no deja instalar
   con un botón); navegador de Instagram/Facebook: "abre este link en
   Chrome/Safari". Siempre con "Usar en el navegador por esta vez"
-  (`sessionStorage`, dura esa pestaña y como mucho `SALTAR_HORAS` = 12 h;
+  (`sessionStorage`, dura esa pestaña y como mucho `SALTAR_MIN` = 30 min;
   se revisa también al volver a la pestaña) para que nadie quede sin
-  entrar. Él pidió que fuera insistente ("quiero que de verdad se use la
-  app"): vuelve a salir en cada pestaña nueva, y en el computador "Ahora
-  no" dura `BANNER_DIAS` = 7 días, nunca para siempre. OJO al probar: Chrome
-  NO manda `beforeinstallprompt` (no hay botón ni franja) en incógnito, si
-  la app YA está instalada en ese aparato/perfil, ni la primera vez hasta
-  que la persona toca la página y pasan ~30 s (heurística de Chrome); por
-  eso el teléfono muestra los pasos del menú y cambia solo al botón cuando
-  llega el evento (Juan Diego lo vio así en su teléfono, que ya la tenía). Texto:
+  entrar. Él pidió que fuera insistente ("que moleste, quiero que de verdad
+  se use la app"): vuelve en cada pestaña nueva, y en el computador "Ahora
+  no" dura `BANNER_HORAS` = 24 h, nunca para siempre. **El botón "📲
+  Instalar la agenda" sale SIEMPRE** (a él le gustó "solo un botón"): si el
+  navegador ya dio permiso (`beforeinstallprompt`) instala en un toque; si
+  no, al tocarlo se despliegan ahí los pasos (`mostrarPasos`; iPhone
+  siempre, porque Safari no da ese permiso). En el computador la franja
+  también sale siempre y, sin permiso, "Instalar" explica el menú. Motivo:
+  Chrome/Edge NO mandan `beforeinstallprompt` en incógnito, si la app YA
+  está instalada en ese aparato/perfil, ni la primera vez hasta que se toca
+  la página y pasan ~30 s; Juan Diego no vio nada ni en Chrome incógnito ni
+  en Edge (tiene la app instalada). Ni el Chromium de pruebas lo manda
+  (tampoco con una app mínima perfecta ni con
+  `--bypass-app-banner-engagement-checks`): por eso se prueba simulando el
+  evento. Texto:
   "Instálala en tu teléfono y ábrela con un toque desde tu pantalla de
   inicio" (él pidió sacar "como cualquier app"). Computador: solo una franja
   arriba "Instalar / Ahora no" (localStorage `sibanaInstalarBannerOculto`) y

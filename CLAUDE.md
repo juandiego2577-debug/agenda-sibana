@@ -952,7 +952,9 @@ para servir también a **Copiapó**, de la siguiente forma:
   marcarla como realizada cuando empiece la cita" en vez del botón, y
   `staff-mark-realizada` también lo rechaza. Admin no tiene este límite. En
   "Mi pago", "por cerrar" son solo las que ya empezaron; las que faltan van
-  aparte en "📅 Próximas esta semana" (+$X cuando las hagas). Probado: e2e (41).
+  aparte en "📅 Próximas esta semana" (+$X cuando las hagas). `APP_VERSION` 7
+  con esto: así un teléfono con la versión anterior (que todavía deja marcar
+  citas futuras) no puede guardar hasta recargar. Probado: e2e (41).
 - **"Mis ganancias"** (versión vieja, reemplazada por la de arriba): en modo Especialista, la pestaña de Finanzas muestra
   esto en vez del panel completo de Admin — cada especialista elige su
   nombre una vez (se recuerda por dispositivo, `STAFF_IDENTITY_KEY`) y ve

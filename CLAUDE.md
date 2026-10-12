@@ -859,9 +859,8 @@ para servir también a **Copiapó**, de la siguiente forma:
 - **Finanzas "en ajuste" (oct 2026, a pedido del usuario):** los números de
   Finanzas todavía no son confiables mientras se termina de ajustar la
   agenda ("si nos guiáramos por Finanzas, pagaríamos mal"). Por eso
-  **"Mis ganancias" está OCULTA para las especialistas**
-  (`MIS_GANANCIAS_VISIBLE = false`: sin pestaña, y si algo las manda a
-  Finanzas vuelven a la agenda) — no quería que creyeran que les
+  **"Mis ganancias" estuvo OCULTA para las especialistas** (hasta el
+  12/10/2026, cuando volvió rehecha como "💵 Mi pago", ver más abajo) — no quería que creyeran que les
   corresponde un monto que no es. El código sigue intacto para volver a
   mostrarla. Admin conserva Finanzas con un aviso "⚠️ En ajuste… no usar
   para calcular pagos" arriba. La identidad "¿Quién eres?" sigue (vales y
@@ -913,7 +912,7 @@ para servir también a **Copiapó**, de la siguiente forma:
   `g.montoPorCerrar`; cursos excluidos de la regla); las semanas anteriores
   no cambian. Pagos (Admin) lo muestra tachado "🔒 Todavía no suma". "Mis
   ganancias" (`misGananciasPageHtml`) se rehízo: semana de pago lun–sáb
-  desde el 12/10 con flechas, "Llevas para el domingo", recuadro "🔒 $X
+  desde el 12/10 con flechas, "Llevas esta semana", recuadro "🔒 $X
   todavía no te suman" con sus citas por cerrar, recuadro de vales con "💵
   Anotar un vale", el mismo detalle cita por cita que Pagos
   (`pagoCitaFilaHtml`, compartido), ajustes/garantías solo lectura, "Ya te

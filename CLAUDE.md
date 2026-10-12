@@ -1600,8 +1600,16 @@ para servir también a **Copiapó**, de la siguiente forma:
   menú ⋮); iPhone: Compartir → "Agregar a inicio" (Apple no deja instalar
   con un botón); navegador de Instagram/Facebook: "abre este link en
   Chrome/Safari". Siempre con "Usar en el navegador por esta vez"
-  (`sessionStorage`, dura esa pestaña) para que nadie quede sin entrar. Él
-  pidió que fuera insistente: vuelve a salir en cada pestaña nueva. Texto:
+  (`sessionStorage`, dura esa pestaña y como mucho `SALTAR_HORAS` = 12 h;
+  se revisa también al volver a la pestaña) para que nadie quede sin
+  entrar. Él pidió que fuera insistente ("quiero que de verdad se use la
+  app"): vuelve a salir en cada pestaña nueva, y en el computador "Ahora
+  no" dura `BANNER_DIAS` = 7 días, nunca para siempre. OJO al probar: Chrome
+  NO manda `beforeinstallprompt` (no hay botón ni franja) en incógnito, si
+  la app YA está instalada en ese aparato/perfil, ni la primera vez hasta
+  que la persona toca la página y pasan ~30 s (heurística de Chrome); por
+  eso el teléfono muestra los pasos del menú y cambia solo al botón cuando
+  llega el evento (Juan Diego lo vio así en su teléfono, que ya la tenía). Texto:
   "Instálala en tu teléfono y ábrela con un toque desde tu pantalla de
   inicio" (él pidió sacar "como cualquier app"). Computador: solo una franja
   arriba "Instalar / Ahora no" (localStorage `sibanaInstalarBannerOculto`) y

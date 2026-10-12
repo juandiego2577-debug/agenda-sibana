@@ -843,8 +843,13 @@
 // Va encima de todo y fuera de #root: la agenda (sesión, datos) carga igual
 // por debajo, no toca nada de cómo arranca ni de lo que se guarda.
 (function(){
-  var SALTAR_KEY = 'sibanaInstalarSaltado';      // sessionStorage: "por esta vez"
-  var BANNER_KEY = 'sibanaInstalarBannerOculto'; // localStorage: "Ahora no" en el computador
+  var SALTAR_KEY = 'sibanaInstalarSaltado';      // sessionStorage: "por esta vez" (cuándo se tocó)
+  var BANNER_KEY = 'sibanaInstalarBannerOculto'; // localStorage: "Ahora no" en el computador (cuándo se tocó)
+  // Pedido de Juan Diego ("quiero que de verdad se use la app"): decir que no
+  // NUNCA es para siempre. En el teléfono "por esta vez" dura esa pestaña y
+  // como mucho SALTAR_HORAS; en el computador "Ahora no" dura BANNER_DIAS.
+  var SALTAR_HORAS = 12, BANNER_DIAS = 7;
+  function vigente(st, k, ms){ var v = Number(leer(st, k)); return v > 0 && (Date.now() - v) < ms; }
   var promptGuardado = null, instaladaRecien = false;
   function leer(st, k){ try{ return window[st].getItem(k); }catch(e){ return null; } }
   function guardar(st, k, v){ try{ window[st].setItem(k, v); }catch(e){} }
@@ -914,13 +919,13 @@
       'Toca <span class="instalar-ico">⋮</span> arriba a la derecha',
       'Elige <b>“Instalar aplicación”</b> o <b>“Agregar a pantalla principal”</b>',
       'Abre la agenda desde el <b>ícono nuevo</b>'
-    ]) + '<p class="instalar-nota">Si ya la instalaste, ábrela desde el ícono <b>Agenda Sibana</b>.</p>' + saltar;
+    ]) + '<p class="instalar-nota">Si en unos segundos aparece el botón <b>📲 Instalar la agenda</b>, úsalo: es más rápido. Si ya la instalaste, ábrela desde el ícono <b>Agenda Sibana</b>.</p>' + saltar;
   }
   function pintar(){
     if(!document.body) return;
     if(estaInstalada()){ var g0 = document.getElementById('instalar-gate'); if(g0) g0.remove(); return; }
     if(esIOS || esAndroid){
-      if(leer('sessionStorage', SALTAR_KEY)==='1') return;
+      if(vigente('sessionStorage', SALTAR_KEY, SALTAR_HORAS*3600000)) return;
       var g = document.getElementById('instalar-gate');
       if(!g){
         g = document.createElement('div');
@@ -935,13 +940,13 @@
       var bi = document.getElementById('instalar-btn');
       if(bi) bi.addEventListener('click', instalarConBoton);
       document.getElementById('instalar-saltar').addEventListener('click', function(){
-        guardar('sessionStorage', SALTAR_KEY, '1');
+        guardar('sessionStorage', SALTAR_KEY, String(Date.now()));
         g.remove();
       });
       return;
     }
     // Computador: franja solo si el navegador sabe instalar y no dijo "Ahora no".
-    if(!promptGuardado || leer('localStorage', BANNER_KEY)==='1' || document.getElementById('instalar-banner')) return;
+    if(!promptGuardado || vigente('localStorage', BANNER_KEY, BANNER_DIAS*86400000) || document.getElementById('instalar-banner')) return;
     var b = document.createElement('div');
     b.id = 'instalar-banner';
     b.innerHTML = '<span>💻 Puedes instalar la agenda en este computador y abrirla en su propia ventana.</span>'
@@ -950,12 +955,14 @@
     document.body.insertBefore(b, document.body.firstChild);
     document.getElementById('instalar-banner-si').addEventListener('click', instalarConBoton);
     document.getElementById('instalar-banner-no').addEventListener('click', function(){
-      guardar('localStorage', BANNER_KEY, '1');
+      guardar('localStorage', BANNER_KEY, String(Date.now()));
       b.remove();
     });
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', pintar);
   else pintar();
+  // Al volver a la pestaña (después de horas) se revisa de nuevo si toca ofrecerla.
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') pintar(); });
 })();
 </script>
 </head>

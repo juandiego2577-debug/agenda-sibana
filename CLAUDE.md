@@ -945,6 +945,14 @@ para servir también a **Copiapó**, de la siguiente forma:
   cuando se sube `APP_VERSION`; un cambio que no lo sube llega a cada
   teléfono recién cuando la agenda se vuelve a abrir. Probado: e2e (37, incluye
   una cita de 2 personas: "Precio (2 personas)" y "Micropigmentación × 2").
+  **Una especialista no puede marcar "Realizada" una cita que todavía no
+  empieza (12/10/2026, Juan Diego lo vio como "una trampa": con Mi pago podían
+  cerrar citas futuras para que sumaran):** `citaYaEmpezo` (fecha y hora de
+  inicio en hora de la sede); antes de eso su vista muestra "⏳ Vas a poder
+  marcarla como realizada cuando empiece la cita" en vez del botón, y
+  `staff-mark-realizada` también lo rechaza. Admin no tiene este límite. En
+  "Mi pago", "por cerrar" son solo las que ya empezaron; las que faltan van
+  aparte en "📅 Próximas esta semana" (+$X cuando las hagas). Probado: e2e (41).
 - **"Mis ganancias"** (versión vieja, reemplazada por la de arriba): en modo Especialista, la pestaña de Finanzas muestra
   esto en vez del panel completo de Admin — cada especialista elige su
   nombre una vez (se recuerda por dispositivo, `STAFF_IDENTITY_KEY`) y ve

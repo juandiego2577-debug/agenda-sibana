@@ -257,8 +257,9 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
   - **Valor del dólar (BA)**: historial por FECHA de cita
     (`settings.dolarHistory` = `[{desde, pesos, auto?}]`,
     `valorDolarParaFecha`), Más → "💱 Valor del dólar". De ahí salen los 10
-    dólares del descuento y los 5 del **abono sugerido** (redondeado a la
-    centena). Cambiarlo nunca recalcula citas anteriores. **Automático**
+    dólares del descuento. Cambiarlo nunca recalcula citas anteriores.
+    (Hasta el 12/10/2026 también el **abono sugerido**, 5 dólares; ahora va
+    en pesos, ver "Seña de Buenos Aires" abajo.) **Automático**
     (`settings.dolarAuto` = 'oficial' | 'blue' | 'bolsa'(MEP), elegido en ese
     mismo modal): una vez al día cualquier teléfono de BA consulta
     `dolarapi.com` (`actualizarDolarAutomatico`) y, si cambió, agrega el valor
@@ -267,6 +268,23 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
     la sede) — por eso queda en manual hasta que lo elijan ellos mismos. No
     se pudo probar contra dolarapi.com real (el entorno de pruebas bloquea
     esa conexión), solo con respuestas simuladas.
+- **Seña (abono) sugerida de Buenos Aires en PESOS, la elige el dueño
+  (12/10/2026, pedido de Juan Diego):** en el estudio de mercado ningún
+  estudio de CABA cobra la seña en dólares: todas son montos fijos en pesos
+  (~14% del precio en la marca de referencia, Cejas Prolijas) que se
+  actualizan junto con la lista de precios. Por eso en BA: campo "💵 Seña
+  (abono) sugerida por tratamiento" en Servicios y tarifario (solo sedes con
+  `SEDE.abonoEditable`, hoy solo BA) → `settings.abonoSugeridoPesos`; si
+  nunca se eligió, `SEDE.abonoSugerido` = $15.000. Se sugiere una por
+  tratamiento en citas NUEVAS (como en Santiago); campo vacío no cambia
+  nada, 0 = sin seña. Regla para actualizarla: ~14% del tratamiento,
+  redondeado al millar (con los precios normales, $20.000). Santiago sigue
+  con sus $5.000 fijos en el código. Clave dentro de `settings` (no un
+  `DOC_KEYS`): no exigió subir `APP_VERSION`. Precios de BA acordados (los
+  carga Juan Diego en la app): inauguración Microblading/Sombreado/Delineado
+  $109.900 (retoque $54.900), Full Lips $129.900 (retoque $64.900),
+  Delineado doble $159.900 (retoque $79.900); horario mar–vie 11–19, sáb
+  11–18, dom y lun cerrado. Probado: e2e (18).
 - **Abono reagendado (`a.abonoPrevio`)**: si la clienta cancela/no viene,
   la cita queda Cancelada/NoShow con su abono (ingreso del negocio, sin
   comisión). Si después reagenda, la cita nueva marca "Este abono ya se pagó
@@ -1080,7 +1098,10 @@ para servir también a **Copiapó**, de la siguiente forma:
   vuelta el mismo día), ese fantasma no se dibuja encima de ella. (El 10/10 primero se hizo como un aviso
   arriba de la grilla, `.ghost-banner`: a Juan Diego NO le gustó, pidió que
   la cita siga en el día "de otra forma"; cambiado el 11/10.) Probado: e2e
-  (14 + 5).
+  (14 + 5). **12/10/2026:** si estaba "Cancelada" antes de reprogramar, la
+  fantasma y el historial de la cita ya NO dicen "(cancelada)" / "estaba
+  cancelada" (Juan Diego: "no fue cancelada, fue reprogramada"); "(no
+  llegó)" sí se sigue mostrando. `estadoAntes` se sigue guardando igual.
   **Bug real (12/10/2026):** "la hora vuelve a la de antes al reprogramar".
   El cuadro "📅 Reprogramar" tiene su propia "Nueva hora", que venía con la
   hora ORIGINAL; si Juan Diego cambiaba la "Hora inicio" de arriba y después
@@ -1567,6 +1588,29 @@ para servir también a **Copiapó**, de la siguiente forma:
   El botón "📲 Recordatorios de mañana" (Más → Seguimiento) se QUITÓ a
   pedido del usuario: nunca lo usaban (mandan la confirmación como
   respuesta rápida de WhatsApp, reenviada a todas). No volver a agregarlo.
+
+- **Pantalla "Instala la agenda" (12/10/2026, pedido de Juan Diego):**
+  compartir la app desde Android mandaba un `base.apk` que pedía instalar
+  apps de origen desconocido (NO usar). Ahora, en un TELÉFONO abierto en el
+  navegador (no desde el ícono: `display-mode: standalone` /
+  `navigator.standalone`), aparece encima de todo `#instalar-gate` (script
+  propio en el `<head>`, fuera de `#root`: la agenda carga igual por debajo
+  y no cambia nada de lo que se guarda). Android: botón "📲 Instalar la
+  agenda" si el navegador manda `beforeinstallprompt` (si no, los pasos del
+  menú ⋮); iPhone: Compartir → "Agregar a inicio" (Apple no deja instalar
+  con un botón); navegador de Instagram/Facebook: "abre este link en
+  Chrome/Safari". Siempre con "Usar en el navegador por esta vez"
+  (`sessionStorage`, dura esa pestaña) para que nadie quede sin entrar. Él
+  pidió que fuera insistente: vuelve a salir en cada pestaña nueva. Texto:
+  "Instálala en tu teléfono y ábrela con un toque desde tu pantalla de
+  inicio" (él pidió sacar "como cualquier app"). Computador: solo una franja
+  arriba "Instalar / Ahora no" (localStorage `sibanaInstalarBannerOculto`) y
+  solo si el navegador puede instalar. Igual en Santiago y Buenos Aires
+  (no depende de la sede). El nombre al instalar sale de
+  `sibanaUltimaSede` (lo guarda `aplicarCuenta`): un teléfono nuevo ve
+  "Agenda Sibana" (antes "Sibana Santiago" aunque fuera de BA). Chrome la
+  considera instalable (`Page.getInstallabilityErrors` vacío). Probado:
+  e2e (Android, iPhone, Instagram, instalada, computador, Santiago y BA).
 
 ## Cómo se trabaja en este proyecto
 - **Siempre probar antes de entregar.** Este proyecto se construyó

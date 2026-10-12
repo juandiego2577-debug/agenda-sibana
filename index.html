@@ -20,8 +20,15 @@
   // Reusa el mismo ícono que ya está puesto como favicon, para no repetir la
   // imagen otra vez en el archivo.
   var iconHref = document.querySelector('link[rel="icon"]').href;
+  // Nombre con que se instala: el de la última sede con que se entró en este
+  // aparato (aplicarCuenta lo guarda en 'sibanaUltimaSede'). Un teléfono
+  // nuevo (todavía sin entrar) ve "Agenda Sibana": antes veía "Sibana
+  // Santiago" aunque fuera de Buenos Aires (12/10/2026, pantalla de instalar).
+  var NOMBRES_SEDE = {santiago: "Sibana Santiago - Agenda", buenosaires: "Sibana Buenos Aires - Agenda"};
+  var ultimaSede = null;
+  try{ ultimaSede = localStorage.getItem('sibanaUltimaSede'); }catch(e){}
   var manifest = {
-    name: "Sibana Santiago - Agenda",
+    name: NOMBRES_SEDE[ultimaSede] || "Agenda Sibana",
     short_name: "Agenda Sibana",
     start_url: ".",
     display: "standalone",
@@ -38,6 +45,7 @@
   document.head.appendChild(manifestLink);
   // Al entrar ya se sabe la sede (Santiago / Buenos Aires): se ajusta el
   // nombre con que se instala la app en el teléfono.
+  window.__manifestNombreInicial = manifest.name;
   window.__setManifestName = function(name){
     if(manifest.name === name) return;
     manifest.name = name;
@@ -729,6 +737,29 @@
   @keyframes loading-spin{to{transform:rotate(360deg);}}
   @keyframes loading-pulse{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.08);opacity:.72;}}
 
+  /* Pantalla "Instala la agenda" (12/10/2026): en el TELÉFONO, abierta en el
+     navegador (no en la app instalada). Va encima de todo (fuera de #root),
+     así la agenda carga igual por debajo. En el computador, solo una franja. */
+  #instalar-gate{position:fixed;inset:0;z-index:2000;background:var(--bg);overflow-y:auto;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:32px 22px;text-align:center;}
+  #instalar-gate.entrando > *{animation:auth-in .45s ease both;} /* solo al aparecer, no cada vez que cambia */
+  .instalar-logo{width:96px;height:96px;margin-bottom:10px;border-radius:18px;}
+  #instalar-gate h1{font-size:26px;margin:0 0 6px;}
+  .instalar-lead{color:var(--ink-soft);font-size:14.5px;line-height:1.5;max-width:320px;margin:0 0 20px;}
+  .instalar-btn{width:100%;max-width:320px;font-size:17px;padding:16px 18px;border-radius:14px;}
+  .instalar-nota{font-size:12.5px;color:var(--ink-soft);margin:10px 0 0;max-width:320px;line-height:1.45;}
+  .instalar-pasos{width:100%;max-width:330px;text-align:left;background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:6px 16px;}
+  .instalar-paso{display:flex;gap:12px;align-items:center;padding:10px 0;font-size:14.5px;line-height:1.4;color:var(--ink);}
+  .instalar-paso + .instalar-paso{border-top:1px solid var(--line);}
+  .instalar-num{flex:0 0 26px;height:26px;border-radius:50%;background:var(--wine);color:var(--wine-dark);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:13px;}
+  .instalar-ico{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 4px;border:1.5px solid var(--gold-soft);border-radius:6px;font-size:13px;margin:0 2px;vertical-align:middle;}
+  .instalar-saltar{margin-top:26px;background:none;border:none;color:var(--ink-soft);text-decoration:underline;font-size:13px;font-family:'Inter',sans-serif;cursor:pointer;padding:8px;}
+  #instalar-banner{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px 14px;padding:9px 16px;
+    background:var(--panel-2);border-bottom:1px solid var(--line);font-size:13.5px;color:var(--ink);font-family:'Inter',sans-serif;}
+  #instalar-banner .btn{padding:6px 14px;font-size:13px;}
+  #instalar-banner .instalar-banner-no{background:none;border:none;color:var(--ink-soft);font-size:13px;text-decoration:underline;cursor:pointer;font-family:'Inter',sans-serif;}
+
   .login-gate{
     min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
     padding:24px;text-align:center;
@@ -795,6 +826,138 @@
     .modal-actions button{width:100%;}
   }
 </style>
+<script>
+// ---------------- Instalar la agenda (12/10/2026, pedido de Juan Diego) ----------------
+// Antes había que mandar el link y explicar a mano "Agregar a pantalla de
+// inicio" (y compartir la app desde Android mandaba un archivo base.apk que
+// pedía instalar apps de origen desconocido: NO usar). Ahora:
+// - TELÉFONO abierto en el navegador → pantalla completa "Instala la agenda"
+//   (Android: botón que instala en un toque si el navegador lo permite;
+//   si no, los pasos del menú. iPhone: los pasos de Compartir → "Agregar a
+//   inicio", porque Apple no deja instalar con un botón). Abajo, "Usar en el
+//   navegador por esta vez" (dura hasta cerrar esa pestaña): nunca deja a
+//   nadie sin poder entrar (navegador raro, urgencia, teléfono prestado).
+// - Abierta desde el ÍCONO (app instalada, display-mode standalone): nada.
+// - COMPUTADOR: solo una franja arriba con "Instalar" / "Ahora no" (se
+//   recuerda en ese computador), y solo si el navegador puede instalar.
+// Va encima de todo y fuera de #root: la agenda (sesión, datos) carga igual
+// por debajo, no toca nada de cómo arranca ni de lo que se guarda.
+(function(){
+  var SALTAR_KEY = 'sibanaInstalarSaltado';      // sessionStorage: "por esta vez"
+  var BANNER_KEY = 'sibanaInstalarBannerOculto'; // localStorage: "Ahora no" en el computador
+  var promptGuardado = null, instaladaRecien = false;
+  function leer(st, k){ try{ return window[st].getItem(k); }catch(e){ return null; } }
+  function guardar(st, k, v){ try{ window[st].setItem(k, v); }catch(e){} }
+  function estaInstalada(){
+    try{
+      if(window.navigator.standalone===true) return true;
+      return ['standalone','fullscreen','minimal-ui'].some(function(m){ return window.matchMedia('(display-mode: '+m+')').matches; });
+    }catch(e){ return false; }
+  }
+  var ua = navigator.userAgent || '';
+  var esIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && (navigator.maxTouchPoints||0) > 1);
+  var esAndroid = /Android/i.test(ua);
+  // Navegadores dentro de otras apps (Instagram, Facebook...): no pueden instalar.
+  var enOtraApp = /FBAN|FBAV|FB_IAB|Instagram|Line\//i.test(ua);
+  window.__instalarInfo = function(){ return {telefono: esIOS||esAndroid, ios: esIOS, android: esAndroid, otraApp: enOtraApp, instalada: estaInstalada(), puedeBoton: !!promptGuardado}; };
+
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault(); // el aviso lo muestra la agenda (pantalla o franja)
+    promptGuardado = e;
+    pintar();
+  });
+  window.addEventListener('appinstalled', function(){
+    promptGuardado = null; instaladaRecien = true;
+    var b = document.getElementById('instalar-banner'); if(b) b.remove();
+    pintar();
+  });
+
+  function logo(){ var l = document.querySelector('link[rel="icon"]'); return l ? l.href : ''; }
+  function instalarConBoton(){
+    if(!promptGuardado) return;
+    var p = promptGuardado;
+    promptGuardado = null;
+    try{ p.prompt(); }catch(e){ pintar(); return; } // si el teléfono no lo deja: vuelven los pasos del menú
+    (p.userChoice || Promise.resolve({})).then(function(r){
+      if(r && r.outcome==='accepted'){ instaladaRecien = true; var b = document.getElementById('instalar-banner'); if(b) b.remove(); }
+      pintar();
+    }).catch(function(){ pintar(); });
+  }
+  function pasosHtml(pasos){
+    return '<div class="instalar-pasos">' + pasos.map(function(t, i){
+      return '<div class="instalar-paso"><span class="instalar-num">'+(i+1)+'</span><span>'+t+'</span></div>';
+    }).join('') + '</div>';
+  }
+  function contenidoTelefono(){
+    var cab = '<img class="instalar-logo" src="'+logo()+'" alt="Sibana"><h1 class="serif">Agenda Sibana</h1>';
+    var saltar = '<button type="button" class="instalar-saltar" id="instalar-saltar">Usar en el navegador por esta vez</button>';
+    if(instaladaRecien){
+      return cab + '<p class="instalar-lead">✅ <b>¡Lista!</b> La agenda quedó instalada. Ciérrala aquí y ábrela desde el ícono <b>Agenda Sibana</b> de tu pantalla de inicio.</p>' + saltar;
+    }
+    if(enOtraApp){
+      return cab + '<p class="instalar-lead">Para instalar la agenda, abre este link en <b>'+(esIOS?'Safari':'Chrome')+'</b>.</p>'
+        + pasosHtml(['Toca <span class="instalar-ico">⋯</span> arriba a la derecha', 'Elige <b>“Abrir en '+(esIOS?'Safari':'Chrome')+'”</b> (o “Abrir en el navegador”)']) + saltar;
+    }
+    var lead = '<p class="instalar-lead">Instálala en tu teléfono y ábrela con un toque desde tu pantalla de inicio.</p>';
+    if(esIOS){
+      return cab + lead + pasosHtml([
+        'Toca <span class="instalar-ico">⬆</span> <b>Compartir</b> (en Safari, abajo; en Chrome, arriba)',
+        'Elige <b>“Agregar a inicio”</b>',
+        'Abre la agenda desde el <b>ícono nuevo</b>'
+      ]) + saltar;
+    }
+    if(promptGuardado){
+      return cab + lead + '<button type="button" class="btn btn-primary instalar-btn" id="instalar-btn">📲 Instalar la agenda</button>'
+        + '<p class="instalar-nota">Se instala en segundos.</p>' + saltar;
+    }
+    return cab + lead + pasosHtml([
+      'Toca <span class="instalar-ico">⋮</span> arriba a la derecha',
+      'Elige <b>“Instalar aplicación”</b> o <b>“Agregar a pantalla principal”</b>',
+      'Abre la agenda desde el <b>ícono nuevo</b>'
+    ]) + '<p class="instalar-nota">Si ya la instalaste, ábrela desde el ícono <b>Agenda Sibana</b>.</p>' + saltar;
+  }
+  function pintar(){
+    if(!document.body) return;
+    if(estaInstalada()){ var g0 = document.getElementById('instalar-gate'); if(g0) g0.remove(); return; }
+    if(esIOS || esAndroid){
+      if(leer('sessionStorage', SALTAR_KEY)==='1') return;
+      var g = document.getElementById('instalar-gate');
+      if(!g){
+        g = document.createElement('div');
+        g.id = 'instalar-gate';
+        g.setAttribute('role', 'dialog');
+        g.setAttribute('aria-label', 'Instalar la agenda');
+        g.className = 'entrando';
+        setTimeout(function(){ g.classList.remove('entrando'); }, 700);
+        document.body.appendChild(g);
+      }
+      g.innerHTML = contenidoTelefono();
+      var bi = document.getElementById('instalar-btn');
+      if(bi) bi.addEventListener('click', instalarConBoton);
+      document.getElementById('instalar-saltar').addEventListener('click', function(){
+        guardar('sessionStorage', SALTAR_KEY, '1');
+        g.remove();
+      });
+      return;
+    }
+    // Computador: franja solo si el navegador sabe instalar y no dijo "Ahora no".
+    if(!promptGuardado || leer('localStorage', BANNER_KEY)==='1' || document.getElementById('instalar-banner')) return;
+    var b = document.createElement('div');
+    b.id = 'instalar-banner';
+    b.innerHTML = '<span>💻 Puedes instalar la agenda en este computador y abrirla en su propia ventana.</span>'
+      + '<button type="button" class="btn btn-primary" id="instalar-banner-si">Instalar</button>'
+      + '<button type="button" class="instalar-banner-no" id="instalar-banner-no">Ahora no</button>';
+    document.body.insertBefore(b, document.body.firstChild);
+    document.getElementById('instalar-banner-si').addEventListener('click', instalarConBoton);
+    document.getElementById('instalar-banner-no').addEventListener('click', function(){
+      guardar('localStorage', BANNER_KEY, '1');
+      b.remove();
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', pintar);
+  else pintar();
+})();
+</script>
 </head>
 <body>
 <div id="sync-banner"></div>
@@ -987,8 +1150,13 @@ const SEDES = {
     descuentoMicro: {tipo: 'dolar', dolares: 10}, // 10 dólares en pesos (ver valorDolarParaFecha)
     abonoPerdidoSoloNegocioDesde: '0000-00-00', // siempre (desde el primer día)
     moneda: 'ARS',
-    abonoSugerido: null, // = abonoSugeridoUSD dólares en pesos (ver abonoSugeridoPorTratamiento)
-    abonoSugeridoUSD: 5,
+    // Seña (abono) sugerida por tratamiento en citas nuevas: en pesos fijos,
+    // como la cobra la competencia en Buenos Aires (12/10/2026; antes eran 5
+    // dólares). La cambia el dueño en Servicios y tarifario
+    // (settings.abonoSugeridoPesos) cuando suben los precios; si nunca se
+    // eligió, vale esto. Ver abonoSugeridoPorTratamiento.
+    abonoSugerido: 15000,
+    abonoEditable: true,
     voseo: true, // los mensajes de WhatsApp a las clientas van con "vos"
     migraciones: false,
     tema: TEMA_BANDERA_ARGENTINA,
@@ -1111,6 +1279,7 @@ function aplicarCuenta(user, perfil){
   aplicarTemaSede();
   document.title = 'Agenda Sibana ' + SEDE.nombre;
   if(window.__setManifestName) window.__setManifestName('Sibana ' + SEDE.nombre + ' - Agenda');
+  safeSetLocal('sibanaUltimaSede', SEDE.id); // nombre de la app al instalarla (ver el <head>)
 }
 // Cambia los colores de toda la agenda a los de la sede (si tiene propios).
 // Se busca la hoja de estilos de la agenda por su contenido (no "la primera
@@ -3866,7 +4035,9 @@ function dayViewHtml(){
     const avisoDt = new Date(r.en);
     const aviso = isNaN(avisoDt) ? '' : ` · avisó el ${avisoDt.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'})}`;
     const destino = ahora.date===dateKey ? `a las ${escapeHtml(ahora.start||'')}` : `${fechaCortaConDia(ahora.date)}${/^\d{2}:\d{2}$/.test(ahora.start||'')?' a las '+ahora.start:''}`;
-    const estado = r.estadoAntes==='Cancelada' ? ' (cancelada)' : (r.estadoAntes==='NoShow' ? ' (no llegó)' : '');
+    // Si estaba "Cancelada" antes de reprogramar, NO se dice: no se canceló, se
+    // reprogramó (12/10/2026, pedido de Juan Diego). "No llegó" sí se muestra.
+    const estado = r.estadoAntes==='NoShow' ? ' (no llegó)' : '';
     const col = a.specialist ? `border-left-color:${specialistColor(a.specialist)};` : '';
     ghostBlocks += `
       <div class="appt ghost-appt${isCompact?' compact':''}" style="top:${top}px;height:${height}px;${col}${sidePos(ghostCols[gi])}" data-act="edit-appt" data-id="${escapeHtml(a.id)}" title="Reprogramada">
@@ -4310,7 +4481,7 @@ function reprogramacionesHtml(d, style){
   const filas = lista.map(r=>{
     const dt = new Date(r.en);
     const cuando = isNaN(dt) ? '' : ` <span style="opacity:.75">(cambiada el ${dt.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'})})</span>`;
-    const estAntes = r.estadoAntes==='Cancelada' ? ', estaba cancelada' : (r.estadoAntes==='NoShow' ? ', no había llegado' : '');
+    const estAntes = r.estadoAntes==='NoShow' ? ', no había llegado' : ''; // "Cancelada" no se dice (ver la cita fantasma)
     return `<div>Antes era el ${fechaCortaConDia(r.desde)}${/^\d{2}:\d{2}$/.test(r.inicio||'')?' a las '+r.inicio:''}${estAntes}${cuando}</div>`;
   }).join('');
   return `<div class="hint reprog-hist" style="${style||''}"><b>🔁 Reprogramada${lista.length>1?' '+lista.length+' veces':''}</b>${filas}</div>`;
@@ -5027,6 +5198,11 @@ function servicesModalHtml(){
         <span>🧴 Crema post-tratamiento incluida (ya no se cobra aparte en citas nuevas)</span>
       </label>
       <div class="hint" style="margin:-8px 0 12px;">Solo afecta a las citas que se agenden DESDE ahora. Las citas ya agendadas (antes o después de este cambio) nunca se alteran.</div>
+      ${SEDE.abonoEditable ? `<div class="field" style="margin-bottom:4px;">
+        <label for="f-abono-sugerido">💵 Seña (abono) sugerida por tratamiento (${SEDE.moneda})</label>
+        <input type="number" id="f-abono-sugerido" min="0" step="500" value="${abonoSugeridoPorTratamiento()}">
+      </div>
+      <div class="hint" style="margin:0 0 12px;">Se pone sola en cada cita nueva (una por tratamiento) y en cada cita se puede cambiar. Cuando suban los precios, súbela también. Las citas ya agendadas no cambian.</div>` : ''}
       <div class="svc-row-head"><span>Nombre</span><span>Precio (${SEDE.moneda})</span><span>Minutos</span><span></span></div>
       <div id="svc-list">${rows}</div>
       <button class="btn btn-ghost" style="margin-top:6px" data-act="add-service">+ Agregar servicio</button>
@@ -5624,8 +5800,9 @@ function descuentoMicroTexto(){
 // (state.settings.dolarHistory = [{desde:'YYYY-MM-DD', pesos}]) y cada cita
 // usa el valor vigente el día de la cita: cambiarlo hoy NUNCA recalcula citas
 // ni semanas ya pasadas (mismo cuidado que comisionHistory). De ese mismo
-// valor salen los 10 dólares que se restan por micropigmentación y los 5
-// dólares del abono sugerido.
+// valor salen los 10 dólares que se restan por micropigmentación. (El abono
+// sugerido de Buenos Aires ya no sale del dólar: va en pesos, ver
+// abonoSugeridoPorTratamiento.)
 const DESCUENTO_USD = (SEDES.buenosaires.descuentoMicro || {}).dolares || 10;
 function valorDolarParaFecha(dateKey){
   const h = state.settings.dolarHistory;
@@ -5660,10 +5837,16 @@ function tratamientosConDescuento(a){
   return contarMicropigmentaciones(a.services);
 }
 function abonoSugeridoPorTratamiento(){
+  // La sede deja que el dueño elija el monto (Buenos Aires): el que eligió.
+  if(SEDE.abonoEditable){
+    const elegido = state.settings && state.settings.abonoSugeridoPesos;
+    if(typeof elegido==='number' && isFinite(elegido) && elegido>=0) return elegido;
+  }
   if(SEDE.abonoSugerido!=null) return SEDE.abonoSugerido;
-  // En dólares (Buenos Aires): se pasa a pesos con el valor de hoy y se
-  // redondea a la centena (es solo una sugerencia, se puede cambiar).
-  return Math.round(SEDE.abonoSugeridoUSD * valorDolarParaFecha(toKey(new Date())) / 100) * 100;
+  // En dólares: se pasa a pesos con el valor de hoy y se redondea a la
+  // centena (es solo una sugerencia, se puede cambiar).
+  if(SEDE.abonoSugeridoUSD) return Math.round(SEDE.abonoSugeridoUSD * valorDolarParaFecha(toKey(new Date())) / 100) * 100;
+  return 0;
 }
 // Lo que falta cobrarle a la clienta en la cita: precio total (ya con
 // cualquier descuento que se haya puesto directo en el campo Precio) menos
@@ -6020,10 +6203,10 @@ function valoresSedeModalHtml(){
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
       <h2 class="serif">💱 Valor del dólar</h2>
-      <p class="hint">Anota cuántos pesos argentinos es <b>1 dólar</b> y actualízalo cuando cambie. De acá salen solos los ${DESCUENTO_USD} dólares que se le restan a cada micropigmentación antes de calcular la comisión, y los ${SEDE.abonoSugeridoUSD} dólares del abono sugerido en las citas nuevas.</p>
+      <p class="hint">Anota cuántos pesos argentinos es <b>1 dólar</b> y actualízalo cuando cambie. De acá salen solos los ${DESCUENTO_USD} dólares que se le restan a cada micropigmentación antes de calcular la comisión.${SEDE.abonoSugeridoUSD ? ` También los ${SEDE.abonoSugeridoUSD} dólares del abono sugerido en las citas nuevas.` : ' (El abono sugerido de las citas nuevas va en pesos: se cambia en Servicios y tarifario.)'}</p>
       <p class="hint">Cada valor nuevo aplica a las citas <b>desde la fecha que elijas</b> en adelante: las citas anteriores se quedan con el valor que tenían, así nunca cambia una comisión ya pagada.</p>
       <div class="hint" style="margin-bottom:8px;">${vigente
-        ? `Hoy: 1 dólar = <b>${fmtCLP(vigente)}</b> → ${DESCUENTO_USD} dólares = <b>${fmtCLP(descuentoUSDParaFecha(hoyKey))}</b> · abono sugerido = <b>${fmtCLP(abonoSugeridoPorTratamiento())}</b> por tratamiento`
+        ? `Hoy: 1 dólar = <b>${fmtCLP(vigente)}</b> → ${DESCUENTO_USD} dólares = <b>${fmtCLP(descuentoUSDParaFecha(hoyKey))}</b>${SEDE.abonoSugeridoUSD ? ` · abono sugerido = <b>${fmtCLP(abonoSugeridoPorTratamiento())}</b> por tratamiento` : ''}`
         : '<b>Todavía no hay ningún valor cargado.</b>'}</div>
       <div class="field">
         <label>Actualizar solo, una vez al día</label>
@@ -9357,6 +9540,11 @@ function saveServicesFromForm(){
   });
   const cremaIncluidaInput = document.getElementById('f-crema-incluida');
   if(cremaIncluidaInput) state.settings.cremaIncluida = cremaIncluidaInput.checked;
+  const abonoSugeridoInput = document.getElementById('f-abono-sugerido');
+  if(abonoSugeridoInput && SEDE.abonoEditable && abonoSugeridoInput.value.trim()!==''){
+    const v = Math.round(Number(abonoSugeridoInput.value));
+    if(isFinite(v) && v>=0) state.settings.abonoSugeridoPesos = v;
+  }
   ui.modal = null;
   render();
   saveData();

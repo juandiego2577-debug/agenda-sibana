@@ -877,7 +877,7 @@
     if(!promptGuardado) return;
     var p = promptGuardado;
     promptGuardado = null;
-    p.prompt();
+    try{ p.prompt(); }catch(e){ pintar(); return; } // si el teléfono no lo deja: vuelven los pasos del menú
     (p.userChoice || Promise.resolve({})).then(function(r){
       if(r && r.outcome==='accepted'){ instaladaRecien = true; var b = document.getElementById('instalar-banner'); if(b) b.remove(); }
       pintar();

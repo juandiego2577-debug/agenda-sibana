@@ -920,7 +920,15 @@ para servir también a **Copiapó**, de la siguiente forma:
   pagamos" e historial. Sigue OCULTA (`MIS_GANANCIAS_VISIBLE = false`); Juan
   Diego la ve en Pagos → detalle → "👁 Ver lo que ve <nombre>" (modal
   `ganancias-preview`). Se quitó el ajuste viejo "Mis ganancias visible
-  desde" (`misGananciasDesde` ya no se usa). Probado: e2e (18).
+  desde" (`misGananciasDesde` ya no se usa). Textos pedidos por él: "dinero",
+  nunca "plata"; "Cómo se calcula" sin la crema (ya viene incluida) ni el
+  abono de cancelaciones (ya lo saben). **Dos diseños a prueba**
+  (`MIS_GANANCIAS_DISENO` = 'detallado' | 'simple', en la vista previa se
+  cambian con "1 · Detallado / 2 · Simple"): el simple es una boleta arriba
+  (total grande + tus citas/ajustes/vales), "Te faltan N citas por cerrar"
+  como botones grandes, "Anotar un vale" y la lista de citas cerradas en
+  una línea (la cuenta se ve al tocarla, `<details>`). Él cree que se queda
+  con el detallado. Probado: e2e (29).
 - **"Mis ganancias"** (versión vieja, reemplazada por la de arriba): en modo Especialista, la pestaña de Finanzas muestra
   esto en vez del panel completo de Admin — cada especialista elige su
   nombre una vez (se recuerda por dispositivo, `STAFF_IDENTITY_KEY`) y ve

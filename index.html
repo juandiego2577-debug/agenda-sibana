@@ -464,6 +464,27 @@
   .gan-total.pagado{border-color:var(--ok);}
   .gan-cerrar-top{font-size:14.5px;margin-bottom:4px;}
   .gan-preview{border-color:var(--gold);}
+  .gan-disenos{margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .gs-card{background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;}
+  .gs-boleta{text-align:left;}
+  .gs-hola{font-size:14px;color:var(--ink-soft);}
+  .gs-sub{font-size:13px;color:var(--ink-soft);margin-top:10px;text-align:center;}
+  .gs-grande{font-family:'Fraunces',serif;font-size:38px;font-weight:600;color:var(--gold-soft);text-align:center;margin:2px 0 12px;}
+  .gs-linea{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:15px;border-top:1px dashed var(--line);}
+  .gs-linea.total{font-weight:700;color:var(--gold);border-top:1px solid var(--line);}
+  .gs-linea.chica{font-size:13.5px;}
+  .gs-pista{text-align:center;font-size:12.5px;color:var(--warn);margin-top:8px;}
+  .gs-titulo{font-weight:600;font-size:15px;margin-bottom:6px;}
+  .gs-cerrar{display:flex;width:100%;justify-content:space-between;align-items:center;gap:10px;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px;color:var(--ink);font:inherit;cursor:pointer;}
+  .gs-cerrar.tarde{border-color:var(--danger);}
+  .gs-cerrar small,.gs-cita small{display:block;font-size:12px;color:var(--ink-soft);font-weight:400;margin-top:2px;}
+  .gs-mas{font-weight:700;color:var(--warn);white-space:nowrap;}
+  .gs-listo{font-size:14.5px;color:var(--ok);font-weight:600;}
+  .gs-vale{width:100%;font-size:15px;padding:12px;margin-bottom:10px;}
+  .gs-cita{border-top:1px dashed var(--line);padding:8px 0;font-size:14.5px;}
+  .gs-cita summary{display:flex;justify-content:space-between;gap:10px;cursor:pointer;list-style:none;}
+  .gs-cita summary::-webkit-details-marker{display:none;}
+  .gs-cita summary b{white-space:nowrap;}
   .modal.gan-modal{max-width:760px;}
   .gan-modal .fin-page{padding:0;}
   .pago-aviso ul{margin:6px 0 0;padding-left:18px;}
@@ -5571,7 +5592,7 @@ function valesModalHtml(){
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
       <h2 class="serif">💵 Vales</h2>
-      <div class="hint">Plata que ${isAdmin?'una especialista':'sacas'} va sacando de la caja a cuenta de la comisión. Anótalo apenas lo saques, para que no se pierda.</div>
+      <div class="hint">Dinero que ${isAdmin?'una especialista va':'vas'} sacando de la caja a cuenta de la comisión. Anótalo apenas lo saques, para que no se pierda.</div>
       <div class="field">
         ${isAdmin
           ? `<label>¿Quién lo sacó?</label><select id="f-vale-specialist"><option value="">— Elige quién —</option>${specOptions}</select>`
@@ -6138,6 +6159,10 @@ function payoutWeekSummary(specialist){
 // Finanzas → Pagos → "👁 Ver lo que ve …". Para publicarla: true.
 const MIS_GANANCIAS_VISIBLE = false;
 const MIS_GANANCIAS_DESDE = PAGO_SOLO_CERRADAS_DESDE;
+// Dos diseños a prueba (12/10/2026): 'detallado' (recuadros + cada cita con su
+// cuenta) y 'simple' (una boleta corta arriba, la lista de citas en una línea
+// y la cuenta solo al tocarla). En la vista previa se cambia con dos botones.
+const MIS_GANANCIAS_DISENO = 'detallado';
 function misGananciasPageHtml(nombre, vistaPrevia){
   const identity = nombre || staffIdentity();
   if(!identity){
@@ -6214,19 +6239,30 @@ function misGananciasPageHtml(nombre, vistaPrevia){
     historial.push(`<tr class="${k===ui.ganSemana?'sel':''}" data-act="gan-ir" data-semana="${k}"><td>${rangoSemanaTexto(wk.start, wk.end)}</td><td>${fmtNeto(gk.neto)}</td><td>${txt}</td></tr>`);
   }
 
-  return `
-    <div class="fin-page gan-page">
-      ${vistaPrevia ? `<div class="pago-aviso gan-preview">👁 <b>Vista previa:</b> así lo ve ${escapeHtml(identity)} en su teléfono${MIS_GANANCIAS_VISIBLE ? '' : ' (todavía no está publicado: ellas no lo ven)'}.</div>` : ''}
+  const pct = Math.round(comisionPctForMonth(w.start.getFullYear(), w.start.getMonth())*100);
+  const comoSeCalcula = `<div class="hint" style="margin-top:16px;">Cómo se calcula: a cada micropigmentación ${SEDE.descuentoMicro && SEDE.descuentoMicro.soloPrecioNuevo ? '(con los precios nuevos) ' : ''}se le restan ${descuentoMicroTexto()} que quedan para el negocio, y lo que queda se divide ${pct}% para ti. Lo demás (lifting, perfilado, retoques…) se divide directo. Si haces la garantía de un tratamiento de otra especialista, recibes la comisión de ese tratamiento (y al revés). Los vales se restan.</div>`;
+  const diseno = vistaPrevia ? (ui.ganDiseno || MIS_GANANCIAS_DISENO) : MIS_GANANCIAS_DISENO;
+  const previaHtml = vistaPrevia ? `<div class="pago-aviso gan-preview">👁 <b>Vista previa:</b> así lo ve ${escapeHtml(identity)} en su teléfono${MIS_GANANCIAS_VISIBLE ? '' : ' (todavía no está publicado: ellas no lo ven)'}.
+        <div class="gan-disenos fin-subtabs"><span>Diseño:</span>
+          <button type="button" class="${diseno==='detallado'?'active':''}" data-act="gan-diseno" data-diseno="detallado">1 · Detallado</button>
+          <button type="button" class="${diseno==='simple'?'active':''}" data-act="gan-diseno" data-diseno="simple">2 · Simple</button>
+        </div></div>` : '';
+  const navHtml = `
       <div class="fin-monthnav">
         <button class="arrow" data-act="gan-prev" ${ui.ganSemana>primera?'':'disabled'}>‹</button>
         <div class="curdate">${rangoSemanaTexto(w.start, w.end)}<div class="hint" style="margin:2px 0 0;font-family:inherit;font-size:11.5px;">${etiqueta} · se paga el domingo ${domingo.getDate()} ${MONTHS[domingo.getMonth()].slice(0,3)}</div></div>
         <button class="arrow" data-act="gan-next" ${ui.ganSemana<actual?'':'disabled'}>›</button>
-      </div>
+      </div>`;
+  if(diseno==='simple') return gananciasSimpleHtml({identity, primerNombre, vistaPrevia, previaHtml, navHtml, comoSeCalcula, w, g, estado, domingo, porCerrar, hoy, historial});
+  return `
+    <div class="fin-page gan-page">
+      ${previaHtml}
+      ${navHtml}
       <p class="hint" style="margin-top:0;">Hola, <b>${primerNombre}</b> ${vistaPrevia ? '' : noEresTuHtml()}</p>
       <div class="fin-cards" style="grid-template-columns:1fr;">${grande}</div>
       ${cerrarHtml}
       <div class="pago-aviso gan-vales">
-        💵 <b>¿Sacaste plata de la caja?</b> Anótala como vale apenas la saques (también si te quedas con el efectivo del día). Así tu pago sale exacto y no hay que revisar cuadernos.
+        💵 <b>¿Sacaste dinero de la caja?</b> Anótalo como vale apenas lo saques (también si te quedas con el efectivo del día). Así tu pago sale exacto.
         <div><button type="button" class="btn btn-primary" style="margin-top:8px;font-size:13px;padding:7px 14px;" data-act="open-vales">💵 Anotar un vale</button></div>
       </div>
       <div class="pago-card"><div class="pago-detalle" style="border-top:none;">
@@ -6246,7 +6282,59 @@ function misGananciasPageHtml(nombre, vistaPrevia){
         </div>
       </div></div>
       ${historial.length>1 ? `<h3 class="fin-sub">Tus semanas</h3><table class="fin-table pago-hist"><thead><tr><th>Semana (lun–sáb)</th><th>Pago</th><th>Estado</th></tr></thead><tbody>${historial.join('')}</tbody></table>` : ''}
-      <div class="hint" style="margin-top:16px;">Cómo se calcula: a cada micropigmentación ${SEDE.descuentoMicro && SEDE.descuentoMicro.soloPrecioNuevo ? '(con los precios nuevos) ' : ''}se le restan ${descuentoMicroTexto()} que quedan para el negocio, y lo que queda se divide ${Math.round(comisionPctForMonth(w.start.getFullYear(), w.start.getMonth())*100)}% para ti. Lo demás (lifting, perfilado, retoques…) se divide directo. La crema es del negocio. Si la clienta cancela o no llega, el abono queda para el negocio. Si haces la garantía de un tratamiento de otra especialista, recibes la comisión de ese tratamiento (y al revés). Los vales se restan.</div>
+      ${comoSeCalcula}
+    </div>`;
+}
+function gananciasSimpleHtml(o){
+  const {g, w, estado, domingo, porCerrar, hoy} = o;
+  const pagado = estado==='pagado';
+  const monto = pagado ? g.pago.neto : g.neto;
+  const titulo = pagado ? '✅ Ya te pagamos' : (w.terminada ? 'Te pagamos el' : 'Llevas para el') + ` domingo ${domingo.getDate()} de ${MONTHS[domingo.getMonth()]}`;
+  const linea = (txt, val, cls) => `<div class="gs-linea ${cls||''}"><span>${txt}</span><span>${val}</span></div>`;
+  const boleta = [
+    linea('Tus citas', fmtCLP(g.comision)),
+    g.totalTraspasos ? linea('Garantías', fmtSigno(g.totalTraspasos)) : '',
+    ...g.ajustes.map(x=>linea(escapeHtml(x.motivo||'Ajuste'), fmtSigno(x.monto))),
+    g.totalVales ? linea(`Vales (${g.vales.length})`, '−'+fmtCLP(g.totalVales)) : '',
+    linea(pagado ? 'Te pagamos' : 'A pagar', fmtNeto(monto), 'total'),
+  ].join('');
+  const faltan = porCerrar.length ? `
+      <div class="gs-titulo">⚠️ Te faltan ${porCerrar.length===1 ? '1 cita' : porCerrar.length+' citas'} por cerrar</div>
+      <div class="hint" style="margin:0 0 8px;">Tócala y marca <b>"✅ Realizada"</b> para que te sume.</div>
+      ${porCerrar.map(c=>`<button type="button" class="gs-cerrar ${c.a.date<hoy?'tarde':''}" data-act="edit-appt" data-id="${escapeHtml(c.a.id)}">
+        <span><b>${escapeHtml(c.a.client||'(sin nombre)')}</b><small>${diaCorto(c.a.date)} ${escapeHtml(c.a.start||'')}${c.a.date<hoy?' · ya pasó':''}</small></span>
+        <span class="gs-mas">+${fmtCLP(c.comisionAlCerrar)} ›</span></button>`).join('')}` : (g.citas.length ? `<div class="gs-listo">✅ Todas tus citas están cerradas</div>` : '');
+  const cerradas = g.citas.filter(c=>!(c.porCerrar && c.comisionAlCerrar>0));
+  const lista = cerradas.map(c=>{
+    const nota = c.a.estado==='Cancelada' ? ' · cancelada' : c.a.estado==='NoShow' ? ' · no llegó' : '';
+    return `<details class="gs-cita"><summary><span>${diaCorto(c.a.date)} · ${escapeHtml(c.a.client||'(sin nombre)')}<small>${escapeHtml(c.a.cursoId ? '📚 '+(c.a.cursoNombre||'Curso') : apptServiciosTexto(c.a))}${nota}</small></span><b>${fmtCLP(c.comision)}</b></summary>
+      <div class="hint" style="margin:4px 0 0;">${escapeHtml(apptCommissionExplicacion(c.a))}</div></details>`;
+  }).join('');
+  const vales = g.vales.map(v=>`<div class="gs-linea chica"><span>${diaCorto(v.date)}${v.notas?' · '+escapeHtml(v.notas):''}</span><span>−${fmtCLP(v.monto)}</span></div>`).join('');
+  const traspasos = g.traspasos.map(t=>`<div class="hint" style="margin:4px 0;">${escapeHtml(t.texto)}: <b>${fmtSigno(t.monto)}</b></div>`).join('');
+  return `
+    <div class="fin-page gan-page gan-simple">
+      ${o.previaHtml}
+      ${o.navHtml}
+      <div class="gs-card gs-boleta">
+        <div class="gs-hola">Hola, ${o.primerNombre} ${o.vistaPrevia ? '' : noEresTuHtml()}</div>
+        <div class="gs-sub">${titulo}</div>
+        <div class="gs-grande">${fmtNeto(monto)}</div>
+        ${boleta}
+        ${!pagado && g.montoPorCerrar ? `<div class="gs-pista">+ ${fmtCLP(g.montoPorCerrar)} más cuando cierres lo que falta</div>` : ''}
+      </div>
+      ${faltan ? `<div class="gs-card">${faltan}</div>` : ''}
+      <button type="button" class="btn btn-primary gs-vale" data-act="open-vales">💵 Anotar un vale</button>
+      <div class="hint" style="text-align:center;margin:-4px 0 14px;">¿Sacaste dinero de la caja? Anótalo apenas lo saques. Así tu pago sale exacto.</div>
+      <div class="gs-card">
+        <div class="gs-titulo">Tus citas cerradas</div>
+        ${lista || '<div class="hint" style="margin:0;">Todavía no tienes citas cerradas esta semana.</div>'}
+        ${lista ? '<div class="hint" style="margin:8px 0 0;">Toca una cita para ver cómo se calcula.</div>' : ''}
+        ${traspasos}
+        ${vales ? `<div class="gs-titulo" style="margin-top:14px;">Tus vales</div>${vales}` : ''}
+      </div>
+      ${o.historial.length>1 ? `<h3 class="fin-sub">Tus semanas</h3><table class="fin-table pago-hist"><thead><tr><th>Semana</th><th>Pago</th><th>Estado</th></tr></thead><tbody>${o.historial.join('')}</tbody></table>` : ''}
+      ${o.comoSeCalcula}
     </div>`;
 }
 function gananciasPreviewModalHtml(){
@@ -7062,7 +7150,7 @@ function finanzasResumenHtml(year, month){
         <tr><td>🧴 Cremas post-tratamiento vendidas</td><td>${f.cremasVendidas} (${fmtCLP(f.cremasVendidas*CREMA_PRICE)})</td></tr>
       </tbody>
     </table>
-    <div class="hint">La plata de la crema es 100% para el dueño — no entra en el cálculo de la comisión de las especialistas.</div>
+    <div class="hint">El dinero de la crema es 100% para el dueño — no entra en el cálculo de la comisión de las especialistas.</div>
 
     <h3 class="fin-sub">Recaudación por método de pago</h3>
     <table class="fin-table"><tbody>${metodoRows}</tbody></table>
@@ -9121,6 +9209,8 @@ function onAction(e){
       ui.ganSemana = toKey(addDays(parseKey(ui.ganSemana || semanaPagoActualKey()), -7)); render(); break;
     case 'gan-next':
       ui.ganSemana = toKey(addDays(parseKey(ui.ganSemana || semanaPagoActualKey()), 7)); render(); break;
+    case 'gan-diseno':
+      ui.ganDiseno = e.currentTarget.dataset.diseno; render(); break;
     case 'gan-ir':
       ui.ganSemana = e.currentTarget.dataset.semana; render(); break;
     case 'delete-ajuste': {

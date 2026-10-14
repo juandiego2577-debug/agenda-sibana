@@ -285,6 +285,31 @@ function enviarPendientesAtrasados() {
   console.log('Correos atrasados enviados: ' + n);
 }
 
+// Muestra (sin mandar nada) TODAS las citas desde RECUPERAR_DESDE y por qué
+// se les mandó o no el correo. Para encontrar la falla cuando no sale nada.
+function revisarCitaPorCita() {
+  const hoy = Utilities.formatDate(new Date(), ZONA, 'yyyy-MM-dd');
+  const ya = idsYaEnviados_(abrirRegistro_());
+  const citas = leerCitas_().filter(a => a && a.date >= RECUPERAR_DESDE && a.date <= hoy)
+    .sort((x, y) => (x.date + (x.start || '')).localeCompare(y.date + (y.start || '')));
+  const cuenta = {};
+  citas.forEach(a => {
+    const email = String(a.email || '').trim().toLowerCase();
+    let motivo;
+    if (a.estado === 'Cancelada' || a.estado === 'NoShow') motivo = 'no: ' + a.estado;
+    else if (a.cursoId) motivo = 'no: curso';
+    else if (!tratamientosDeCita_(a).length) motivo = 'no: tratamiento sin correo';
+    else if (!email) motivo = 'NO TIENE CORREO ANOTADO';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) motivo = 'CORREO MAL ESCRITO';
+    else if (a.id && ya[a.id]) motivo = 'ya enviado';
+    else motivo = 'LE FALTA EL CORREO (se puede recuperar)';
+    cuenta[motivo] = (cuenta[motivo] || 0) + 1;
+    console.log(a.date + ' ' + (a.start || '') + ' — ' + (a.client || '?') + ' — ' + (a.services || []).join(' + ') +
+      ' — ' + (email || 'sin correo') + ' → ' + motivo);
+  });
+  console.log('RESUMEN: ' + citas.length + ' citas. ' + Object.keys(cuenta).map(k => k + ': ' + cuenta[k]).join(' | '));
+}
+
 // Deja programado el envío de todas las noches (20:30 hora de Chile).
 // Se puede ejecutar de nuevo sin problema: borra el anterior y crea uno solo.
 function instalarEnvioDiario() {

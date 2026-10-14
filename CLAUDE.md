@@ -1621,6 +1621,12 @@ para servir también a **Copiapó**, de la siguiente forma:
   simulador de los servicios de Google (Node + mocks), no contra Google
   real (aunque la prueba de envío real del usuario funcionó). Instalado y
   con el envío diario programado (`instalarEnvioDiario`) el 03/10/2026.
+  **No estaba saliendo (detectado el 14/10/2026):** en Gmail → Enviados
+  había un solo correo (Lorena, 05/10). Juan Diego revisó "Activadores" en
+  el proyecto "Respaldo Agenda Sibana" (0, pero ese es el de respaldo, no
+  el de correos). Se agregaron `verPendientesAtrasados` (solo muestra) y
+  `enviarPendientesAtrasados` (manda lo que falte desde `RECUPERAR_DESDE`
+  = 03/10 hasta ayer, sin repetir: mismo registro).
   **Aviso dentro de la cita** (`postcareStatusHtml`, en el formulario de
   Admin al editar y en la vista de la especialista): SOLO "⚠️ Sin correo
   anotado" y solo mientras el envío está pendiente (cita futura, u hoy

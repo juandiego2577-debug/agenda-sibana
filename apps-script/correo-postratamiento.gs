@@ -57,19 +57,26 @@ const TRATAMIENTOS = [
 // ---------------- Lo que se ejecuta cada noche ----------------
 function enviarPostTratamientos() {
   const hoy = Utilities.formatDate(new Date(), ZONA, 'yyyy-MM-dd');
+  const n = enviarParaFechas_([hoy, diaAnterior_(hoy)]);
+  console.log('Correos enviados hoy (' + hoy + '): ' + n);
+}
+
+// Manda los correos pendientes de esas fechas y anota cada uno en el registro.
+function enviarParaFechas_(fechas) {
   const registro = abrirRegistro_();
   const yaEnviadas = idsYaEnviados_(registro);
-  const citas = leerCitas_();
-  const pendientes = correosParaEnviar_(citas, [hoy, diaAnterior_(hoy)], yaEnviadas);
+  const pendientes = correosParaEnviar_(leerCitas_(), fechas, yaEnviadas);
   pendientes.forEach(p => {
+    let resultado = 'Enviado';
     try {
       mandarCorreo_(p.email, p.nombre, p.tratamientos);
-      p.citas.forEach(c => registro.appendRow([new Date(), c.date, c.id, p.nombre, p.email, p.tratamientos.map(t => t.nombre).join(' + '), 'Enviado']));
     } catch (e) {
-      p.citas.forEach(c => registro.appendRow([new Date(), c.date, c.id, p.nombre, p.email, p.tratamientos.map(t => t.nombre).join(' + '), 'ERROR: ' + e.message]));
+      resultado = 'ERROR: ' + e.message;
     }
+    p.citas.forEach(c => registro.appendRow([new Date(), c.date, c.id, p.nombre, p.email, p.tratamientos.map(t => t.nombre).join(' + '), resultado]));
+    console.log(p.nombre + ' <' + p.email + '>: ' + resultado);
   });
-  console.log('Correos enviados hoy (' + hoy + '): ' + pendientes.length);
+  return pendientes.length;
 }
 
 // Decide a quién mandarle qué. No toca nada afuera (se puede probar sola).
@@ -251,6 +258,31 @@ function verQueSeEnviariaHoy() {
   const lista = correosParaEnviar_(leerCitas_(), [hoy, diaAnterior_(hoy)], idsYaEnviados_(abrirRegistro_()));
   if (!lista.length) console.log('Hoy (' + hoy + ') no hay correos para enviar.');
   lista.forEach(p => console.log(p.nombre + ' <' + p.email + '>: ' + p.tratamientos.map(t => t.nombre).join(' + ')));
+}
+
+// ---------------- Para recuperar correos que no salieron ----------------
+// Desde qué fecha se ponen al día (el día en que empezó el envío automático).
+const RECUPERAR_DESDE = '2026-10-03';
+
+function fechasParaRecuperar_() {
+  const hoy = Utilities.formatDate(new Date(), ZONA, 'yyyy-MM-dd');
+  const out = [];
+  for (let d = diaAnterior_(hoy); d >= RECUPERAR_DESDE; d = diaAnterior_(d)) out.push(d);
+  return out; // hasta AYER: las citas de hoy las manda el envío de la noche
+}
+
+// Muestra (sin mandar nada) a quién le falta el correo desde RECUPERAR_DESDE.
+function verPendientesAtrasados() {
+  const lista = correosParaEnviar_(leerCitas_(), fechasParaRecuperar_(), idsYaEnviados_(abrirRegistro_()));
+  if (!lista.length) console.log('No hay correos atrasados por enviar.');
+  lista.forEach(p => console.log(p.citas.map(c => c.date).join(', ') + ' — ' + p.nombre + ' <' + p.email + '>: ' + p.tratamientos.map(t => t.nombre).join(' + ')));
+  console.log('Total: ' + lista.length + ' correos.');
+}
+
+// Manda de una vez los correos atrasados (nunca repite: usa el mismo registro).
+function enviarPendientesAtrasados() {
+  const n = enviarParaFechas_(fechasParaRecuperar_());
+  console.log('Correos atrasados enviados: ' + n);
 }
 
 // Deja programado el envío de todas las noches (20:30 hora de Chile).

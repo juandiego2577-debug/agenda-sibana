@@ -1627,6 +1627,12 @@ para servir también a **Copiapó**, de la siguiente forma:
   el de correos). Se agregaron `verPendientesAtrasados` (solo muestra) y
   `enviarPendientesAtrasados` (manda lo que falte desde `RECUPERAR_DESDE`
   = 03/10 hasta ayer, sin repetir: mismo registro).
+  **Resultado (`revisarCitaPorCita`, 14/10):** el script SÍ funcionaba (el
+  activador corre cada noche; salieron 3: Lorena 05/10, Yaqueline y Sixtary
+  09/10). No salían más porque de 46 citas desde el 03/10, 11 de
+  cejas/labios NO tenían correo anotado, y las de delineado (varias con
+  correo) no reciben nada porque todavía no hay imágenes de ojos. No había
+  nada atrasado que recuperar.
   **Aviso dentro de la cita** (`postcareStatusHtml`, en el formulario de
   Admin al editar y en la vista de la especialista): SOLO "⚠️ Sin correo
   anotado" y solo mientras el envío está pendiente (cita futura, u hoy

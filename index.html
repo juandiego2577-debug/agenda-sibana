@@ -1809,17 +1809,33 @@ function fechaHoraEnSede(iso){
   return {date: s.slice(0,10), time: s.slice(11,16)};
 }
 // "✍️ Falta firmar" (11/10/2026, pedido de Juan Diego: a las especialistas
-// se les olvida hacer firmar el consentimiento). Se firma en CUALQUIER
-// tratamiento (confirmado por él). El aviso sale SOLO mientras todavía sirve:
+// se les olvida hacer firmar el consentimiento). Desde el 14/10/2026 solo en
+// los tratamientos que llevan consentimiento (citaLlevaFirma). El aviso sale SOLO mientras todavía sirve:
 // el mismo día, desde 1 hora antes de la cita hasta 30 min después — después ya
 // no se puede hacer nada y quedaría ahí para siempre (él no lo quería así).
 // Se va solo cuando la ficha se vincula (sola si el nombre es igual, o a mano).
 const FIRMA_AVISO_ANTES_MIN = 60;
 const FIRMA_AVISO_DESPUES_MIN = 30; // un rato después de terminar, por si la clienta sigue ahí (pedido de Juan Diego)
+// ¿Este tratamiento lleva consentimiento firmado? (14/10/2026, Juan Diego lo
+// dejó a criterio: solo lo que pone pigmento bajo la piel con aguja, o sea la
+// micropigmentación y sus retoques; NO perfilado, lifting, laminado, tinte,
+// limpieza...). Se marca a mano por servicio en Servicios y tarifario
+// ("✍️ Lleva consentimiento", s.llevaFirma). Si nunca se marcó: lo que es
+// micropigmentación o se llama como una (así entran los retoques).
+const NOMBRE_MICRO_RE = /microblading|sombreado|delineado|mixbrows|t[eé]cnica mixta|full lips|labios/i;
+function servicioLlevaFirma(nombre){
+  if(!nombre || /evaluaci[oó]n|garant[ií]a/i.test(nombre)) return false;
+  const svc = (state.services||[]).find(s=>s.name===nombre);
+  if(svc && svc.llevaFirma!=null) return !!svc.llevaFirma;
+  return !!(svc && svc.micropigmentacion) || NOMBRE_MICRO_RE.test(nombre);
+}
+function citaLlevaFirma(a){
+  return (a.services||[]).some(x=>servicioLlevaFirma(x))
+    || (isGarantiaAppt(a) && !!a.garantiaDe && servicioLlevaFirma(a.garantiaDe));
+}
 function faltaFirmarAhora(a){
   if(!a || a.consentId || a.cursoId || a.estado==='Cancelada' || a.estado==='NoShow') return false;
-  const sv = a.services||[];
-  if(!sv.length || sv.every(x=>/evaluaci[oó]n/i.test(x||''))) return false; // una evaluación sola no es tratamiento
+  if(!citaLlevaFirma(a)) return false;
   const now = sedeNow();
   if(a.date!==now.date) return false;
   const m = minutesFromMidnight(now.time);
@@ -1866,8 +1882,7 @@ function resumenDiaHtml(dateKey, appts){
   const porConfirmar = pasado ? 0 : activas.filter(a=>(a.estado||'Pendiente')==='Pendiente').length;
   // Por firmar: citas de hoy sin ficha que todavía no terminan (+30 min).
   const mNow = minutesFromMidnight(now.time);
-  const porFirmar = !esHoy ? 0 : activas.filter(a=>!a.consentId && !a.cursoId && (a.services||[]).length
-    && !(a.services||[]).every(x=>/evaluaci[oó]n/i.test(x||''))
+  const porFirmar = !esHoy ? 0 : activas.filter(a=>!a.consentId && !a.cursoId && citaLlevaFirma(a)
     && mNow < minutesFromMidnight(a.end||a.start||'00:00') + FIRMA_AVISO_DESPUES_MIN).length;
   const realizadas = activas.filter(a=>a.estado==='Realizada').length;
   const chip = (txt, cls)=>`<span class="rd-chip${cls?' '+cls:''}">${txt}</span>`;
@@ -5260,6 +5275,7 @@ function servicesModalHtml(){
       <button class="iconbtn" data-act="remove-service" data-idx="${i}">✕</button>
       ${SEDE.descuentoMicro ? `<label class="hint" style="grid-column:1/-1;flex:1 1 100%;display:flex;align-items:center;gap:8px;margin:-2px 0 4px;cursor:pointer;"><input type="checkbox" data-svc-micro="${i}" ${s.micropigmentacion?'checked':''} style="width:auto;"> Es micropigmentación (se restan ${descuentoMicroTexto()} antes de la comisión)</label>` : ''}
       ${/retoque|garant[ií]a|evaluaci[oó]n/i.test(s.name||'') ? '' : `<label class="hint" style="grid-column:1/-1;flex:1 1 100%;display:flex;align-items:center;gap:8px;margin:-2px 0 4px;cursor:pointer;"><input type="checkbox" data-svc-retoque="${i}" ${servicioLlevaRetoque(s.name)?'checked':''} style="width:auto;"> 🔁 Lleva retoque (aparece en "Retoques pendientes")</label>`}
+      ${/garant[ií]a|evaluaci[oó]n/i.test(s.name||'') ? '' : `<label class="hint" style="grid-column:1/-1;flex:1 1 100%;display:flex;align-items:center;gap:8px;margin:-2px 0 4px;cursor:pointer;"><input type="checkbox" data-svc-firma="${i}" ${servicioLlevaFirma(s.name)?'checked':''} style="width:auto;"> ✍️ Lleva consentimiento (avisa "Falta firmar")</label>`}
     </div>`).join('');
   return `
   <div class="overlay" data-act="overlay-close">
@@ -9828,6 +9844,10 @@ function saveServicesFromForm(){
   document.querySelectorAll('[data-svc-retoque]').forEach(inp=>{
     const i = Number(inp.dataset.svcRetoque);
     if(state.services[i]) state.services[i].llevaRetoque = inp.checked;
+  });
+  document.querySelectorAll('[data-svc-firma]').forEach(inp=>{
+    const i = Number(inp.dataset.svcFirma);
+    if(state.services[i]) state.services[i].llevaFirma = inp.checked;
   });
   const cremaIncluidaInput = document.getElementById('f-crema-incluida');
   if(cremaIncluidaInput) state.settings.cremaIncluida = cremaIncluidaInput.checked;

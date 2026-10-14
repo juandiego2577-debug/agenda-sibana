@@ -1356,9 +1356,18 @@ para servir también a **Copiapó**, de la siguiente forma:
   "Carla Soto" vs "Carla Soto Díaz"), se sigue vinculando a mano como antes.
   Probado: e2e (12).
 - **"✍️ Falta firmar" (11/10/2026, pedido de Juan Diego: se les olvida hacer
-  firmar):** el consentimiento se firma en CUALQUIER tratamiento (lo
-  confirmó él; solo se excluye una cita que es únicamente Evaluación, y
-  Cancelada/NoShow/cursos). Él NO quería un aviso que quedara para siempre
+  firmar):** **desde el 14/10/2026 solo en tratamientos que llevan
+  consentimiento** (antes: cualquier tratamiento menos Evaluación). Juan
+  Diego lo dejó a mi criterio "según la ley de Chile": la Ley 20.584 pide
+  consentimiento escrito para procedimientos invasivos; micropigmentación
+  (aguja + pigmento) sí, perfilado/lifting/laminado/tinte/limpieza no (no
+  rompen la piel; se le recomendó confirmar con la Seremi si quiere
+  certeza). Casilla "✍️ Lleva consentimiento" por servicio en Servicios y
+  tarifario (`s.llevaFirma`, `servicioLlevaFirma`/`citaLlevaFirma`); si
+  nunca se marcó: micropigmentación o nombre de micro (`NOMBRE_MICRO_RE`,
+  así entran los retoques); una garantía según su `garantiaDe`. Campo
+  dentro del servicio: no exige subir `APP_VERSION`. (Cancelada/NoShow/
+  cursos siguen excluidos.) Él NO quería un aviso que quedara para siempre
   en las citas pasadas ("ya no se puede hacer nada"), así que sale SOLO el
   mismo día, desde `FIRMA_AVISO_ANTES_MIN` (60) minutos antes de la cita
   hasta `FIRMA_AVISO_DESPUES_MIN` (30) después de que termina, por si la

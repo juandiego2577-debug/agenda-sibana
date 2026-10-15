@@ -20,7 +20,7 @@
  *
  * Instalación (una sola vez):
  *  1. Drive de sibana.cl: carpeta "Post-tratamiento" con dos carpetas dentro,
- *     "Cejas" y "Labios", con sus imágenes (se mandan en orden alfabético
+ *     "Cejas", "Labios" y "Ojos", con sus imágenes (se mandan en orden alfabético
  *     del nombre de archivo: "Cejas 1 …", "Cejas 2 …", etc.).
  *  2. Configuración del proyecto → Propiedades de la secuencia de comandos →
  *     agregar CLAVE_EQUIPO = la contraseña del usuario "sistema" de la agenda
@@ -52,6 +52,7 @@ const NOMBRE_REGISTRO = 'Registro correos post-tratamiento';
 const TRATAMIENTOS = [
   {carpeta: 'Cejas',  nombre: 'cejas',  palabras: ['microblading', 'sombreado', 'mixbrows']},
   {carpeta: 'Labios', nombre: 'labios', palabras: ['full lips']},
+  {carpeta: 'Ojos',   nombre: 'delineado de ojos', palabras: ['delineado']},
 ];
 
 // ---------------- Lo que se ejecuta cada noche ----------------

@@ -1620,8 +1620,11 @@ para servir también a **Copiapó**, de la siguiente forma:
   palabras en el nombre del servicio; un servicio con "retoque" nunca
   cuenta): cejas = microblading/sombreado/mixbrows, labios = full lips.
   **Pendiente:** el usuario debe confirmar si Perfeccionamiento y Realce
-  son micropigmentación de cejas (por ahora NO se les manda). Delineado de
-  ojos no se manda hasta que haya imágenes de ojos. Imágenes: carpeta
+  son micropigmentación de cejas (por ahora NO se les manda). **Delineado
+  de ojos (y doble) SÍ desde el 15/10/2026:** carpeta `Post-tratamiento/Ojos`
+  (1 Cuidados, 2 Proceso con dibujos del ojo por etapa, 3 Retencion; hechas
+  con el mismo diseño de cejas, contenido según centros de delineado
+  permanente; título "Delineado permanente de ojos"). Imágenes: carpeta
   `Post-tratamiento/Cejas` y `/Labios` en ese Drive, en orden alfabético
   (Cejas: cuidados, proceso de cicatrización, retención de pigmento;
   Labios: cuidados, proceso de cicatrización, fotos día a día — los

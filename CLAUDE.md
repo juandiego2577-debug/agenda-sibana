@@ -952,8 +952,11 @@ para servir también a **Copiapó**, de la siguiente forma:
   detalle va en grupos (Realizadas / Por cerrar / Canceladas o no llegó, con
   "No suman: el abono queda para el negocio" cuando dan $0).
   `citasPagoPorTipo` solo ordena las citas de `payoutWeekData`: ningún
-  monto cambia. En "Mi pago" una cita sin cerrar de $0 ya no aparece entre
-  las "cerradas" (antes sí, por error). Probado: e2e (Pagos y Mi pago con 9
+  monto cambia. En "Mi pago" una cita sin cerrar de $0 (ej. garantía sin
+  costo) ya no aparece entre las "cerradas" (antes sí, y además decía "✅
+  Todas tus citas están cerradas"): ahora sale en "Te falta N por cerrar"
+  con "sin costo" (`masAlCerrar`). No exigió subir `APP_VERSION` (solo
+  cambia lo que se muestra). Probado: e2e (Pagos y Mi pago con 9
   realizadas, 4 canceladas, 1 no llegó, 2 por cerrar; semana vieja donde la
   cancelada sí daba comisión).
   **Una especialista no puede marcar "Realizada" una cita que todavía no

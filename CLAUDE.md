@@ -945,6 +945,17 @@ para servir también a **Copiapó**, de la siguiente forma:
   cuando se sube `APP_VERSION`; un cambio que no lo sube llega a cada
   teléfono recién cuando la agenda se vuelve a abrir. Probado: e2e (37, incluye
   una cita de 2 personas: "Precio (2 personas)" y "Micropigmentación × 2").
+  **Citas separadas por cómo terminaron (17/10/2026, pedido de Juan Diego:
+  "Lucy 13 citas, $190.000" parecía poco y 4 eran canceladas):** en Pagos
+  (resumen de la tarjeta y detalle) y en "Mi pago" ya no sale "N citas" a
+  secas: "9 realizadas · 2 por cerrar · 4 canceladas · 1 no llegó", y el
+  detalle va en grupos (Realizadas / Por cerrar / Canceladas o no llegó, con
+  "No suman: el abono queda para el negocio" cuando dan $0).
+  `citasPagoPorTipo` solo ordena las citas de `payoutWeekData`: ningún
+  monto cambia. En "Mi pago" una cita sin cerrar de $0 ya no aparece entre
+  las "cerradas" (antes sí, por error). Probado: e2e (Pagos y Mi pago con 9
+  realizadas, 4 canceladas, 1 no llegó, 2 por cerrar; semana vieja donde la
+  cancelada sí daba comisión).
   **Una especialista no puede marcar "Realizada" una cita que todavía no
   empieza (12/10/2026, Juan Diego lo vio como "una trampa": con Mi pago podían
   cerrar citas futuras para que sumaran):** `citaYaEmpezo` (fecha y hora de

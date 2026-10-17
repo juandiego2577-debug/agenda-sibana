@@ -474,11 +474,12 @@
   .gs-linea{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:15px;border-top:1px dashed var(--line);}
   .gs-linea.total{font-weight:700;color:var(--gold);border-top:1px solid var(--line);}
   .gs-linea.chica{font-size:13.5px;}
+  .gs-no-vino{color:var(--ink-soft);}
   .gs-pista{text-align:center;font-size:12.5px;color:var(--warn);margin-top:8px;}
   .gs-titulo{font-weight:600;font-size:15px;margin-bottom:6px;}
   .gs-cerrar{display:flex;width:100%;justify-content:space-between;align-items:center;gap:10px;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px;color:var(--ink);font:inherit;cursor:pointer;}
   .gs-cerrar.tarde{border-color:var(--danger);}
-  .gs-cerrar small,.gs-cita small{display:block;font-size:12px;color:var(--ink-soft);font-weight:400;margin-top:2px;}
+  .gs-cerrar small,.gs-cita small,.gs-no-vino small{display:block;font-size:12px;color:var(--ink-soft);font-weight:400;margin-top:2px;}
   .gs-mas{font-weight:700;color:var(--warn);white-space:nowrap;}
   .gs-listo{font-size:14.5px;color:var(--ok);font-weight:600;}
   .gs-vale{width:100%;font-size:15px;padding:12px;margin-bottom:10px;}
@@ -6314,7 +6315,7 @@ function misGananciasPageHtml(nombre, vistaPrevia){
         <div><button type="button" class="btn btn-primary" style="margin-top:8px;font-size:13px;padding:7px 14px;" data-act="open-vales">💵 Anotar un vale</button></div>
       </div>
       <div class="pago-card"><div class="pago-detalle" style="border-top:none;">
-        <h4>Tus citas (${g.citas.length}) — lo que ganas con cada una</h4>
+        <h4>Tus citas (${(()=>{ const t = citasPagoPorTipo(g); return [cuantas(t.hechas.length,'realizada','realizadas'), t.porCerrar.length ? t.porCerrar.length+' por cerrar' : '', t.canceladas.length ? cuantas(t.canceladas.length,'cancelada','canceladas') : '', t.noLlego.length ? t.noLlego.length+' no llegó' : ''].filter(Boolean).join(' · '); })()}) — lo que ganas con cada una</h4>
         ${filas}
         ${traspasos ? `<h4>Garantías</h4>${traspasos}` : ''}
         ${ajustes ? `<h4>Ajustes</h4>${ajustes}` : ''}
@@ -6363,8 +6364,11 @@ function gananciasSimpleHtml(o){
   const monto = pagado ? g.pago.neto : g.neto;
   const titulo = pagado ? '✅ Ya te pagamos' : (w.terminada ? 'Te vamos a pagar' : 'Llevas esta semana');
   const linea = (txt, val, cls) => `<div class="gs-linea ${cls||''}"><span>${txt}</span><span>${val}</span></div>`;
+  const t = citasPagoPorTipo(g);
+  const noVinieron = t.canceladas.concat(t.noLlego).sort((x,y)=>(x.a.date+(x.a.start||'')).localeCompare(y.a.date+(y.a.start||'')));
+  const sumanNoVinieron = noVinieron.reduce((s,c)=>s+c.comision,0);
   const boleta = [
-    linea('Tus citas', fmtCLP(g.comision)),
+    linea(sumanNoVinieron ? 'Tus citas' : `Tus citas realizadas (${t.hechas.length})`, fmtCLP(g.comision)),
     g.totalTraspasos ? linea('Garantías', fmtSigno(g.totalTraspasos)) : '',
     ...g.ajustes.map(x=>linea(escapeHtml(x.motivo||'Ajuste'), fmtSigno(x.monto))),
     g.totalVales ? linea(`Vales (${g.vales.length})`, '−'+fmtCLP(g.totalVales)) : '',
@@ -6381,12 +6385,14 @@ function gananciasSimpleHtml(o){
       <div class="hint" style="margin:0 0 6px;">Te suman cuando las hagas y las marques como realizadas.</div>
       ${proximas.map(c=>`<div class="gs-linea chica"><span>${diaCorto(c.a.date)} ${escapeHtml(c.a.start||'')} · ${escapeHtml(c.a.client||'(sin nombre)')}</span><span>+${fmtCLP(c.comisionAlCerrar)}</span></div>`).join('')}
       <div class="gs-linea chica" style="font-weight:600;"><span>Total</span><span>+${fmtCLP(montoProximas)}</span></div>` : '';
-  const cerradas = g.citas.filter(c=>!(c.porCerrar && c.comisionAlCerrar>0));
-  const lista = cerradas.map(c=>{
-    const nota = c.a.estado==='Cancelada' ? ' · cancelada' : c.a.estado==='NoShow' ? ' · no llegó' : '';
-    return `<details class="gs-cita"><summary><span>${diaCorto(c.a.date)} · ${escapeHtml(c.a.client||'(sin nombre)')}<small>${escapeHtml(c.a.cursoId ? '📚 '+(c.a.cursoNombre||'Curso') : apptServiciosTexto(c.a))}${nota}</small></span><b>${fmtCLP(c.comision)}<i class="gs-flecha">›</i></b></summary>
-      <div class="gs-pasos">${apptCuentaPasosHtml(c.a)}</div></details>`;
-  }).join('');
+  const lista = t.hechas.map(c=>`<details class="gs-cita"><summary><span>${diaCorto(c.a.date)} · ${escapeHtml(c.a.client||'(sin nombre)')}<small>${escapeHtml(c.a.cursoId ? '📚 '+(c.a.cursoNombre||'Curso') : apptServiciosTexto(c.a))}</small></span><b>${fmtCLP(c.comision)}<i class="gs-flecha">›</i></b></summary>
+      <div class="gs-pasos">${apptCuentaPasosHtml(c.a)}</div></details>`).join('');
+  // Las que no se hicieron van aparte (no suman), para que el número de
+  // citas cuadre con lo que se le paga.
+  const noVinieronHtml = noVinieron.length ? `
+        <div class="gs-titulo" style="margin-top:14px;">❌ Canceladas o no llegó (${noVinieron.length})</div>
+        ${sumanNoVinieron ? '' : `<div class="hint" style="margin:-2px 0 6px;">No suman: el abono queda para el negocio.</div>`}
+        ${noVinieron.map(c=>`<div class="gs-linea chica gs-no-vino"><span>${diaCorto(c.a.date)} · ${escapeHtml(c.a.client||'(sin nombre)')}<small>${c.a.estado==='NoShow' ? 'No llegó' : 'Cancelada'} · ${escapeHtml(apptServiciosTexto(c.a))}</small></span><span>${fmtCLP(c.comision)}</span></div>`).join('')}` : '';
   const vales = g.vales.map(v=>`<div class="gs-linea chica"><span>${diaCorto(v.date)}${v.notas?' · '+escapeHtml(v.notas):''}</span><span>−${fmtCLP(v.monto)}</span></div>`).join('');
   const traspasos = g.traspasos.map(t=>`<div class="hint" style="margin:4px 0;">${escapeHtml(t.texto)}: <b>${fmtSigno(t.monto)}</b></div>`).join('');
   return `
@@ -6405,9 +6411,10 @@ function gananciasSimpleHtml(o){
       <button type="button" class="btn btn-primary gs-vale" data-act="open-vales">💵 Anotar un vale</button>
       <div class="hint" style="text-align:center;margin:-4px 0 14px;">¿Sacaste dinero de la caja? Anótalo apenas lo saques. Así tu pago sale exacto.</div>
       <div class="gs-card">
-        <div class="gs-titulo">Tus citas cerradas</div>
+        <div class="gs-titulo">Tus citas realizadas (${t.hechas.length})</div>
         ${lista ? '<div class="hint" style="margin:-2px 0 6px;">Toca una cita para ver de dónde sale lo que ganas.</div>' : ''}
-        ${lista || '<div class="hint" style="margin:0;">Todavía no tienes citas cerradas esta semana.</div>'}
+        ${lista || '<div class="hint" style="margin:0;">Todavía no tienes citas realizadas esta semana.</div>'}
+        ${noVinieronHtml}
         ${traspasos}
         ${vales ? `<div class="gs-titulo" style="margin-top:14px;">Tus vales</div>${vales}` : ''}
       </div>
@@ -6609,7 +6616,7 @@ function pagosPageHtml(){
     avisos.push(`<div class="pago-aviso">⚠️ Hay citas o vales anotados el <b>domingo ${domingo.getDate()} de ${MONTHS[domingo.getMonth()]}</b>. El domingo no entra en ninguna semana de pago (lun–sáb), así que no se cuentan: revisa si la fecha está bien.</div>`);
   }
   if(w.enCurso && w.porVenir.length){
-    avisos.push(`<div class="hint" style="margin-bottom:12px;">ℹ️ Todavía faltan ${w.porVenir.length} cita${w.porVenir.length===1?'':'s'} de esta semana: ${w.soloCerradas ? 'van sumando a medida que se marcan como realizadas' : 'ya están sumadas, y el número final queda el sábado al cerrar'}.</div>`);
+    avisos.push(`<div class="hint" style="margin-bottom:12px;">ℹ️ Todavía falta${w.porVenir.length===1?'':'n'} ${w.porVenir.length} cita${w.porVenir.length===1?'':'s'} de esta semana: ${w.soloCerradas ? 'van sumando a medida que se marcan como realizadas' : 'ya están sumadas, y el número final queda el sábado al cerrar'}.</div>`);
   }
 
   const tarjetas = conAlgo.map(g=>pagoEspecialistaHtml(g, w)).join('')
@@ -6635,11 +6642,15 @@ function pagoEspecialistaHtml(g, w){
   const abierto = !!ui.pagoAbiertos[normalizeName(g.name)];
   const estado = estadoPago(g);
   const resumen = [];
-  resumen.push(`${g.citas.length} cita${g.citas.length===1?'':'s'}`);
+  const t = citasPagoPorTipo(g);
+  if(!g.citas.length) resumen.push('Sin citas');
+  else resumen.push(cuantas(t.hechas.length, 'realizada', 'realizadas'));
+  if(t.porCerrar.length) resumen.push(`${t.porCerrar.length} por cerrar${g.montoPorCerrar ? ` (${fmtCLP(g.montoPorCerrar)} sin sumar)` : ''}`);
+  if(t.canceladas.length) resumen.push(cuantas(t.canceladas.length, 'cancelada', 'canceladas'));
+  if(t.noLlego.length) resumen.push(`${t.noLlego.length} no llegó`);
   if(g.totalVales) resumen.push(`vales −${fmtCLP(g.totalVales)}`);
   if(g.totalTraspasos) resumen.push(`garantías ${fmtSigno(g.totalTraspasos)}`);
   if(g.totalAjustes) resumen.push(`ajustes ${fmtSigno(g.totalAjustes)}`);
-  if(g.porCerrar) resumen.push(`${g.porCerrar} por cerrar (${fmtCLP(g.montoPorCerrar)} sin sumar)`);
   const nameAttr = escapeHtml(g.name);
   let estadoHtml = '';
   if(estado==='pagado'){
@@ -6669,6 +6680,23 @@ function pagoEspecialistaHtml(g, w){
       ${abierto ? pagoDetalleHtml(g, w) : ''}
     </div>`;
 }
+// Las citas de una especialista en la semana de pago, separadas por cómo
+// terminaron (17/10/2026, pedido de Juan Diego: "13 citas" con 4 canceladas
+// parecía poco para lo que se le paga). Solo las ordena: los montos siguen
+// saliendo de payoutWeekData. "hechas" = las que suman (Realizadas, inscritos
+// de cursos y, en semanas de antes de PAGO_SOLO_CERRADAS_DESDE, las que
+// quedaron sin cerrar y se contaban como hechas).
+function citasPagoPorTipo(g){
+  const t = {hechas:[], porCerrar:[], canceladas:[], noLlego:[]};
+  g.citas.forEach(c=>{
+    if(c.a.estado==='Cancelada') t.canceladas.push(c);
+    else if(c.a.estado==='NoShow') t.noLlego.push(c);
+    else if(c.porCerrar) t.porCerrar.push(c);
+    else t.hechas.push(c);
+  });
+  return t;
+}
+function cuantas(n, uno, varios){ return n===1 ? `1 ${uno}` : `${n} ${varios}`; }
 // Una cita en el detalle del pago (Pagos de Admin y "Mis ganancias").
 function pagoCitaFilaHtml({a, comision, porCerrar, comisionAlCerrar}){
   const abierta = citaAbierta(a);
@@ -6690,7 +6718,16 @@ function pagoCitaFilaHtml({a, comision, porCerrar, comisionAlCerrar}){
 }
 function pagoDetalleHtml(g, w){
   const nameAttr = escapeHtml(g.name);
-  const citas = g.citas.map(c=>pagoCitaFilaHtml(c)).join('') || `<div class="hint">Sin citas esta semana.</div>`;
+  const t = citasPagoPorTipo(g);
+  const noVinieron = t.canceladas.concat(t.noLlego).sort((x,y)=>(x.a.date+(x.a.start||'')).localeCompare(y.a.date+(y.a.start||'')));
+  const sumanNoVinieron = noVinieron.reduce((s,c)=>s+c.comision,0);
+  const citas = !g.citas.length ? `<div class="hint">Sin citas esta semana.</div>` : `
+      <h4>Realizadas (${t.hechas.length}) — lo que gana con cada una</h4>
+      ${t.hechas.map(c=>pagoCitaFilaHtml(c)).join('') || `<div class="hint" style="margin:0 0 6px;">Ninguna todavía.</div>`}
+      ${t.porCerrar.length ? `<h4>Por cerrar (${t.porCerrar.length}) — todavía no suman</h4>${t.porCerrar.map(c=>pagoCitaFilaHtml(c)).join('')}` : ''}
+      ${noVinieron.length ? `<h4>Canceladas o no llegó (${noVinieron.length})</h4>
+      ${sumanNoVinieron ? '' : `<div class="hint" style="margin:0 0 4px;">No suman: el abono queda para el negocio.</div>`}
+      ${noVinieron.map(c=>pagoCitaFilaHtml(c)).join('')}` : ''}`;
   const traspasos = g.traspasos.map(t=>`
       <div class="pago-fila click" data-act="edit-appt" data-id="${escapeHtml(t.apptId)}">
         <div><div>${diaCorto(t.date)}</div><div class="como">${escapeHtml(t.texto)}</div></div>
@@ -6708,7 +6745,6 @@ function pagoDetalleHtml(g, w){
       </div>`).join('');
   return `
     <div class="pago-detalle">
-      <h4>Citas (${g.citas.length}) — lo que gana con cada una</h4>
       ${citas}
       ${traspasos ? `<h4>Garantías hechas por otra especialista</h4>${traspasos}` : ''}
       ${vales ? `<h4>Vales sacados esta semana</h4>${vales}` : ''}
@@ -6717,7 +6753,7 @@ function pagoDetalleHtml(g, w){
       <button type="button" class="btn btn-ghost" style="margin-top:8px;font-size:12.5px;padding:6px 12px;" data-act="ajuste-nuevo" data-name="${nameAttr}">＋ Agregar ajuste</button>
       ${state.specialists.some(s=>normalizeName(s.name)===normalizeName(g.name)) ? `<button type="button" class="btn btn-ghost" style="margin-top:8px;font-size:12.5px;padding:6px 12px;" data-act="ver-ganancias" data-name="${nameAttr}">👁 Ver lo que ve ${escapeHtml(g.name)}</button>` : ''}
       <div class="pago-suma">
-        <div><span>Comisión de las citas</span><span>${fmtCLP(g.comision)}</span></div>
+        <div><span>Comisión de las citas${sumanNoVinieron ? '' : ` (${cuantas(t.hechas.length, 'realizada', 'realizadas')})`}</span><span>${fmtCLP(g.comision)}</span></div>
         ${g.totalTraspasos ? `<div><span>Garantías</span><span>${fmtSigno(g.totalTraspasos)}</span></div>` : ''}
         ${g.totalAjustes ? `<div><span>Ajustes</span><span>${fmtSigno(g.totalAjustes)}</span></div>` : ''}
         ${g.totalVales ? `<div><span>Vales</span><span>−${fmtCLP(g.totalVales)}</span></div>` : ''}

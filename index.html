@@ -6176,14 +6176,17 @@ function hoySedeKey(){ return sedeNow().date; }
 // SOLO cuando está cerrada (Realizada; Cancelada/No llegó ya daban 0). Una
 // Pendiente/Confirmada aparece en el detalle con lo que sumaría, pero no
 // entra en el total hasta que alguien la marque. Los cursos siguen como antes
-// (sus inscritos no se van cerrando uno por uno). Las semanas anteriores no
-// cambian (ya se pagaron con la regla de antes).
-const PAGO_SOLO_CERRADAS_DESDE = '2026-10-12';
+// (sus inscritos no se van cerrando uno por uno). Las citas de septiembre y
+// antes no cambian.
+// 18/10/2026: Juan Diego pidió que valga desde el 1 de octubre (antes era
+// desde la semana del 12/10), igual que Finanzas. Se mira cita por cita (la
+// semana del 28/09 tiene días de septiembre, que siguen con la regla de antes).
+const PAGO_SOLO_CERRADAS_DESDE = '2026-10-01';
 function citaAbierta(a){ return a.estado!=='Realizada' && a.estado!=='Cancelada' && a.estado!=='NoShow'; }
 function payoutWeekData(monday){
   const {start, end} = payoutWeekRange(monday);
   const startKey = toKey(start), endKey = toKey(end);
-  const soloCerradas = startKey >= PAGO_SOLO_CERRADAS_DESDE;
+  const soloCerradas = endKey >= PAGO_SOLO_CERRADAS_DESDE;
   const domingoKey = toKey(addDays(start, 6));
   const hoy = hoySedeKey();
   const porNombre = new Map(); // normalizeName -> grupo
@@ -6206,7 +6209,7 @@ function payoutWeekData(monday){
     const g = grupo(a.specialist);
     const c = apptCommission(a);
     // porCerrar: con la regla nueva, todavía no suma (se ve lo que sumaría).
-    const porCerrar = soloCerradas && abierta && !a.cursoId;
+    const porCerrar = abierta && !a.cursoId && a.date >= PAGO_SOLO_CERRADAS_DESDE;
     g.citas.push({a, comision: porCerrar ? 0 : c, porCerrar, comisionAlCerrar: c});
     g.comision += porCerrar ? 0 : c;
     if(porCerrar && c>0){ g.porCerrar++; g.montoPorCerrar += c; }
@@ -6263,7 +6266,10 @@ function payoutWeekSummary(specialist){
 // la ve igual desde Finanzas → Pagos → "👁 Ver lo que ve …". En false se
 // vuelve a esconder.
 const MIS_GANANCIAS_VISIBLE = true;
-const MIS_GANANCIAS_DESDE = PAGO_SOLO_CERRADAS_DESDE;
+// "Mi pago" sigue empezando en la semana del 12/10 (decidido el 12/10: las
+// semanas anteriores tenían datos desordenados), aunque la regla de citas
+// cerradas ahora valga desde el 1/10.
+const MIS_GANANCIAS_DESDE = '2026-10-12';
 // Dos diseños a prueba (12/10/2026): 'detallado' (recuadros + cada cita con su
 // cuenta) y 'simple' (una boleta corta arriba, la lista de citas en una línea
 // y la cuenta solo al tocarla). En la vista previa se cambia con dos botones.

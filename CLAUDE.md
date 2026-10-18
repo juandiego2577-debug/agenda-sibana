@@ -901,6 +901,14 @@ para servir también a **Copiapó**, de la siguiente forma:
   total de comisiones del mes. Probado contra el emulador (Firestore +
   Auth) con la agenda real: 38 + 3 + 13 pruebas (incluye garantía nueva
   desde el formulario, textos con trampa, Buenos Aires con dólar).
+  **Pestaña propia arriba (18/10/2026, pedido de Juan Diego: "es un botón
+  muy importante", había que entrar a Finanzas → Pagos):** "💵 Pagos" al
+  FINAL de las pestañas de arriba (después de ⭐ Garantías; solo modo Admin,
+  `ui.section = 'pagos'`, misma `pagosPageHtml`). Finanzas → 💵 Pagos sigue
+  igual. En teléfono (≤720px) las pestañas se achican para que las 5 de los
+  dueños quepan desde ~390px; más angosto la fila se desliza sola (nunca la
+  página) y la pestaña elegida queda a la vista. Las especialistas siguen
+  viendo Agenda | Stock | Mi pago.
 - **Solo cuentan las citas cerradas + "Mi pago" para las especialistas
   (12/10/2026, pedido de Juan Diego):** al revisar a mano los
   cuadernos de la semana 05–10/10 se vio que las cuentas del cuaderno estaban

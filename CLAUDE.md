@@ -919,10 +919,13 @@ para servir también a **Copiapó**, de la siguiente forma:
   · 📈 Gráficos. **Regla nueva (aprobada por él):** una cita cuenta como
   ingreso solo cerrada (`cuentaEnFinanzas`: Realizada, o Cancelada/No llegó
   con su abono; cursos siempre), igual que Pagos — SOLO desde
-  `FINANZAS_SOLO_REALIZADAS_DESDE` ('2026-10-19'): él pidió no tocar lo
-  anterior (comprobado: agosto y septiembre dan exactamente igual que la
-  versión anterior). Ojo: la semana 12–17/10 en Pagos ya usaba la regla
-  nueva y en Finanzas no (por esa fecha). Resumen: número grande "Te
+  `FINANZAS_SOLO_REALIZADAS_DESDE` ('2026-10-01'; primero fue '2026-10-19' y
+  él pidió que valiera para todo octubre): septiembre y antes no se tocan
+  (comprobado: agosto y septiembre dan exactamente igual que la versión
+  anterior). Las citas de octubre que quedaron sin cerrar salen en "⏳
+  Todavía por entrar" hasta que alguien las cierre. Ojo: en Pagos la
+  semana 05–10/10 todavía contaba las sin cerrar como hechas (Pagos usa
+  `PAGO_SOLO_CERRADAS_DESDE` = 12/10, no se tocó). Resumen: número grande "Te
   quedó" (+ entró/salió), comparación con el mes anterior A LA MISMA FECHA
   (`comparacionMesHtml`, solo citas; `monthFinancials(y,m,hastaKey)`),
   "⏳ Todavía por entrar" (citas sin cerrar, con las ya pasadas para

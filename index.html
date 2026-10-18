@@ -6017,10 +6017,10 @@ function recurringIncomeTotal(){
 // Finanzas cuenta una cita como ingreso SOLO cuando está cerrada (18/10/2026,
 // decidido con Juan Diego, igual que Pagos): Realizada, o Cancelada/No llegó
 // (cuenta su abono). Las Pendiente/Confirmada van aparte, en "Todavía por
-// entrar". Solo desde FINANZAS_SOLO_REALIZADAS_DESDE: él pidió no tocar lo
-// anterior, así que los meses pasados se siguen sumando como siempre. Los
-// inscritos de cursos cuentan siempre (como en Pagos).
-const FINANZAS_SOLO_REALIZADAS_DESDE = '2026-10-19';
+// entrar". Solo desde FINANZAS_SOLO_REALIZADAS_DESDE (todo octubre 2026, lo
+// pidió él; primero era desde el 19/10): septiembre y antes se siguen
+// sumando como siempre. Los inscritos de cursos cuentan siempre (como en Pagos).
+const FINANZAS_SOLO_REALIZADAS_DESDE = '2026-10-01';
 function cuentaEnFinanzas(a){
   if(a.date < FINANZAS_SOLO_REALIZADAS_DESDE || a.cursoId) return true;
   return !citaAbierta(a);
@@ -7323,7 +7323,7 @@ function finanzasResumenHtml(year, month){
     porEntrarHtml = `
     <div class="pago-aviso ${pasadas.length?'peligro':''}">
       ⏳ <b>Todavía por entrar: ${fmtCLP(f.porEntrarMonto)}</b> de ${f.porEntrar.length} cita${f.porEntrar.length===1?'':'s'} sin cerrar. No se suma${f.porEntrar.length===1?'':'n'} a lo que te quedó hasta que se marque${f.porEntrar.length===1?'':'n'} como Realizada (o Cancelada / No llegó).
-      ${pasadas.length ? `<div style="margin-top:6px;"><b>${pasadas.length===1 ? '1 ya pasó' : pasadas.length+' ya pasaron'} y sigue${pasadas.length===1?'':'n'} sin cerrar</b> (tócala para abrirla):</div>
+      ${pasadas.length ? `<div style="margin-top:6px;"><b>${pasadas.length===1 ? '1 ya pasó' : pasadas.length+' ya pasaron'} y sigue${pasadas.length===1?'':'n'} sin cerrar</b> (${pasadas.length===1?'tócala':'tócalas'} para abrir${pasadas.length===1?'la':'las'}):</div>
       <ul>${pasadas.map(a=>`<li><button type="button" class="linklike" data-act="edit-appt" data-id="${escapeHtml(a.id)}">${diaCorto(a.date)} ${escapeHtml(a.start||'')} · ${escapeHtml(a.client||'(sin nombre)')} · ${escapeHtml(a.specialist||'sin especialista')} · ${fmtCLP(apptRevenue(a))}</button></li>`).join('')}</ul>` : ''}
     </div>`;
   }

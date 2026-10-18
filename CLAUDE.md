@@ -909,6 +909,39 @@ para servir también a **Copiapó**, de la siguiente forma:
   dueños quepan desde ~390px; más angosto la fila se desliza sola (nunca la
   página) y la pestaña elegida queda a la vista. Las especialistas siguen
   viendo Agenda | Stock | Mi pago.
+  **Mismo día, más tarde:** Pagos se SACÓ de Finanzas (subpestaña y la
+  tabla "Pago de esta semana" del Resumen: no repetir en dos lados) y las
+  pestañas de los dueños se ordenaron (Juan Diego lo pidió, solo las ven
+  ellos): 📅 Agenda · 💵 Pagos · 📊 Finanzas · ⭐ Garantías · 📦 Stock
+  (`sectionTabsHtml`).
+- **Finanzas rehecha para usarla de verdad (18/10/2026, Juan Diego: "que no
+  esté de adorno", lo dejó a criterio):** subpestañas 📊 Resumen · 💸 Gastos
+  · 📈 Gráficos. **Regla nueva (aprobada por él):** una cita cuenta como
+  ingreso solo cerrada (`cuentaEnFinanzas`: Realizada, o Cancelada/No llegó
+  con su abono; cursos siempre), igual que Pagos — SOLO desde
+  `FINANZAS_SOLO_REALIZADAS_DESDE` ('2026-10-19'): él pidió no tocar lo
+  anterior (comprobado: agosto y septiembre dan exactamente igual que la
+  versión anterior). Ojo: la semana 12–17/10 en Pagos ya usaba la regla
+  nueva y en Finanzas no (por esa fecha). Resumen: número grande "Te
+  quedó" (+ entró/salió), comparación con el mes anterior A LA MISMA FECHA
+  (`comparacionMesHtml`, solo citas; `monthFinancials(y,m,hastaKey)`),
+  "⏳ Todavía por entrar" (citas sin cerrar, con las ya pasadas para
+  abrirlas), "De dónde sale" (boleta: entró/salió/te quedó), por
+  especialista (generó / se lleva / le deja al negocio), cómo te pagaron,
+  semana a semana (ahora resta comisiones además de gastos variables).
+  Se quitó el aviso "En ajuste"; cremas vendidas solo si hay. Gastos: "＋
+  Anotar gasto" abre un cuadro (`gastoModalHtml`/`saveGastoFromForm`) que
+  guarda al tocar Guardar; cada gasto es una línea que se toca para
+  editar; categoría nueva **"Devolución a clienta"**
+  (`CATEGORIA_DEVOLUCION`, sale aparte en el Resumen). El % de comisión se
+  movió aquí. Gráficos: lo que quedó (barras negativas en rojo bajo la
+  línea del cero), lo que entró, tratamientos que más dinero dejan (combo
+  repartido por precio de lista), lo que deja cada especialista, citas
+  realizadas. Los gráficos ahora miden según la pantalla (`anchoGrafico`):
+  antes en el teléfono quedaban diminutos. Sin `APP_VERSION` (solo cambia
+  cómo se muestra; las devoluciones son gastos normales). Probado: e2e
+  (comparación con la versión anterior, anotar/editar/borrar gasto,
+  validación, 390 y 1517px, Buenos Aires, especialista sin cambios).
 - **Solo cuentan las citas cerradas + "Mi pago" para las especialistas
   (12/10/2026, pedido de Juan Diego):** al revisar a mano los
   cuadernos de la semana 05–10/10 se vio que las cuentas del cuaderno estaban

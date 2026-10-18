@@ -533,6 +533,27 @@
     background:rgba(217,106,106,0.18);color:var(--danger);font-weight:700;font-size:11px;
     padding:4px 8px;border-radius:999px;white-space:nowrap;flex-shrink:0;
   }
+  .fin-hero{background:rgba(201,162,39,0.1);border:1px solid var(--wine);border-radius:12px;padding:16px 14px;text-align:center;margin-bottom:14px;}
+  .fin-hero .lbl{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;}
+  .fin-hero .val{font-family:'Fraunces',serif;font-size:36px;font-weight:600;color:var(--gold-soft);margin:2px 0 4px;}
+  .fin-hero.negativo .val{color:var(--danger);}
+  .fin-hero-sub{font-size:13.5px;color:var(--ink);}
+  .fin-hero-comp{font-size:12.5px;color:var(--ink-soft);margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);}
+  .fin-delta{font-weight:700;white-space:nowrap;}
+  .fin-delta.sube{color:var(--ok);}
+  .fin-delta.baja{color:var(--danger);}
+  .fin-boleta{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:6px 14px 10px;}
+  .fin-linea{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:13.5px;border-top:1px dashed var(--line);}
+  .fin-linea span:last-child{white-space:nowrap;}
+  .fin-linea.total{font-weight:700;font-size:15px;color:var(--gold);border-top:1px solid var(--wine);margin-top:4px;}
+  .fin-linea-titulo{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;margin:10px 0 2px;}
+  .fin-esp th, .fin-esp td{text-align:right;}
+  .fin-esp th:first-child, .fin-esp td:first-child{text-align:left;}
+  .gasto-nuevo-btn{width:100%;font-size:15px;padding:12px;margin-bottom:10px;}
+  .gasto-fila{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px dashed var(--line);}
+  .gasto-info{flex:1;min-width:0;text-align:left;background:none;border:none;color:var(--ink);font:inherit;font-size:13.5px;cursor:pointer;padding:0;}
+  .gasto-info small{display:block;font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+  .gasto-monto{font-weight:600;white-space:nowrap;color:var(--danger);}
   .chart-box{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 10px;margin-bottom:6px;overflow-x:auto;}
   @media (max-width:600px){
     .fin-cards{grid-template-columns:1fr;}
@@ -3906,16 +3927,18 @@ function render(){
   }
 }
 
+// Orden de las pestañas de los dueños (18/10/2026, decidido con Juan Diego):
+// de lo que más usan a lo que menos. Las especialistas no cambian: Agenda |
+// Stock | Mi pago (a ellas nunca se les mueve un botón).
 function sectionTabsHtml(){
   const isAdmin = ui.mode==='admin';
+  const tab = (sec, label)=>`<button class="${(sec==='agenda' ? !['finanzas','stock','garantias','pagos'].includes(ui.section) : ui.section===sec)?'active':''}" data-act="goto-section" data-section="${sec}">${label}</button>`;
+  const tabs = isAdmin
+    ? [tab('agenda','📅 Agenda'), tab('pagos','💵 Pagos'), tab('finanzas','📊 Finanzas'), puedeVerGarantias() ? tab('garantias','⭐ Garantías') : '', tab('stock','📦 Stock')]
+    : [tab('agenda','📅 Agenda'), tab('stock','📦 Stock'), MIS_GANANCIAS_VISIBLE ? tab('finanzas','💵 Mi pago') : ''];
   return `
     <div class="section-tabs">
-      <button class="${!['finanzas','stock','garantias','pagos'].includes(ui.section)?'active':''}" data-act="goto-section" data-section="agenda">📅 Agenda</button>
-      ${isAdmin ? `<button class="${ui.section==='finanzas'?'active':''}" data-act="goto-section" data-section="finanzas">📊 Finanzas</button>` : ''}
-      <button class="${ui.section==='stock'?'active':''}" data-act="goto-section" data-section="stock">📦 Stock</button>
-      ${!isAdmin && MIS_GANANCIAS_VISIBLE ? `<button class="${ui.section==='finanzas'?'active':''}" data-act="goto-section" data-section="finanzas">💵 Mi pago</button>` : ''}
-      ${puedeVerGarantias() ? `<button class="${ui.section==='garantias'?'active':''}" data-act="goto-section" data-section="garantias">⭐ Garantías</button>` : ''}
-      ${isAdmin ? `<button class="${ui.section==='pagos'?'active':''}" data-act="goto-section" data-section="pagos">💵 Pagos</button>` : ''}
+      ${tabs.join('')}
     </div>`;
 }
 
@@ -4428,6 +4451,7 @@ function modalHtml(){
   if(ui.modal.type==='curso-attendee') return cursoAttendeeModalHtml();
   if(ui.modal.type==='vales') return valesModalHtml();
   if(ui.modal.type==='ajuste') return ajusteModalHtml();
+  if(ui.modal.type==='gasto') return gastoModalHtml();
   if(ui.modal.type==='ganancias-preview') return gananciasPreviewModalHtml();
   if(ui.modal.type==='staff-identity') return staffIdentityModalHtml();
   if(ui.modal.type==='mi-cuenta') return miCuentaModalHtml();
@@ -5990,19 +6014,44 @@ function comisionPctForMonth(year, month){
 function recurringIncomeTotal(){
   return (state.recurringIncomes||[]).reduce((s,r)=>s+(Number(r.monto)||0),0);
 }
-function monthFinancials(year, month){
-  const appts = apptsInMonth(year, month);
-  const gastos = expensesInMonth(year, month);
+// Finanzas cuenta una cita como ingreso SOLO cuando está cerrada (18/10/2026,
+// decidido con Juan Diego, igual que Pagos): Realizada, o Cancelada/No llegó
+// (cuenta su abono). Las Pendiente/Confirmada van aparte, en "Todavía por
+// entrar". Solo desde FINANZAS_SOLO_REALIZADAS_DESDE: él pidió no tocar lo
+// anterior, así que los meses pasados se siguen sumando como siempre. Los
+// inscritos de cursos cuentan siempre (como en Pagos).
+const FINANZAS_SOLO_REALIZADAS_DESDE = '2026-10-19';
+function cuentaEnFinanzas(a){
+  if(a.date < FINANZAS_SOLO_REALIZADAS_DESDE || a.cursoId) return true;
+  return !citaAbierta(a);
+}
+const CATEGORIA_DEVOLUCION = 'Devolución a clienta';
+function esDevolucion(g){ return g.categoria===CATEGORIA_DEVOLUCION; }
+// hastaKey (opcional): solo lo que pasó hasta ese día, para comparar con el
+// mes anterior "a la misma fecha".
+function monthFinancials(year, month, hastaKey){
+  let todas = apptsInMonth(year, month);
+  let gastos = expensesInMonth(year, month);
+  if(hastaKey){ todas = todas.filter(a=>a.date<=hastaKey); gastos = gastos.filter(g=>g.date<=hastaKey); }
+  const appts = todas.filter(cuentaEnFinanzas);
+  const porEntrar = todas.filter(a=>!cuentaEnFinanzas(a));
+  const porEntrarMonto = porEntrar.reduce((s,a)=>s+apptRevenue(a),0);
+  const noVino = a=>a.estado==='Cancelada' || a.estado==='NoShow';
+  const hechas = appts.filter(a=>!noVino(a));
   const ingresosCitas = appts.reduce((s,a)=>s+apptRevenue(a),0);
+  const ingresosAbonosPerdidos = appts.filter(noVino).reduce((s,a)=>s+apptRevenue(a),0);
   // El ingreso pasivo (ej. arriendo de un box) llega una vez por cada semana
   // que cae dentro del mes — la misma cantidad de semanas que se ven en el
   // desglose semanal de abajo, para que ambos números siempre cuadren.
-  const ingresosPasivos = recurringIncomeTotal() * weekRangesForMonth(year, month).length;
+  const ingresosPasivos = recurringIncomeTotal() * weekRangesForMonth(year, month).filter(r=>!hastaKey || toKey(r.start)<=hastaKey).length;
   const ingresos = ingresosCitas + ingresosPasivos;
   const cremasVendidas = appts.filter(a=>a.estado!=='Cancelada' && a.estado!=='NoShow').reduce((s,a)=>s+apptCremas(a),0);
   const recurringTotal = (state.recurringExpenses||[]).reduce((s,r)=>s+(Number(r.monto)||0),0);
   const gastosFijos = recurringTotal + gastos.filter(g=>g.tipo==='Fijo').reduce((s,g)=>s+(Number(g.monto)||0),0);
-  const gastosVariables = gastos.filter(g=>g.tipo==='Variable').reduce((s,g)=>s+(Number(g.monto)||0),0);
+  const gastosVariables = gastos.filter(g=>g.tipo==='Variable' && !esDevolucion(g)).reduce((s,g)=>s+(Number(g.monto)||0),0);
+  // Dinero devuelto a una clienta (ej. un tratamiento que hubo que devolver):
+  // se anota en Gastos con su propia categoría para verlo aparte.
+  const devoluciones = gastos.filter(esDevolucion).reduce((s,g)=>s+(Number(g.monto)||0),0);
   const comisionPct = comisionPctForMonth(year, month);
   // La comisión de las especialistas se calcula solo sobre lo que generan las
   // citas (sin contar la crema ni el ingreso pasivo del box) — ver
@@ -6014,7 +6063,7 @@ function monthFinancials(year, month){
   // la semana de pago a la que se anotaron (su lunes cae en este mes).
   const ajustesMes = ajustesEnMes(year, month);
   const ajustesTotal = ajustesMes.reduce((s,x)=>s+(Number(x.monto)||0),0);
-  const gastosTotal = gastosFijos + gastosVariables + comisiones + ajustesTotal;
+  const gastosTotal = gastosFijos + gastosVariables + devoluciones + comisiones + ajustesTotal;
   const beneficio = ingresos - gastosTotal;
 
   const porMetodo = paymentBreakdown(appts);
@@ -6022,8 +6071,9 @@ function monthFinancials(year, month){
   const porEspecialista = {};
   appts.forEach(a=>{
     const name = a.specialist || 'Sin asignar';
-    if(!porEspecialista[name]) porEspecialista[name] = {ingresos:0, comisionBase:0, citas:0, personas:0, multi:false, _appts:[]};
+    if(!porEspecialista[name]) porEspecialista[name] = {ingresos:0, comisionBase:0, citas:0, hechas:0, personas:0, multi:false, _appts:[]};
     porEspecialista[name].ingresos += apptRevenue(a);
+    if(!noVino(a)) porEspecialista[name].hechas += 1;
     porEspecialista[name].comisionBase += apptCommissionBase(a);
     porEspecialista[name].comision = (porEspecialista[name].comision||0) + apptCommission(a);
     porEspecialista[name].citas += 1;
@@ -6035,7 +6085,7 @@ function monthFinancials(year, month){
   const ultimoDia = new Date(year, month+1, 0);
   traspasosEnRango(toKey(new Date(year, month, 1)), toKey(ultimoDia)).forEach(t=>{
     const name = state.specialists.map(s=>s.name).find(n=>normalizeName(n)===normalizeName(t.specialist)) || t.specialist;
-    if(!porEspecialista[name]) porEspecialista[name] = {ingresos:0, comisionBase:0, comision:0, citas:0, personas:0, multi:false, _appts:[]};
+    if(!porEspecialista[name]) porEspecialista[name] = {ingresos:0, comisionBase:0, comision:0, citas:0, hechas:0, personas:0, multi:false, _appts:[]};
     porEspecialista[name].comision = (porEspecialista[name].comision||0) + t.monto;
   });
   Object.keys(porEspecialista).forEach(name=>{
@@ -6047,7 +6097,7 @@ function monthFinancials(year, month){
     delete e._appts;
   });
 
-  return {ingresos, ingresosCitas, ingresosPasivos, gastosFijos, gastosVariables, comisiones, ajustesTotal, gastosTotal, beneficio, porMetodo, porEspecialista, comisionPct, appts, gastos, cremasVendidas};
+  return {ingresos, ingresosCitas, ingresosAbonosPerdidos, ingresosPasivos, gastosFijos, gastosVariables, devoluciones, comisiones, ajustesTotal, gastosTotal, beneficio, porMetodo, porEspecialista, comisionPct, appts, hechas, porEntrar, porEntrarMonto, gastos, cremasVendidas};
 }
 function weekRangesForMonth(year, month){
   // Semanas de lunes a domingo, recortadas a los límites del mes — igual que
@@ -6066,12 +6116,13 @@ function weekRangesForMonth(year, month){
 }
 function rangeFinancials(start, end){
   const startKey = toKey(start), endKey = toKey(end);
-  const appts = state.appointments.filter(a=> a.date>=startKey && a.date<=endKey);
+  const appts = state.appointments.filter(a=> a.date>=startKey && a.date<=endKey && cuentaEnFinanzas(a));
   const gastosVar = (state.expenses||[]).filter(g=> g.date>=startKey && g.date<=endKey && g.tipo==='Variable').reduce((s,g)=>s+(Number(g.monto)||0),0);
   // Cada llamada a esta función representa una semana (ver weekRangesForMonth),
   // así que el ingreso pasivo se suma una vez por llamada.
   const ingresos = appts.reduce((s,a)=>s+apptRevenue(a),0) + recurringIncomeTotal();
-  return {ingresos, gastosVar, ganancia: ingresos - gastosVar};
+  const comisiones = appts.reduce((s,a)=>s+apptCommission(a),0);
+  return {ingresos, comisiones, gastosVar, ganancia: ingresos - comisiones - gastosVar};
 }
 
 // Semana de PAGO de la comisión a las especialistas: lunes a sábado (el
@@ -7199,127 +7250,154 @@ function garantiasSeccionHtml(){
 
 function finanzasPageHtml(){
   if(!ui.reportsDate) ui.reportsDate = new Date();
-  if(!ui.financeTab) ui.financeTab = 'resumen';
+  // "Pagos" tiene su propia pestaña arriba desde el 18/10/2026 (no se repite acá).
+  if(!ui.financeTab || ui.financeTab==='pagos') ui.financeTab = 'resumen';
   const year = ui.reportsDate.getFullYear(), month = ui.reportsDate.getMonth();
   return `
     <div class="fin-page">
-      ${ui.financeTab==='pagos'
-        ? `<div class="hint" style="border:1px solid var(--warn);border-radius:8px;padding:10px 12px;margin-bottom:12px;color:var(--ink);">💡 Las primeras semanas, compara este número con tu cuenta a mano antes de pagar. Si algo no cuadra, abre el detalle de la especialista: ahí está cita por cita. (Las especialistas no ven esta sección.)</div>`
-        : `<div class="hint" style="border:1px solid var(--warn);border-radius:8px;padding:10px 12px;margin-bottom:12px;color:var(--ink);">⚠️ <b>En ajuste:</b> mientras se termina de ajustar la agenda, estos números todavía pueden tener errores. Para pagarle a las especialistas usa la pestaña "💵 Pagos". (Las especialistas no ven esta sección.)</div>
       <div class="fin-monthnav">
         <button class="arrow" data-act="reports-prev-month">‹</button>
         <div class="curdate">${MONTHS[month][0].toUpperCase()}${MONTHS[month].slice(1)} ${year}</div>
         <button class="arrow" data-act="reports-next-month">›</button>
-      </div>`}
-      <div class="fin-subtabs">
-        <button class="${ui.financeTab==='resumen'?'active':''}" data-act="finance-tab" data-tab="resumen">Resumen</button>
-        <button class="${ui.financeTab==='graficos'?'active':''}" data-act="finance-tab" data-tab="graficos">Gráficos</button>
-        <button class="${ui.financeTab==='gastos'?'active':''}" data-act="finance-tab" data-tab="gastos">Ingresos y gastos fijos</button>
-        <button class="${ui.financeTab==='pagos'?'active':''}" data-act="finance-tab" data-tab="pagos">💵 Pagos</button>
       </div>
-      ${ui.financeTab==='resumen' ? finanzasResumenHtml(year,month) : ui.financeTab==='graficos' ? finanzasGraficosHtml(year,month) : ui.financeTab==='pagos' ? pagosPageHtml() : finanzasGastosHtml(year,month)}
+      <div class="fin-subtabs">
+        <button class="${ui.financeTab==='resumen'?'active':''}" data-act="finance-tab" data-tab="resumen">📊 Resumen</button>
+        <button class="${ui.financeTab==='gastos'?'active':''}" data-act="finance-tab" data-tab="gastos">💸 Gastos</button>
+        <button class="${ui.financeTab==='graficos'?'active':''}" data-act="finance-tab" data-tab="graficos">📈 Gráficos</button>
+      </div>
+      ${ui.financeTab==='graficos' ? finanzasGraficosHtml(year,month) : ui.financeTab==='gastos' ? finanzasGastosHtml(year,month) : finanzasResumenHtml(year,month)}
     </div>`;
+}
+
+// Comparación con el mes anterior. En el mes en curso compara "a la misma
+// fecha" (ej. del 1 al 18 contra del 1 al 18 del mes pasado), para no poner
+// medio mes contra un mes completo. Solo las citas: los gastos fijos se
+// cuentan completos cada mes y no se pueden partir por día.
+function comparacionMesHtml(year, month){
+  const hoy = hoySedeKey();
+  const ini = toKey(new Date(year, month, 1)), fin = toKey(new Date(year, month+1, 0));
+  if(hoy < ini) return '';
+  const prev = addMonths(new Date(year, month, 1), -1);
+  const py = prev.getFullYear(), pm = prev.getMonth();
+  let actual, antes, texto;
+  if(hoy <= fin){
+    const dia = parseKey(hoy).getDate();
+    const diaPrev = Math.min(dia, daysInMonth(py, pm));
+    actual = monthFinancials(year, month, hoy).ingresosCitas;
+    antes = monthFinancials(py, pm, toKey(new Date(py, pm, diaPrev))).ingresosCitas;
+    texto = `Citas: llevas <b>${fmtCLP(actual)}</b> al ${dia} de ${MONTHS[month]}. El mes pasado, al ${diaPrev} de ${MONTHS[pm]}, llevabas ${fmtCLP(antes)}.`;
+  } else {
+    actual = monthFinancials(year, month).ingresosCitas;
+    antes = monthFinancials(py, pm).ingresosCitas;
+    texto = `Citas: <b>${fmtCLP(actual)}</b> en ${MONTHS[month]}, contra ${fmtCLP(antes)} en ${MONTHS[pm]}.`;
+  }
+  let delta = '';
+  if(antes > 0){
+    const pct = Math.round((actual - antes) / antes * 100);
+    delta = pct===0 ? ' <span class="fin-delta">= igual</span>'
+      : ` <span class="fin-delta ${pct>0?'sube':'baja'}">${pct>0?'▲':'▼'} ${Math.abs(pct)}%</span>`;
+  }
+  return `<div class="fin-hero-comp">${texto}${delta}</div>`;
 }
 
 function finanzasResumenHtml(year, month){
   const f = monthFinancials(year, month);
   const weeks = weekRangesForMonth(year, month).map(r=>({...r, fin: rangeFinancials(r.start, r.end)}));
+  const hoy = hoySedeKey();
+  const enCurso = hoy >= toKey(new Date(year, month, 1)) && hoy <= toKey(new Date(year, month+1, 0));
+  const nombreMes = MONTHS[month];
+
+  // 1. Lo grande: lo que quedó.
+  const hero = `
+    <div class="fin-hero ${f.beneficio<0?'negativo':''}">
+      <div class="lbl">${enCurso ? `Te queda hasta ahora en ${nombreMes}` : `Te quedó en ${nombreMes}`}</div>
+      <div class="val">${fmtNeto(f.beneficio)}</div>
+      <div class="fin-hero-sub">Entró ${fmtCLP(f.ingresos)} · Salió ${fmtCLP(f.gastosTotal)}</div>
+      ${comparacionMesHtml(year, month)}
+    </div>`;
+
+  // 2. Lo que todavía no cuenta (citas sin cerrar o por hacer).
+  let porEntrarHtml = '';
+  if(f.porEntrar.length){
+    const pasadas = f.porEntrar.filter(a=>a.date<hoy).sort((x,y)=>(x.date+(x.start||'')).localeCompare(y.date+(y.start||'')));
+    porEntrarHtml = `
+    <div class="pago-aviso ${pasadas.length?'peligro':''}">
+      ⏳ <b>Todavía por entrar: ${fmtCLP(f.porEntrarMonto)}</b> de ${f.porEntrar.length} cita${f.porEntrar.length===1?'':'s'} sin cerrar. No se suma${f.porEntrar.length===1?'':'n'} a lo que te quedó hasta que se marque${f.porEntrar.length===1?'':'n'} como Realizada (o Cancelada / No llegó).
+      ${pasadas.length ? `<div style="margin-top:6px;"><b>${pasadas.length===1 ? '1 ya pasó' : pasadas.length+' ya pasaron'} y sigue${pasadas.length===1?'':'n'} sin cerrar</b> (tócala para abrirla):</div>
+      <ul>${pasadas.map(a=>`<li><button type="button" class="linklike" data-act="edit-appt" data-id="${escapeHtml(a.id)}">${diaCorto(a.date)} ${escapeHtml(a.start||'')} · ${escapeHtml(a.client||'(sin nombre)')} · ${escapeHtml(a.specialist||'sin especialista')} · ${fmtCLP(apptRevenue(a))}</button></li>`).join('')}</ul>` : ''}
+    </div>`;
+  }
+
+  // 3. De dónde sale: entradas, salidas y lo que quedó.
+  const linea = (txt, val, cls) => `<div class="fin-linea ${cls||''}"><span>${txt}</span><span>${val}</span></div>`;
+  const ingresosHechas = f.ingresosCitas - f.ingresosAbonosPerdidos;
+  const nAbonos = f.appts.length - f.hechas.length;
+  const boleta = [
+    `<div class="fin-linea-titulo">Entró</div>`,
+    linea(`Citas (${f.hechas.length})`, fmtCLP(ingresosHechas)),
+    f.ingresosAbonosPerdidos ? linea(`Abonos de canceladas y no llegó (${nAbonos})`, fmtCLP(f.ingresosAbonosPerdidos)) : '',
+    f.ingresosPasivos ? linea('Ingresos fijos (arriendo del box…)', fmtCLP(f.ingresosPasivos)) : '',
+    `<div class="fin-linea-titulo">Salió</div>`,
+    linea(`Comisiones de especialistas`, '−'+fmtCLP(f.comisiones)),
+    f.ajustesTotal ? linea('Ajustes del pago (bonos, correcciones)', f.ajustesTotal>0 ? '−'+fmtCLP(f.ajustesTotal) : '+'+fmtCLP(-f.ajustesTotal)) : '',
+    linea('Gastos fijos (arriendo, cuentas…)', '−'+fmtCLP(f.gastosFijos)),
+    linea('Insumos y gastos variables', '−'+fmtCLP(f.gastosVariables)),
+    f.devoluciones ? linea('Devoluciones a clientas', '−'+fmtCLP(f.devoluciones)) : '',
+    linea(enCurso ? 'Te queda hasta ahora' : 'Te quedó', fmtNeto(f.beneficio), 'total'),
+  ].join('');
+
+  // 4. Por especialista: lo que generó, lo que se lleva y lo que le deja al negocio.
+  const espRows = Object.keys(f.porEspecialista).sort((a,b)=>f.porEspecialista[b].ingresos-f.porEspecialista[a].ingresos).map(name=>{
+    const e = f.porEspecialista[name];
+    return `<tr><td>${escapeHtml(name)}<div class="hint" style="margin:0;">${e.hechas} cita${e.hechas===1?'':'s'}${e.personas!==e.hechas && e.multi?` · ${e.personas} personas`:''}</div></td><td>${fmtCLP(e.ingresos)}</td><td>${fmtCLP(e.comision)}</td><td><b>${fmtNeto(e.ingresos - e.comision)}</b></td></tr>`;
+  }).join('') || `<tr><td colspan="4" class="hint">Sin citas este mes.</td></tr>`;
 
   const metodoRows = Object.keys(f.porMetodo).sort((a,b)=>f.porMetodo[b]-f.porMetodo[a]).map(m=>`
     <tr><td>${escapeHtml(m)}</td><td>${fmtCLP(f.porMetodo[m])}</td></tr>
   `).join('') || `<tr><td colspan="2" class="hint">Sin cobros registrados este mes.</td></tr>`;
 
-  const espRows = Object.keys(f.porEspecialista).sort((a,b)=>f.porEspecialista[b].ingresos-f.porEspecialista[a].ingresos).map(name=>{
-    const e = f.porEspecialista[name];
-    return `<tr><td>${escapeHtml(name)}</td><td>${e.citas}${(e.multi || e.personas!==e.citas)?`<div class="hint" style="margin:0;">${e.personas} personas</div>`:''}</td><td>${fmtCLP(e.ingresos)}</td><td>${fmtCLP(e.comision)}</td></tr>`;
-  }).join('') || `<tr><td colspan="4" class="hint">Sin citas registradas este mes.</td></tr>`;
-
-  // Mismo cálculo que la pestaña "💵 Pagos" (payoutWeekData), en corto.
-  const payoutW = payoutWeekData(parseKey(semanaPagoActualKey()));
-  const payoutRangeLabel = rangoSemanaTexto(payoutW.start, payoutW.end);
-  const payoutRows = payoutW.especialistas.filter(g=>g.tieneAlgo || state.specialists.some(s=>normalizeName(s.name)===normalizeName(g.name))).map(g=>{
-    const otros = g.totalTraspasos + g.totalAjustes;
-    return `<tr><td>${escapeHtml(g.name)}</td><td>${fmtCLP(g.comision)}${otros?`<div class="hint" style="margin:0;">${fmtSigno(otros)} ajustes/garantías</div>`:''}</td><td>${g.totalVales>0?fmtCLP(g.totalVales):'—'}</td><td><b>${fmtNeto(g.neto)}</b></td></tr>`;
-  }).join('') || `<tr><td colspan="4" class="hint">No hay especialistas cargadas.</td></tr>`;
-
   const weekRows = weeks.map((w,i)=>`
     <tr>
-      <td>Semana ${i+1}</td>
-      <td>${w.start.getDate()} – ${w.end.getDate()} ${MONTHS[w.end.getMonth()].slice(0,3)}</td>
+      <td>Semana ${i+1}<div class="hint" style="margin:0;">${w.start.getDate()} – ${w.end.getDate()} ${MONTHS[w.end.getMonth()].slice(0,3)}</div></td>
       <td>${fmtCLP(w.fin.ingresos)}</td>
-      <td>${fmtCLP(w.fin.gastosVar)}</td>
-      <td>${fmtCLP(w.fin.ganancia)}</td>
+      <td>${(w.fin.comisiones + w.fin.gastosVar) ? '−'+fmtCLP(w.fin.comisiones + w.fin.gastosVar) : '$0'}</td>
+      <td><b>${fmtNeto(w.fin.ganancia)}</b></td>
     </tr>`).join('');
 
+  const desde = parseKey(FINANZAS_SOLO_REALIZADAS_DESDE);
   return `
-    <div class="fin-cards">
-      <div class="fin-card"><div class="lbl">Ingresos totales</div><div class="val">${fmtCLP(f.ingresos)}</div></div>
-      <div class="fin-card"><div class="lbl">Gastos totales</div><div class="val">${fmtCLP(f.gastosTotal)}</div></div>
-      <div class="fin-card highlight"><div class="lbl">Beneficio neto</div><div class="val">${fmtCLP(f.beneficio)}</div></div>
-    </div>
+    ${hero}
+    ${porEntrarHtml}
 
-    <h3 class="fin-sub">Desglose de ingresos</h3>
-    <table class="fin-table">
-      <tbody>
-        <tr><td>Citas</td><td>${fmtCLP(f.ingresosCitas)}</td></tr>
-        <tr><td>Ingresos pasivos (arriendo box, etc.)</td><td>${fmtCLP(f.ingresosPasivos)}</td></tr>
-      </tbody>
-    </table>
+    <h3 class="fin-sub">De dónde sale</h3>
+    <div class="fin-boleta">${boleta}</div>
 
-    <h3 class="fin-sub">Desglose de gastos</h3>
-    <table class="fin-table">
-      <tbody>
-        <tr><td>Gastos fijos operativos</td><td>${fmtCLP(f.gastosFijos)}</td></tr>
-        <tr><td>Insumos y gastos variables</td><td>${fmtCLP(f.gastosVariables)}</td></tr>
-        <tr><td>Comisiones de especialistas (${Math.round(f.comisionPct*100)}%)</td><td>${fmtCLP(f.comisiones)}</td></tr>
-        ${f.ajustesTotal ? `<tr><td>Ajustes a mano del pago de especialistas</td><td>${fmtSigno(f.ajustesTotal)}</td></tr>` : ''}
-      </tbody>
-    </table>
-
-    <h3 class="fin-sub">Ventas adicionales</h3>
-    <table class="fin-table">
-      <tbody>
-        <tr><td>🧴 Cremas post-tratamiento vendidas</td><td>${f.cremasVendidas} (${fmtCLP(f.cremasVendidas*CREMA_PRICE)})</td></tr>
-      </tbody>
-    </table>
-    <div class="hint">El dinero de la crema es 100% para el dueño — no entra en el cálculo de la comisión de las especialistas.</div>
-
-    <h3 class="fin-sub">Recaudación por método de pago</h3>
-    <table class="fin-table"><tbody>${metodoRows}</tbody></table>
-
-    <h3 class="fin-sub">Comisiones por especialista</h3>
-    <div class="field-row" style="align-items:center;gap:8px;margin-bottom:4px;">
-      <label style="margin:0;font-size:12px;color:var(--ink-soft);">% de comisión</label>
-      <input type="number" id="f-comision-pct" min="0" max="100" step="1" value="${Math.round(f.comisionPct*100)}" style="width:70px;">
-      <button class="btn btn-ghost" data-act="save-comision-pct" data-year="${year}" data-month="${month}" style="font-size:12px;padding:6px 12px;">Guardar %</button>
-    </div>
-    <div class="hint" style="margin-bottom:8px;">Aplica desde <b>${MONTHS[month]} ${year}</b> en adelante — los meses anteriores se quedan con el % que tenían.</div>
-    ${(SEDE.descuentoMicro||{}).tipo==='dolar' ? reglaDescuentoUSDHtml()
-      : `<div class="hint" style="margin-bottom:8px;">Antes de repartir, a cada micropigmentación con los precios nuevos se le restan ${descuentoMicroTexto()}, que quedan para el negocio. Los demás servicios y los retoques se reparten directo. Si la clienta cancela o no viene, el abono que pierde queda entero para el negocio (citas desde el ${parseKey(SEDE.abonoPerdidoSoloNegocioDesde).getDate()} de ${MONTHS[parseKey(SEDE.abonoPerdidoSoloNegocioDesde).getMonth()]} de ${parseKey(SEDE.abonoPerdidoSoloNegocioDesde).getFullYear()}).</div>`}
-    <table class="fin-table">
-      <thead><tr><th>Especialista</th><th>Citas</th><th>Generó</th><th>Comisión</th></tr></thead>
+    <h3 class="fin-sub">Por especialista</h3>
+    <table class="fin-table fin-esp">
+      <thead><tr><th>Especialista</th><th>Generó</th><th>Se lleva</th><th>Le deja al negocio</th></tr></thead>
       <tbody>${espRows}</tbody>
     </table>
 
-    <h3 class="fin-sub">💵 Pago de esta semana (lun–sáb, ${payoutRangeLabel})</h3>
-    <div class="hint" style="margin-bottom:8px;">Lo que le corresponde cobrar a cada especialista por esta semana, ya con los vales que sacó de la caja descontados. Esta semana (lun–sáb) es distinta del "Corte semanal" de más abajo, que solo reporta ingresos por semana calendario (lun–dom).</div>
-    <table class="fin-table">
-      <thead><tr><th>Especialista</th><th>Comisión</th><th>Vales</th><th>Neto a pagar</th></tr></thead>
-      <tbody>${payoutRows}</tbody>
-    </table>
-    <button type="button" class="btn btn-ghost" style="margin-top:8px;font-size:12.5px;padding:6px 12px;" data-act="finance-tab" data-tab="pagos">Ver de dónde sale cada número y las semanas anteriores →</button>
+    <h3 class="fin-sub">Cómo te pagaron</h3>
+    <div class="hint" style="margin-bottom:6px;">Abonos y saldos de las citas que ya cuentan, por método. Sirve para cuadrar la caja.</div>
+    <table class="fin-table"><tbody>${metodoRows}</tbody></table>
 
+    ${f.cremasVendidas ? `<h3 class="fin-sub">Cremas vendidas aparte</h3>
+    <table class="fin-table"><tbody><tr><td>🧴 Cremas post-tratamiento</td><td>${f.cremasVendidas} (${fmtCLP(f.cremasVendidas*CREMA_PRICE)})</td></tr></tbody></table>` : ''}
 
-    <h3 class="fin-sub">Corte semanal</h3>
+    <h3 class="fin-sub">Semana a semana (lun–dom)</h3>
     <table class="fin-table">
-      <thead><tr><th></th><th>Rango</th><th>Ingresos</th><th>Gastos var.</th><th>Ganancia</th></tr></thead>
+      <thead><tr><th></th><th>Entró</th><th>Comisiones y gastos</th><th>Quedó</th></tr></thead>
       <tbody>${weekRows}</tbody>
     </table>
+    <div class="hint" style="margin-top:4px;">Por semana no se restan los gastos fijos del mes (arriendo, cuentas…): esos están arriba, en "De dónde sale".</div>
+
+    <div class="hint" style="margin-top:16px;">Cómo se cuenta: desde el ${desde.getDate()} de ${MONTHS[desde.getMonth()]} una cita suma solo cuando está marcada como <b>Realizada</b> (las canceladas y las que no llegaron suman su abono), igual que en Pagos. Lo de antes se cuenta como siempre. Los gastos fijos se cuentan completos cada mes. Para anotar un gasto o una devolución, ve a "💸 Gastos".</div>
   `;
 }
 
 const EXPENSE_CATEGORIES_FIJO = ['Alquiler','Gastos Comunes','Luz','Agua','Internet','Otro fijo'];
-const EXPENSE_CATEGORIES_VARIABLE = ['Insumos y otros','Pigmentos','Agujas / desechables','Anestésico','Marketing','Otro variable'];
+const EXPENSE_CATEGORIES_VARIABLE = ['Insumos y otros','Pigmentos','Agujas / desechables','Anestésico','Marketing','Devolución a clienta','Otro variable'];
 const PAYMENT_METHODS = ['Transferencia','Efectivo','Punto de Venta'];
 function paymentSelectOptions(val){
   const legacy = val && !PAYMENT_METHODS.includes(val); // conserva valores viejos escritos a mano, sin perderlos
@@ -7380,12 +7458,30 @@ function recurringIncomeRowHtml(r, i){
 function finanzasGastosHtml(year, month){
   const recurring = state.recurringExpenses||[];
   const recurringIncomes = state.recurringIncomes||[];
-  const monthExpenses = expensesInMonth(year, month).map(g=>({...g, _idx: state.expenses.indexOf(g)}));
-  const variables = monthExpenses.filter(g=>g.tipo!=='Fijo');
-  const fijosPuntuales = monthExpenses.filter(g=>g.tipo==='Fijo');
+  const monthExpenses = expensesInMonth(year, month).map(g=>({...g, _idx: state.expenses.indexOf(g)}))
+    .sort((x,y)=>(y.date||'').localeCompare(x.date||''));
+  const totalMes = monthExpenses.reduce((t,g)=>t+(Number(g.monto)||0),0);
+  // Cada gasto se ve como una línea; para cambiarlo se abre el mismo cuadro
+  // que para anotarlo (así nunca queda algo escrito sin guardar).
+  const filas = monthExpenses.map(g=>`
+      <div class="gasto-fila">
+        <button type="button" class="gasto-info" data-act="gasto-editar" data-idx="${g._idx}">
+          <b>${escapeHtml(g.categoria||'Gasto')}</b>${g.descripcion ? ` · ${escapeHtml(g.descripcion)}` : ''}
+          <small>${g.date ? diaCorto(g.date) : ''}${g.metodoPago ? ' · '+escapeHtml(g.metodoPago) : ''}${g.tipo==='Fijo' ? ' · fijo de este mes' : ''}</small>
+        </button>
+        <span class="gasto-monto">−${fmtCLP(g.monto)}</span>
+        <button class="iconbtn" data-act="remove-expense" data-idx="${g._idx}" title="Borrar gasto">✕</button>
+      </div>`).join('');
+  const pctMes = Math.round(comisionPctForMonth(year, month)*100);
 
   return `
-    <h3 class="fin-sub">Ingresos fijos recurrentes (todas las semanas)</h3>
+    <button type="button" class="btn btn-primary gasto-nuevo-btn" data-act="gasto-nuevo">＋ Anotar gasto</button>
+    <div class="hint" style="text-align:center;margin:-4px 0 14px;">Insumos, pigmentos, publicidad, una devolución a una clienta… Anótalo apenas lo pagues.</div>
+
+    <h3 class="fin-sub">Gastos de ${MONTHS[month]}${monthExpenses.length ? ` · ${fmtCLP(totalMes)}` : ''}</h3>
+    ${filas || `<div class="hint">Todavía no anotaste gastos en ${MONTHS[month]}.</div>`}
+
+    <h3 class="fin-sub" style="margin-top:26px;">Ingresos fijos recurrentes (todas las semanas)</h3>
     <div class="hint">Ingresos pasivos como el arriendo de un box: llegan todas las semanas y se suman automáticamente — no hace falta volver a anotarlos.</div>
     <div id="rec-income-list">${recurringIncomes.map((r,i)=>recurringIncomeRowHtml(r,i)).join('') || '<div class="hint">Sin ingresos fijos configurados.</div>'}</div>
     <button class="btn btn-ghost" style="margin-top:6px" data-act="add-recurring-income">+ Agregar ingreso fijo recurrente</button>
@@ -7397,14 +7493,60 @@ function finanzasGastosHtml(year, month){
     <button class="btn btn-ghost" style="margin-top:6px" data-act="add-recurring-expense">+ Agregar gasto fijo recurrente</button>
     <div style="margin-top:10px;"><button class="btn btn-primary" data-act="save-recurring-expenses">Guardar gastos fijos</button></div>
 
-    <h3 class="fin-sub" style="margin-top:26px;">Insumos y gastos variables de ${MONTHS[month]}</h3>
-    <div id="exp-list-variable">${variables.map(expenseRowHtml).join('') || '<div class="hint">Sin gastos variables este mes.</div>'}</div>
-    ${fijosPuntuales.length ? `<div class="hint" style="margin-top:10px;">Ajustes fijos puntuales de este mes (no recurrentes):</div>${fijosPuntuales.map(expenseRowHtml).join('')}` : ''}
-    <button class="btn btn-ghost" style="margin-top:6px" data-act="add-expense" data-tipo="Variable">+ Agregar gasto variable</button>
-    <div style="margin-top:10px;"><button class="btn btn-primary" data-act="save-expenses">Guardar gastos del mes</button></div>
+    <h3 class="fin-sub" style="margin-top:26px;">% de comisión de las especialistas</h3>
+    <div class="field-row" style="align-items:center;gap:8px;margin-bottom:4px;">
+      <input type="number" id="f-comision-pct" min="0" max="100" step="1" value="${pctMes}" style="width:70px;"> <span>%</span>
+      <button class="btn btn-ghost" data-act="save-comision-pct" data-year="${year}" data-month="${month}" style="font-size:12px;padding:6px 12px;">Guardar %</button>
+    </div>
+    <div class="hint" style="margin-bottom:8px;">Aplica desde <b>${MONTHS[month]} ${year}</b> en adelante — los meses anteriores se quedan con el % que tenían.</div>
+    ${(SEDE.descuentoMicro||{}).tipo==='dolar' ? reglaDescuentoUSDHtml()
+      : `<div class="hint" style="margin-bottom:8px;">Antes de repartir, a cada micropigmentación con los precios nuevos se le restan ${descuentoMicroTexto()}, que quedan para el negocio. Los demás servicios y los retoques se reparten directo. Si la clienta cancela o no viene, el abono que pierde queda entero para el negocio.</div>`}
   `;
 }
 
+function gastoModalHtml(){
+  const m = ui.modal;
+  const g = m.idx!=null ? state.expenses[m.idx] : null;
+  const tipo = g ? (g.tipo||'Variable') : 'Variable';
+  const cats = tipo==='Fijo' ? EXPENSE_CATEGORIES_FIJO : EXPENSE_CATEGORIES_VARIABLE;
+  const catActual = g ? g.categoria : cats[0];
+  const opts = (cats.includes(catActual) ? cats : [catActual, ...cats]).map(c=>`<option value="${escapeHtml(c)}" ${c===catActual?'selected':''}>${escapeHtml(c)}</option>`).join('');
+  const metodo = g ? g.metodoPago : PAYMENT_METHODS[0];
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">${g ? 'Gasto' : 'Anotar un gasto'}</h2>
+      <div class="field"><label>¿Qué fue?</label><select id="f-gasto-cat">${opts}</select></div>
+      <div class="field"><label>Monto</label><input type="number" id="f-gasto-monto" min="0" step="1" value="${g ? (Number(g.monto)||'') : ''}" placeholder="0"></div>
+      <div class="field"><label>Detalle</label><input type="text" id="f-gasto-desc" value="${g ? escapeHtml(g.descripcion||'') : ''}" placeholder="Ej.: proveedor, o la clienta y el motivo de la devolución"></div>
+      <div class="row2">
+        <div class="field"><label>Fecha</label><input type="date" id="f-gasto-fecha" value="${escapeHtml(m.fecha)}"></div>
+        <div class="field"><label>Cómo se pagó</label><select id="f-gasto-metodo">${PAYMENT_METHODS.map(x=>`<option value="${x}" ${metodo===x?'selected':''}>${x}</option>`).join('')}</select></div>
+      </div>
+      <div class="modal-actions">
+        <div></div>
+        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cancelar</button><button class="btn btn-primary" data-act="save-gasto">Guardar</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+function saveGastoFromForm(){
+  const m = ui.modal;
+  const val = id=>((document.getElementById(id)||{}).value||'');
+  const monto = Math.round(Math.max(0, Number(val('f-gasto-monto'))||0));
+  const fecha = val('f-gasto-fecha');
+  if(monto<=0){ showAlert('Escribe el monto del gasto.'); return; }
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)){ showAlert('Elige la fecha del gasto.'); return; }
+  const datos = { categoria: val('f-gasto-cat'), descripcion: val('f-gasto-desc').trim(), date: fecha, monto, metodoPago: val('f-gasto-metodo') };
+  const g = m.idx!=null ? state.expenses[m.idx] : null;
+  if(g) Object.assign(g, datos);
+  else state.expenses.push({ id: uid(), tipo: 'Variable', ...datos });
+  // Se muestra el mes del gasto, por si se anotó con fecha de otro mes.
+  ui.reportsDate = new Date(parseKey(fecha).getFullYear(), parseKey(fecha).getMonth(), 1);
+  ui.modal = null;
+  render();
+  saveData();
+}
 function saveExpensesFromForm(){
   document.querySelectorAll('[data-expense-idx]').forEach(row=>{
     const idx = Number(row.dataset.expenseIdx);
@@ -7544,72 +7686,107 @@ function saveStockFromForm(){
 }
 
 // ---------------- Gráficos (SVG livianos, sin librerías externas) ----------------
+// Ancho de los gráficos según la pantalla: antes siempre medían 620 y en el
+// teléfono se achicaban enteros (letras de ~6px y mucho espacio vacío).
+function anchoGrafico(){
+  const w = (typeof window!=='undefined' && window.innerWidth) || 620;
+  return Math.max(300, Math.min(620, w - 52));
+}
 function svgHBarChart(data, opts={}){
-  const w = opts.width || 620, barH = 24, gap = 10, labelW = opts.labelW || 170, padding = 8;
+  const w = opts.width || anchoGrafico(), barH = 24, gap = 10, padding = 8;
+  const labelW = opts.labelW || Math.round(Math.min(170, w*0.4));
   const maxVal = Math.max(1, ...data.map(d=>d.value));
-  const chartW = w - labelW - 74;
+  const chartW = w - labelW - 62;
   const h = data.length*(barH+gap) - gap + padding*2;
   const bars = data.map((d,i)=>{
     const y = padding + i*(barH+gap);
-    const barW = Math.max(2, (d.value/maxVal)*chartW);
-    const valTxt = opts.formatValue ? opts.formatValue(d.value) : d.value;
+    const barW = Math.max(2, (Math.max(0, d.value)/maxVal)*chartW);
+    const valTxt = opts.formatValue ? opts.formatValue(d.value, d) : d.value;
+    // Un nombre largo se corta con "…" para que no se salga por la izquierda.
+    const maxLetras = Math.floor((labelW-10)/6.3);
+    const etiqueta = String(d.label).length > maxLetras ? String(d.label).slice(0, maxLetras-1)+'…' : String(d.label);
     return `
-      <text x="${labelW-8}" y="${y+barH/2+4}" text-anchor="end" font-size="11.5" style="fill:var(--ink)" font-family="Inter,sans-serif">${escapeHtml(d.label)}</text>
+      <text x="${labelW-8}" y="${y+barH/2+4}" text-anchor="end" font-size="11.5" style="fill:var(--ink)" font-family="Inter,sans-serif"><title>${escapeHtml(d.label)}</title>${escapeHtml(etiqueta)}</text>
       <rect x="${labelW}" y="${y}" width="${barW}" height="${barH}" rx="5" style="fill:var(--wine)"></rect>
       <text x="${labelW+barW+8}" y="${y+barH/2+4}" font-size="11.5" style="fill:var(--gold-soft)" font-weight="600" font-family="Inter,sans-serif">${valTxt}</text>
     `;
   }).join('');
   return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="max-width:${w}px;display:block;">${bars}</svg>`;
 }
+// Barras verticales. Acepta números negativos (ej. un mes en que se perdió
+// dinero): bajan desde la línea del cero, en rojo.
 function svgVBarChart(data, opts={}){
-  const w = opts.width || 620, h = opts.height || 210, gap = 14;
-  const padding = 16;
-  const chartH = h - 46;
-  const maxVal = Math.max(1, ...data.map(d=>d.value));
+  const w = opts.width || anchoGrafico(), h = opts.height || 210, gap = 14;
+  const padding = 16, arriba = 20;
+  const vals = data.map(d=>Number(d.value)||0);
+  const maxVal = Math.max(1, ...vals), minVal = Math.min(0, ...vals);
+  // Abajo va el mes; si hay negativos, también su número debajo de la barra.
+  const chartH = h - arriba - 26 - (minVal<0 ? 16 : 0);
+  const escala = chartH / (maxVal - minVal);
+  const y0 = arriba + maxVal*escala;
   const barW = (w - padding*2 - gap*(data.length-1)) / data.length;
   const bars = data.map((d,i)=>{
-    const barH = Math.max(2, (d.value/maxVal)*chartH);
+    const v = vals[i];
+    const barH = Math.max(2, Math.abs(v)*escala);
     const x = padding + i*(barW+gap);
-    const y = chartH - barH + 12;
-    const valTxt = opts.formatValue ? opts.formatValue(d.value) : d.value;
+    const y = v>=0 ? y0 - barH : y0;
+    const valTxt = opts.formatValue ? opts.formatValue(v) : v;
     return `
-      <rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="5" style="fill:var(--wine)"></rect>
-      <text x="${x+barW/2}" y="${y-6}" text-anchor="middle" font-size="10.5" style="fill:var(--gold-soft)" font-weight="600" font-family="Inter,sans-serif">${valTxt}</text>
-      <text x="${x+barW/2}" y="${chartH+30}" text-anchor="middle" font-size="11" style="fill:var(--ink-soft)" font-family="Inter,sans-serif">${escapeHtml(d.label)}</text>
+      <rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="5" style="fill:var(${v<0?'--danger':'--wine'})"></rect>
+      <text x="${x+barW/2}" y="${v>=0 ? y-6 : y+barH+13}" text-anchor="middle" font-size="10.5" style="fill:var(${v<0?'--danger':'--gold-soft'})" font-weight="600" font-family="Inter,sans-serif">${valTxt}</text>
+      <text x="${x+barW/2}" y="${h-8}" text-anchor="middle" font-size="11" style="fill:var(--ink-soft)" font-family="Inter,sans-serif">${escapeHtml(d.label)}</text>
     `;
   }).join('');
-  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="max-width:${w}px;display:block;">${bars}</svg>`;
+  const linea0 = minVal<0 ? `<line x1="${padding}" x2="${w-padding}" y1="${y0}" y2="${y0}" style="stroke:var(--line)" stroke-width="1"></line>` : '';
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="max-width:${w}px;display:block;">${linea0}${bars}</svg>`;
 }
 
 function finanzasGraficosHtml(year, month){
-  const trend = [];
+  const meses = [];
   for(let i=5;i>=0;i--){
     const d = addMonths(new Date(year,month,1), -i);
-    const fin = monthFinancials(d.getFullYear(), d.getMonth());
-    trend.push({label: MONTHS[d.getMonth()].slice(0,3), value: fin.ingresos});
+    meses.push({d, fin: monthFinancials(d.getFullYear(), d.getMonth())});
   }
-
-  const appts = apptsInMonth(year, month);
-  const svcCounts = {};
-  appts.forEach(a=>(a.services||[]).forEach(s=>{ svcCounts[s]=(svcCounts[s]||0)+1; }));
-  const topServices = Object.keys(svcCounts).map(k=>({label:k, value:svcCounts[k]})).sort((a,b)=>b.value-a.value).slice(0,6);
+  const etiqueta = d=>MONTHS[d.getMonth()].slice(0,3);
+  const quedo = meses.map(x=>({label: etiqueta(x.d), value: x.fin.beneficio}));
+  const entro = meses.map(x=>({label: etiqueta(x.d), value: x.fin.ingresos}));
 
   const f = monthFinancials(year, month);
-  const espByRevenue = Object.keys(f.porEspecialista).map(k=>({label:k, value:f.porEspecialista[k].ingresos})).sort((a,b)=>b.value-a.value);
-  const espByCitas = Object.keys(f.porEspecialista).map(k=>({label:k, value:f.porEspecialista[k].personas})).sort((a,b)=>b.value-a.value);
+  // Lo que deja cada tratamiento: en un combo el precio se reparte según el
+  // precio de lista de cada servicio (si no hay precio, en partes iguales).
+  const precioLista = name=>{ const sv = state.services.find(x=>x.name===name); return sv ? (Number(sv.price)||0) : 0; };
+  const porTrat = {};
+  f.hechas.filter(a=>!a.cursoId).forEach(a=>{
+    const svcs = (a.services||[]).filter(Boolean);
+    if(!svcs.length) return;
+    const total = svcs.reduce((t,x)=>t+precioLista(x),0);
+    svcs.forEach(x=>{
+      const parte = total>0 ? precioLista(x)/total : 1/svcs.length;
+      if(!porTrat[x]) porTrat[x] = {dinero:0, n:0};
+      porTrat[x].dinero += apptRevenue(a)*parte;
+      porTrat[x].n += 1;
+    });
+  });
+  const topTrat = Object.keys(porTrat).map(k=>({label:k, n:porTrat[k].n, value:Math.round(porTrat[k].dinero)})).sort((a,b)=>b.value-a.value).slice(0,8);
+
+  const espDeja = Object.keys(f.porEspecialista).map(k=>({label:k, value:f.porEspecialista[k].ingresos - f.porEspecialista[k].comision})).sort((a,b)=>b.value-a.value);
+  const espCitas = Object.keys(f.porEspecialista).map(k=>({label:k, value:f.porEspecialista[k].hechas})).sort((a,b)=>b.value-a.value);
 
   return `
-    <h3 class="fin-sub">Ingresos — últimos 6 meses</h3>
-    <div class="chart-box">${svgVBarChart(trend, {formatValue: v=>fmtCLPShort(v)})}</div>
+    <h3 class="fin-sub">Lo que te quedó — últimos 6 meses</h3>
+    <div class="chart-box">${svgVBarChart(quedo, {formatValue: v=>(v<0?'−':'')+fmtCLPShort(Math.abs(v))})}</div>
 
-    <h3 class="fin-sub">Tratamientos más solicitados este mes</h3>
-    ${topServices.length ? `<div class="chart-box">${svgHBarChart(topServices)}</div>` : '<div class="hint">Sin citas este mes.</div>'}
+    <h3 class="fin-sub">Lo que entró — últimos 6 meses</h3>
+    <div class="chart-box">${svgVBarChart(entro, {formatValue: v=>fmtCLPShort(v)})}</div>
 
-    <h3 class="fin-sub">Ingresos por especialista este mes</h3>
-    ${espByRevenue.length ? `<div class="chart-box">${svgHBarChart(espByRevenue, {formatValue: v=>fmtCLPShort(v)})}</div>` : '<div class="hint">Sin citas este mes.</div>'}
+    <h3 class="fin-sub">Tratamientos que más dinero dejan en ${MONTHS[month]}</h3>
+    ${topTrat.length ? `<div class="chart-box">${svgHBarChart(topTrat, {formatValue: (v,d)=>`${fmtCLPShort(v)} (${d.n})`})}</div><div class="hint">Entre paréntesis, cuántas veces se hizo. En un combo, el precio se reparte según la lista de precios.</div>` : '<div class="hint">Sin citas realizadas este mes.</div>'}
 
-    <h3 class="fin-sub">Personas atendidas por especialista este mes</h3>
-    ${espByCitas.length ? `<div class="chart-box">${svgHBarChart(espByCitas)}</div>` : '<div class="hint">Sin citas este mes.</div>'}
+    <h3 class="fin-sub">Lo que le deja cada especialista al negocio en ${MONTHS[month]}</h3>
+    ${espDeja.length ? `<div class="chart-box">${svgHBarChart(espDeja, {formatValue: v=>fmtCLPShort(v)})}</div><div class="hint">Lo que generó menos su comisión.</div>` : '<div class="hint">Sin citas este mes.</div>'}
+
+    <h3 class="fin-sub">Citas realizadas por especialista en ${MONTHS[month]}</h3>
+    ${espCitas.length ? `<div class="chart-box">${svgHBarChart(espCitas)}</div>` : '<div class="hint">Sin citas este mes.</div>'}
   `;
 }
 
@@ -7782,7 +7959,7 @@ function traspasoGarantiaInnerHtml(cand, prev){
       <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;"><input type="checkbox" id="f-traspaso" ${marcado?'checked':''} style="width:15px;height:15px;accent-color:var(--wine);flex-shrink:0;margin-top:3px;">
         <span>El tratamiento original (${escapeHtml(cand.garantiaDe)}, ${diaCorto(orig.date)}) lo hizo <b>${escapeHtml(orig.specialist)}</b>. Pasarle a <b>${escapeHtml(cand.specialist)}</b> la comisión que ganó ${escapeHtml(orig.specialist)} con ese tratamiento.</span></label>
       <div class="field" style="margin:8px 0 0;"><label>Monto que pasa de ${escapeHtml(orig.specialist)} a ${escapeHtml(cand.specialist)}</label><input type="number" id="f-traspaso-monto" min="0" step="1" value="${monto}"></div>
-      <div class="hint" style="margin:4px 0 0;">${combo ? `Esa cita fue un combo: ${fmtCLP(sugerido)} es la parte de ${escapeHtml(cand.garantiaDe)} (de ${fmtCLP(apptCommission(orig))} en total). ` : ''}Se le resta a ${escapeHtml(orig.specialist)} y se le suma a ${escapeHtml(cand.specialist)} en la semana de pago de esta garantía (Finanzas → 💵 Pagos). Si la garantía se cancela o no llega, no cuenta.</div>
+      <div class="hint" style="margin:4px 0 0;">${combo ? `Esa cita fue un combo: ${fmtCLP(sugerido)} es la parte de ${escapeHtml(cand.garantiaDe)} (de ${fmtCLP(apptCommission(orig))} en total). ` : ''}Se le resta a ${escapeHtml(orig.specialist)} y se le suma a ${escapeHtml(cand.specialist)} en la semana de pago de esta garantía (💵 Pagos). Si la garantía se cancela o no llega, no cuenta.</div>
     </div>`;
 }
 // Vuelve a dibujar ese cuadro cuando cambia algo del formulario (clienta,
@@ -8885,7 +9062,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'copy-touchup-msg','mark-touchup-avisado','quitar-touchup','devolver-touchup',
   'open-reviews','copy-checkin-msg','copy-review-msg','toggle-review-avisado',
   'finance-tab','save-comision-pct','save-mis-ganancias-desde',
-  'add-expense','remove-expense','save-expenses',
+  'add-expense','remove-expense','save-expenses','gasto-nuevo','gasto-editar','save-gasto',
   'add-recurring-expense','remove-recurring-expense','save-recurring-expenses',
   'add-recurring-income','remove-recurring-income','save-recurring-incomes',
   'add-stock-item','remove-stock-item',
@@ -9465,6 +9642,21 @@ function onAction(e){
     }
     case 'save-expenses':
       saveExpensesFromForm(); break;
+    case 'gasto-nuevo': {
+      if(!ui.reportsDate) ui.reportsDate = new Date();
+      const y = ui.reportsDate.getFullYear(), mo = ui.reportsDate.getMonth();
+      const hoy = hoySedeKey();
+      const fecha = hoy.slice(0,7)===`${y}-${pad(mo+1)}` ? hoy : toKey(new Date(y, mo, 1));
+      ui.modal = {type:'gasto', idx:null, fecha};
+      render(); break;
+    }
+    case 'gasto-editar': {
+      const idx = Number(e.currentTarget.dataset.idx);
+      const g = state.expenses[idx];
+      if(g){ ui.modal = {type:'gasto', idx, fecha: g.date || hoySedeKey()}; render(); }
+      break;
+    }
+    case 'save-gasto': saveGastoFromForm(); break;
     case 'add-stock-item': {
       const categoria = e.currentTarget.dataset.categoria;
       state.stockItems.push({id:uid(), categoria, name:'', valor:0, umbral:0, actualizadoEn:''});

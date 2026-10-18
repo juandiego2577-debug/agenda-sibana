@@ -923,9 +923,15 @@ para servir también a **Copiapó**, de la siguiente forma:
   él pidió que valiera para todo octubre): septiembre y antes no se tocan
   (comprobado: agosto y septiembre dan exactamente igual que la versión
   anterior). Las citas de octubre que quedaron sin cerrar salen en "⏳
-  Todavía por entrar" hasta que alguien las cierre. Ojo: en Pagos la
-  semana 05–10/10 todavía contaba las sin cerrar como hechas (Pagos usa
-  `PAGO_SOLO_CERRADAS_DESDE` = 12/10, no se tocó). Resumen: número grande "Te
+  Todavía por entrar" hasta que alguien las cierre. **Pagos también desde
+  el 1/10** (pedido de Juan Diego, mismo día): `PAGO_SOLO_CERRADAS_DESDE`
+  pasó de '2026-10-12' a '2026-10-01' y ahora se mira CITA POR CITA
+  (`a.date >= …`, la semana del 28/09 tiene días de septiembre que siguen
+  con la regla vieja). Una semana ya marcada pagada con citas sin cerrar
+  (ej. 05–10/10) pasa a "⚠️ se le pagaron $X de más" hasta que esas citas
+  se cierren (si se hicieron, al marcarlas Realizada vuelve a cuadrar).
+  "Mi pago" sigue empezando el 12/10 (`MIS_GANANCIAS_DESDE` ya no es un
+  alias de `PAGO_SOLO_CERRADAS_DESDE`). Resumen: número grande "Te
   quedó" (+ entró/salió), comparación con el mes anterior A LA MISMA FECHA
   (`comparacionMesHtml`, solo citas; `monthFinancials(y,m,hastaKey)`),
   "⏳ Todavía por entrar" (citas sin cerrar, con las ya pasadas para

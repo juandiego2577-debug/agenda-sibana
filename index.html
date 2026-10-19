@@ -289,6 +289,9 @@
   .bk-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
   .bk-name{overflow:hidden;text-overflow:ellipsis;}
   @media (max-width:600px){ .mc-block .bk-name{display:none;} .wd-block{flex-direction:column;align-items:flex-start;} }
+  .reloj-bloqueo{display:flex;align-items:center;gap:8px;}
+  .reloj-bloqueo select{width:auto;min-width:78px;font-size:18px;padding:10px 8px;}
+  .reloj-bloqueo b{font-size:20px;}
   .bloqueo-quien{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);font-weight:600;}
   .block-kind{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px;}
   .block-kind label{flex:1;text-align:center;padding:9px 4px;font-size:13px;cursor:pointer;color:var(--ink-soft);}
@@ -4523,6 +4526,32 @@ function puedeTocarBloqueo(b){
   if(!yo) return true;
   return !!b && b.specialist!==ALL_SPECIALISTS_VALUE && normalizeName(b.specialist)===normalizeName(yo);
 }
+// "Reloj" del bloqueo (19/10/2026, elegido por Juan Diego entre tres
+// opciones): dos casillas, hora [08–21] : minutos [00/15/30/45]. Antes era el
+// reloj del teléfono, que en los que van con AM/PM dejaba "16" escrito como
+// 01:00 de la madrugada; una lista larga de horas le pareció incómoda. Si el
+// bloqueo ya tenía una hora fuera de esas opciones, se agrega para no perderla.
+function relojBloqueoHtml(id, valor){
+  const [h0, m0] = /^\d{2}:\d{2}$/.test(valor||'') ? valor.split(':') : ['10','00'];
+  const horas = []; for(let h = HOUR_START; h <= HOUR_END; h++) horas.push(pad(h));
+  const mins = ['00','15','30','45'];
+  if(!horas.includes(h0)){ horas.push(h0); horas.sort(); }
+  if(!mins.includes(m0)){ mins.push(m0); mins.sort(); }
+  const opts = (lista, sel)=>lista.map(x=>`<option value="${x}" ${x===sel?'selected':''}>${x}</option>`).join('');
+  return `<div class="reloj-bloqueo"><select id="${id}-h" aria-label="Hora">${opts(horas, h0)}</select><b>:</b><select id="${id}-m" aria-label="Minutos">${opts(mins, m0)}</select></div>`;
+}
+function leerRelojBloqueo(id){
+  const h = (document.getElementById(id+'-h')||{}).value, m = (document.getElementById(id+'-m')||{}).value;
+  return h && m ? `${h}:${m}` : '';
+}
+function ponerRelojBloqueo(id, hhmm){
+  const [h, m] = hhmm.split(':');
+  [[id+'-h', h], [id+'-m', m]].forEach(([sid, v])=>{
+    const sel = document.getElementById(sid); if(!sel) return;
+    if(![...sel.options].some(o=>o.value===v)) sel.add(new Option(v, v));
+    sel.value = v;
+  });
+}
 // Bloqueo de otra especialista, abierto por una especialista: solo se ve.
 function bloqueoSoloVerHtml(b){
   const cuando = blockLastDate(b)!==b.date ? `del ${blockDateLabel(b.date)} al ${blockDateLabel(blockLastDate(b))}`
@@ -4568,8 +4597,8 @@ function blockModalHtml(){
         <div class="field" id="block-dateend-field" style="display:${kind==='days'?'block':'none'};"><label>Hasta el día (incluido)</label><input type="date" id="f-block-dateEnd" value="${d.dateEnd && d.dateEnd>d.date ? d.dateEnd : toKey(addDays(parseKey(d.date),1))}"></div>
       </div>
       <div class="row2" id="block-hours-fields" style="display:${kind==='hours'?'grid':'none'};">
-        <div class="field"><label>Desde</label><input type="time" id="f-block-start" value="${d.start}"></div>
-        <div class="field"><label>Hasta</label><input type="time" id="f-block-end" value="${d.end}"></div>
+        <div class="field"><label>Desde</label>${relojBloqueoHtml('f-block-start', d.start)}</div>
+        <div class="field"><label>Hasta</label>${relojBloqueoHtml('f-block-end', d.end)}</div>
       </div>
       <div class="field"><label>Motivo (opcional)</label><input type="text" id="f-block-reason" placeholder="Ej: hora médica, viaje" value="${escapeHtml(d.reason||'')}"></div>
       <div class="modal-actions">
@@ -10050,7 +10079,7 @@ function saveBlockFromForm(){
   const kind = kindInput ? kindInput.value : 'hours';
   const updated = {
     ...d,
-    date: get('f-block-date'), start: get('f-block-start'), end: get('f-block-end'),
+    date: get('f-block-date'), start: leerRelojBloqueo('f-block-start'), end: leerRelojBloqueo('f-block-end'),
     specialist: get('f-block-specialist'), reason: get('f-block-reason').trim(),
   };
   delete updated.allDay; delete updated.dateEnd;
@@ -10066,8 +10095,8 @@ function saveBlockFromForm(){
     if(updated.end <= updated.start){ showAlert('La hora de fin debe ser posterior a la hora de inicio.'); return; }
     const clave = updated.date+updated.start+updated.end;
     if(ui.modal._mananaTardeOk!==clave && preguntarMananaTarde(updated.date, updated.start, updated.end, 'El bloqueo', (s2, e2, aceptado)=>{
-      document.getElementById('f-block-start').value = s2;
-      document.getElementById('f-block-end').value = e2;
+      ponerRelojBloqueo('f-block-start', s2);
+      ponerRelojBloqueo('f-block-end', e2);
       if(aceptado) ui.modal._mananaTardeOk = updated.date+s2+e2;
       saveBlockFromForm();
     }, {volverAlForm:true})) return;

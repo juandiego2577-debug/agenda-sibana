@@ -1790,7 +1790,9 @@ para servir también a **Copiapó**, de la siguiente forma:
   certificado pasa al siguiente folio de ese año (transacción: registro
   privado nuevo con `folioAnterior`, el viejo queda `estado:'reemplazado'`
   y se esconde de las listas; lo público cambia `folio`, mismo código QR).
-  Él pidió quitarlo después: poner `false`. Probado: e2e.
+  Ya usado (Andreina quedó "del 1 de julio al 4 de octubre de 2023", emisión
+  4/10/2023, folios 2023-001 labios y 2023-002 cejas) y APAGADO el mismo día
+  (`false`), como pidió él. Probado: e2e.
   **"📄 PDF" desde la agenda (19/10/2026, pedido de Juan Diego: "no depender
   de Claude"):** botón al final de cada certificado válido → "⬛ Negro / ⬜
   Blanco" → descarga `Certificado_<folio>_<nombre sin tildes>.pdf`. Mismo

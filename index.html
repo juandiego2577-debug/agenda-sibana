@@ -8459,8 +8459,9 @@ const CERT_META_COL = 'sibana-certificados-meta';
 const CERT_VERIF_URL = 'https://sibana-certificados.netlify.app/v/';
 const CERT_INSTITUCION = 'Sibana Academia PMU';
 // Corregir también las fechas (curso, período, emisión) desde "✏️ Corregir". Pedido de Juan Diego (19/10/2026)
-// para arreglar 2 certificados de cursos antiguos sin anularlos; él pidió quitarlo después: poner false.
-const CERT_CORREGIR_FECHAS = true;
+// para arreglar 2 certificados de cursos antiguos sin anularlos; ya se usó y él pidió quitarlo: apagado.
+// (Es `let` para que las pruebas lo puedan prender; para volver a mostrarlo: true.)
+let CERT_CORREGIR_FECHAS = false;
 const CERT_FOLIO_PREFIJO = 'SIB-PMU';
 const CERT_ALFABETO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0/O ni 1/I, para no confundirlos al escribirlo
 const CERT_DOC_TIPOS = ['RUT', 'Pasaporte', 'DNI', 'Cédula'];

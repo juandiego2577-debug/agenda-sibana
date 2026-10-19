@@ -2100,6 +2100,51 @@ function apptFallsInBlockedTime(date, start, end){
   return false;
 }
 
+// Mañana o tarde (19/10/2026): en los teléfonos con reloj de 12 horas es
+// fácil poner "4:00" queriendo decir las 16:00. Pasó con dos bloqueos que
+// quedaron de 4 de la madrugada a 8 de la noche (parecían "todo el día"), y
+// a Juan Diego le pasa al agendar. Si la hora de inicio cae antes de que abra
+// el estudio, se pregunta; si 12 horas después cae dentro del horario, se
+// ofrece corregirla en un toque.
+function horaEnPalabras(hhmm){
+  const m = minutesFromMidnight(hhmm), h = Math.floor(m/60), min = m%60;
+  const h12 = h%12===0 ? 12 : h%12;
+  const parte = h<6 ? 'de la madrugada' : h<12 ? 'de la mañana' : h<13 ? 'del mediodía' : h<20 ? 'de la tarde' : 'de la noche';
+  return `${h12}${min ? ':'+pad(min) : ''} ${parte}`;
+}
+function revisarMananaTarde(dateKey, start, end){
+  const dh = dayHoursFor(parseKey(dateKey));
+  const abre = (dh ? Number(dh.open)||0 : HOUR_START)*60, cierra = (dh ? Number(dh.close)||24 : HOUR_END)*60;
+  const s = minutesFromMidnight(start), e = minutesFromMidnight(end);
+  if(s >= abre) return null;
+  const dentro = m => m>=abre && m<=cierra;
+  const ns = dentro(s+720) ? s+720 : s;
+  const ne = (e<=abre+60 && dentro(e+720)) ? e+720 : e;
+  const corregido = ns!==s && ne>ns ? {start: addMinutesToHHMM(start, ns-s), end: addMinutesToHHMM(end, ne-e)} : null;
+  return {abre: pad(Math.floor(abre/60))+':'+pad(abre%60), corregido};
+}
+// Pregunta (si hace falta) y llama a "seguir" con las horas que quedaron.
+// Devuelve true si mostró la pregunta (quien llama debe esperar).
+function preguntarMananaTarde(dateKey, start, end, que, seguir){
+  const r = revisarMananaTarde(dateKey, start, end);
+  if(!r) return false;
+  const c = r.corregido;
+  if(c){
+    showDialog({
+      message: `${que} empieza a las ${start} (${horaEnPalabras(start)}), antes de que abra el estudio. ¿Quisiste decir de ${c.start} a ${c.end} (${horaEnPalabras(c.start)} a ${horaEnPalabras(c.end)})?`,
+      confirmLabel: `Sí, ${c.start} a ${c.end}`, cancelLabel: `No, dejar ${start} a ${end}`,
+      onConfirm: ()=>seguir(c.start, c.end), onCancel: ()=>seguir(start, end, true),
+    });
+  } else {
+    showDialog({
+      message: `${que} empieza a las ${start} (${horaEnPalabras(start)}), antes de que abra el estudio (abre a las ${r.abre}). ¿Está bien así?`,
+      confirmLabel: 'Sí, está bien', cancelLabel: 'Corregir la hora',
+      onConfirm: ()=>seguir(start, end, true),
+    });
+  }
+  return true;
+}
+
 // Hay NUM_BOXES box físicos disponibles: cuantas citas se crucen en el mismo
 // horario, sin importar qué especialista las atienda, no puede pasar de esa
 // cantidad (una NoShow o Cancelada libera el horario). Antes había 1 solo
@@ -4462,6 +4507,13 @@ function modalHtml(){
   return apptModalHtml();
 }
 
+// Las horas en palabras, debajo de "Desde/Hasta", para que se note si quedó
+// en la mañana en vez de la tarde.
+function bloqueHorasTexto(start, end){
+  if(!/^\d{2}:\d{2}$/.test(start||'') || !/^\d{2}:\d{2}$/.test(end||'')) return '';
+  if(end <= start) return '⚠️ La hora de fin tiene que ser después de la de inicio.';
+  return `Se bloquea desde las <b>${escapeHtml(horaEnPalabras(start))}</b> hasta las <b>${escapeHtml(horaEnPalabras(end))}</b>.`;
+}
 function blockModalHtml(){
   const d = ui.modal.data;
   const isEdit = ui.modal.mode==='edit';
@@ -4491,6 +4543,7 @@ function blockModalHtml(){
       <div class="row2" id="block-hours-fields" style="display:${kind==='hours'?'grid':'none'};">
         <div class="field"><label>Desde</label><input type="time" id="f-block-start" value="${d.start}"></div>
         <div class="field"><label>Hasta</label><input type="time" id="f-block-end" value="${d.end}"></div>
+        <div class="hint block-horas-texto" id="block-horas-texto" style="grid-column:1/-1;margin:-6px 0 4px;">${bloqueHorasTexto(d.start, d.end)}</div>
       </div>
       <div class="field"><label>Motivo (opcional)</label><input type="text" id="f-block-reason" placeholder="Ej: hora médica, viaje" value="${escapeHtml(d.reason||'')}"></div>
       <div class="modal-actions">
@@ -8849,6 +8902,12 @@ function attachEvents(){
       }
     });
   }
+  const bStart = document.getElementById('f-block-start'), bEnd = document.getElementById('f-block-end');
+  if(bStart && bEnd){
+    const upd = ()=>{ const t = document.getElementById('block-horas-texto'); if(t) t.innerHTML = bloqueHorasTexto(bStart.value, bEnd.value); };
+    bStart.addEventListener('input', upd); bEnd.addEventListener('input', upd);
+    bStart.addEventListener('change', upd); bEnd.addEventListener('change', upd);
+  }
   const blockKind = document.getElementById('block-kind');
   if(blockKind){
     blockKind.addEventListener('change', ()=>{
@@ -9902,6 +9961,16 @@ function saveApptFromForm(){
   if(updated.email && !isValidEmail(updated.email)){ showAlert('El correo electrónico no parece estar bien escrito (ej. nombre@gmail.com). Corrígelo o déjalo vacío.'); return; }
   if(!updated.services.length){ showAlert('Elige al menos un servicio.'); return; }
   if(updated.end <= updated.start){ showAlert('La hora de fin debe ser posterior a la hora de inicio.'); return; }
+  // ¿Mañana o tarde? (ver revisarMananaTarde). Solo si cambió el horario: una
+  // cita vieja que ya estaba así no vuelve a preguntar.
+  const claveHora = updated.date+updated.start+updated.end;
+  const horaCambio = !(ui.modal.mode==='edit' && d.date===updated.date && d.start===updated.start && d.end===updated.end);
+  if(horaCambio && ui.modal._mananaTardeOk!==claveHora && preguntarMananaTarde(updated.date, updated.start, updated.end, 'La cita', (s2, e2, aceptado)=>{
+    document.getElementById('f-start').value = s2;
+    document.getElementById('f-end').value = e2;
+    if(aceptado) ui.modal._mananaTardeOk = updated.date+s2+e2;
+    saveApptFromForm();
+  })) return;
 
   const original = ui.modal.original;
   const commit = ()=>{
@@ -9923,7 +9992,7 @@ function saveApptFromForm(){
       showAlert(`${blockSpecialistLabel(coveringBlock.specialist)} bloqueó ese horario (${coveringBlock.start}–${coveringBlock.end}${coveringBlock.reason?': '+coveringBlock.reason:''}). ${suffix}`);
       return;
     }
-    if(apptFallsInBlockedTime(parseKey(updated.date), updated.start, updated.end)){
+    if(apptFallsInBlockedTime(parseKey(updated.date), updated.start, updated.end) && ui.modal._mananaTardeOk!==claveHora){
       showConfirmDialog('Este horario cae fuera de la atención habitual (cerrado o en horario de almuerzo). ¿Agendar de todas formas?', commit);
     } else {
       commit();
@@ -9968,6 +10037,13 @@ function saveBlockFromForm(){
   if(!updated.specialist){ showAlert('Elige a quién afecta el bloqueo (tu nombre, o "Todas").'); return; }
   if(kind==='hours'){
     if(updated.end <= updated.start){ showAlert('La hora de fin debe ser posterior a la hora de inicio.'); return; }
+    const clave = updated.date+updated.start+updated.end;
+    if(ui.modal._mananaTardeOk!==clave && preguntarMananaTarde(updated.date, updated.start, updated.end, 'El bloqueo', (s2, e2, aceptado)=>{
+      document.getElementById('f-block-start').value = s2;
+      document.getElementById('f-block-end').value = e2;
+      if(aceptado) ui.modal._mananaTardeOk = updated.date+s2+e2;
+      saveBlockFromForm();
+    })) return;
   } else {
     updated.allDay = true;
     updated.start = pad(HOUR_START)+':00'; updated.end = pad(HOUR_END)+':00';

@@ -290,8 +290,16 @@
   .bk-name{overflow:hidden;text-overflow:ellipsis;}
   @media (max-width:600px){ .mc-block .bk-name{display:none;} .wd-block{flex-direction:column;align-items:flex-start;} }
   .reloj-bloqueo{display:flex;align-items:center;gap:8px;}
-  .reloj-bloqueo select{width:auto;min-width:78px;font-size:18px;padding:10px 8px;}
   .reloj-bloqueo b{font-size:20px;}
+  .reloj-casilla{flex:1;min-width:78px;display:flex;align-items:center;justify-content:space-between;gap:6px;font:inherit;font-size:18px;
+    padding:10px 12px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;color:var(--ink);cursor:pointer;}
+  .reloj-casilla::after{content:'▾';font-size:14px;color:var(--gold-soft);}
+  .reloj-casilla.abierta{border-color:var(--wine);box-shadow:0 0 0 1px var(--wine);}
+  .reloj-opciones{margin-top:8px;padding:10px;background:var(--panel);border:1px solid var(--wine);border-radius:12px;}
+  .reloj-opciones .reloj-titulo{font-size:12px;color:var(--ink-soft);margin:0 0 8px 2px;}
+  .reloj-grilla{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+  .reloj-op{font:inherit;font-size:18px;padding:10px 0;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);cursor:pointer;}
+  .reloj-op.on{background:var(--gold);border-color:var(--gold);color:#1a140c;font-weight:700;}
   .bloqueo-quien{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);font-weight:600;}
   .block-kind{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px;}
   .block-kind label{flex:1;text-align:center;padding:9px 4px;font-size:13px;cursor:pointer;color:var(--ink-soft);}
@@ -4527,18 +4535,42 @@ function puedeTocarBloqueo(b){
   return !!b && b.specialist!==ALL_SPECIALISTS_VALUE && normalizeName(b.specialist)===normalizeName(yo);
 }
 // "Reloj" del bloqueo (19/10/2026, elegido por Juan Diego entre tres
-// opciones): dos casillas, hora [08–21] : minutos [00/15/30/45]. Antes era el
-// reloj del teléfono, que en los que van con AM/PM dejaba "16" escrito como
-// 01:00 de la madrugada; una lista larga de horas le pareció incómoda. Si el
-// bloqueo ya tenía una hora fuera de esas opciones, se agrega para no perderla.
-function relojBloqueoHtml(id, valor){
-  const [h0, m0] = /^\d{2}:\d{2}$/.test(valor||'') ? valor.split(':') : ['10','00'];
-  const horas = []; for(let h = HOUR_START; h <= HOUR_END; h++) horas.push(pad(h));
-  const mins = ['00','15','30','45'];
-  if(!horas.includes(h0)){ horas.push(h0); horas.sort(); }
-  if(!mins.includes(m0)){ mins.push(m0); mins.sort(); }
-  const opts = (lista, sel)=>lista.map(x=>`<option value="${x}" ${x===sel?'selected':''}>${x}</option>`).join('');
-  return `<div class="reloj-bloqueo"><select id="${id}-h" aria-label="Hora">${opts(horas, h0)}</select><b>:</b><select id="${id}-m" aria-label="Minutos">${opts(mins, m0)}</select></div>`;
+// opciones): dos casillas, hora : minutos [00/15/30/45]. Antes era el reloj
+// del teléfono, que en los que van con AM/PM dejaba "16" escrito como 01:00
+// de la madrugada. Las horas son solo las del horario del estudio ese día
+// (`horasBloqueoPara`, cambian con la fecha), y al tocar una casilla se abre
+// debajo una grilla propia con los colores de la agenda (la lista del
+// teléfono salía blanca). Si el bloqueo ya tenía una hora fuera de eso, se
+// muestra igual para no perderla (al guardar se pide corregirla).
+function horasBloqueoPara(dateKey){
+  const dh = /^\d{4}-\d{2}-\d{2}$/.test(dateKey||'') ? dayHoursFor(parseKey(dateKey)) : null;
+  if(!dh) return {abre: HOUR_START*60, cierra: HOUR_END*60, cerrado: true};
+  return {abre: (Number(dh.open)||0)*60, cierra: (Number(dh.close)||24)*60, cerrado: false};
+}
+function opcionesRelojBloqueo(dateKey, esFin, parte, actual, horaElegida){
+  const r = horasBloqueoPara(dateKey);
+  let lista;
+  if(parte==='h'){
+    lista = [];
+    const ini = Math.floor(r.abre/60), fin = Math.ceil(r.cierra/60) - (esFin ? 0 : 1);
+    for(let h = ini; h <= fin; h++) lista.push(pad(h));
+  } else {
+    lista = ['00','15','30','45'].filter(m=>{
+      const t = Number(horaElegida)*60 + Number(m);
+      return esFin ? (t > r.abre && t <= r.cierra) : (t >= r.abre && t < r.cierra);
+    });
+    if(!lista.length) lista = ['00'];
+  }
+  if(actual && !lista.includes(actual)){ lista.push(actual); lista.sort(); }
+  return lista;
+}
+function relojBloqueoHtml(id, valor, esFin){
+  const [h0, m0] = /^\d{2}:\d{2}$/.test(valor||'') ? valor.split(':') : [esFin ? '12' : '10', '00'];
+  return `<div class="reloj-bloqueo" data-reloj="${id}" data-fin="${esFin?'1':''}">
+    <input type="hidden" id="${id}-h" value="${h0}"><button type="button" class="reloj-casilla" data-reloj-parte="h" aria-label="Hora">${h0}</button>
+    <b>:</b>
+    <input type="hidden" id="${id}-m" value="${m0}"><button type="button" class="reloj-casilla" data-reloj-parte="m" aria-label="Minutos">${m0}</button>
+  </div><div class="reloj-opciones" id="${id}-op" hidden></div>`;
 }
 function leerRelojBloqueo(id){
   const h = (document.getElementById(id+'-h')||{}).value, m = (document.getElementById(id+'-m')||{}).value;
@@ -4546,10 +4578,61 @@ function leerRelojBloqueo(id){
 }
 function ponerRelojBloqueo(id, hhmm){
   const [h, m] = hhmm.split(':');
-  [[id+'-h', h], [id+'-m', m]].forEach(([sid, v])=>{
-    const sel = document.getElementById(sid); if(!sel) return;
-    if(![...sel.options].some(o=>o.value===v)) sel.add(new Option(v, v));
-    sel.value = v;
+  const caja = document.querySelector(`.reloj-bloqueo[data-reloj="${id}"]`);
+  [['h', h], ['m', m]].forEach(([parte, v])=>{
+    const inp = document.getElementById(id+'-'+parte); if(inp) inp.value = v;
+    const btn = caja && caja.querySelector(`[data-reloj-parte="${parte}"]`); if(btn) btn.textContent = v;
+  });
+}
+function cerrarRelojesBloqueo(){
+  document.querySelectorAll('.reloj-opciones').forEach(p=>{ p.hidden = true; p.innerHTML = ''; });
+  document.querySelectorAll('.reloj-casilla.abierta').forEach(b=>b.classList.remove('abierta'));
+}
+function abrirRelojBloqueo(caja, parte){
+  const id = caja.dataset.reloj, esFin = !!caja.dataset.fin;
+  const panel = document.getElementById(id+'-op'), btn = caja.querySelector(`[data-reloj-parte="${parte}"]`);
+  const yaAbierto = btn.classList.contains('abierta');
+  cerrarRelojesBloqueo();
+  if(yaAbierto) return;
+  const fecha = (document.getElementById('f-block-date')||{}).value;
+  const actual = document.getElementById(id+'-'+parte).value;
+  const lista = opcionesRelojBloqueo(fecha, esFin, parte, actual, document.getElementById(id+'-h').value);
+  panel.innerHTML = `<div class="reloj-titulo">${parte==='h' ? 'Elige la hora' : 'Elige los minutos'}</div>
+    <div class="reloj-grilla">${lista.map(v=>`<button type="button" class="reloj-op ${v===actual?'on':''}" data-valor="${v}">${v}</button>`).join('')}</div>`;
+  panel.hidden = false; btn.classList.add('abierta');
+  panel.querySelectorAll('.reloj-op').forEach(op=>op.addEventListener('click', ()=>{
+    const [h, m] = leerRelojBloqueo(id).split(':');
+    let nh = parte==='h' ? op.dataset.valor : h, nm = parte==='m' ? op.dataset.valor : m;
+    // Si con la hora nueva esos minutos ya no caben (ej. "Hasta 20:30" con
+    // cierre a las 20), se dejan en el primero que sí cabe.
+    if(parte==='h'){
+      const mins = opcionesRelojBloqueo(fecha, esFin, 'm', null, nh);
+      if(!mins.includes(nm)) nm = mins[0];
+    }
+    ponerRelojBloqueo(id, nh+':'+nm);
+    // "Hasta" antes que "Desde" no sirve: pasa sola a una hora después
+    // (o a la hora de cierre).
+    if(!esFin && document.getElementById('f-block-end-h') && leerRelojBloqueo('f-block-end') <= nh+':'+nm){
+      const r = horasBloqueoPara(fecha);
+      const fin = Math.min(minutesFromMidnight(nh+':'+nm) + 60, r.cierra);
+      ponerRelojBloqueo('f-block-end', pad(Math.floor(fin/60))+':'+pad(fin%60));
+    }
+    cerrarRelojesBloqueo();
+  }));
+}
+// Al cambiar la fecha, una hora que ese día queda fuera del horario se
+// lleva a la más cercana que sí está.
+function ajustarRelojesAlDia(){
+  cerrarRelojesBloqueo();
+  const fecha = (document.getElementById('f-block-date')||{}).value;
+  document.querySelectorAll('.reloj-bloqueo').forEach(caja=>{
+    const id = caja.dataset.reloj, esFin = !!caja.dataset.fin;
+    const horas = opcionesRelojBloqueo(fecha, esFin, 'h', null);
+    let [h, m] = leerRelojBloqueo(id).split(':');
+    if(!horas.includes(h)) h = Number(h) < Number(horas[0]) ? horas[0] : horas[horas.length-1];
+    const mins = opcionesRelojBloqueo(fecha, esFin, 'm', null, h);
+    if(!mins.includes(m)) m = Number(h)===Number(horas[horas.length-1]) ? mins[mins.length-1] : mins[0];
+    ponerRelojBloqueo(id, h+':'+m);
   });
 }
 // Bloqueo de otra especialista, abierto por una especialista: solo se ve.
@@ -4597,8 +4680,8 @@ function blockModalHtml(){
         <div class="field" id="block-dateend-field" style="display:${kind==='days'?'block':'none'};"><label>Hasta el día (incluido)</label><input type="date" id="f-block-dateEnd" value="${d.dateEnd && d.dateEnd>d.date ? d.dateEnd : toKey(addDays(parseKey(d.date),1))}"></div>
       </div>
       <div class="row2" id="block-hours-fields" style="display:${kind==='hours'?'grid':'none'};">
-        <div class="field"><label>Desde</label>${relojBloqueoHtml('f-block-start', d.start)}</div>
-        <div class="field"><label>Hasta</label>${relojBloqueoHtml('f-block-end', d.end)}</div>
+        <div class="field"><label>Desde</label>${relojBloqueoHtml('f-block-start', d.start, false)}</div>
+        <div class="field"><label>Hasta</label>${relojBloqueoHtml('f-block-end', d.end, true)}</div>
       </div>
       <div class="field"><label>Motivo (opcional)</label><input type="text" id="f-block-reason" placeholder="Ej: hora médica, viaje" value="${escapeHtml(d.reason||'')}"></div>
       <div class="modal-actions">
@@ -8957,6 +9040,11 @@ function attachEvents(){
       }
     });
   }
+  document.querySelectorAll('.reloj-bloqueo').forEach(caja=>{
+    caja.querySelectorAll('[data-reloj-parte]').forEach(btn=>btn.addEventListener('click', ()=>abrirRelojBloqueo(caja, btn.dataset.relojParte)));
+  });
+  const blockDate = document.getElementById('f-block-date');
+  if(blockDate && document.querySelector('.reloj-bloqueo')) blockDate.addEventListener('change', ajustarRelojesAlDia);
   const blockKind = document.getElementById('block-kind');
   if(blockKind){
     blockKind.addEventListener('change', ()=>{
@@ -10093,6 +10181,15 @@ function saveBlockFromForm(){
   if(!updated.specialist){ showAlert('Elige a quién afecta el bloqueo (tu nombre, o "Todas").'); return; }
   if(kind==='hours'){
     if(updated.end <= updated.start){ showAlert('La hora de fin debe ser posterior a la hora de inicio.'); return; }
+    // Solo dentro del horario del estudio ese día (las casillas ya no
+    // ofrecen otra cosa; esto atrapa un bloqueo viejo con una hora rara).
+    const rango = horasBloqueoPara(updated.date);
+    const fueraDeHorario = !rango.cerrado && (minutesFromMidnight(updated.start) < rango.abre || minutesFromMidnight(updated.end) > rango.cierra);
+    const r12 = fueraDeHorario ? revisarMananaTarde(updated.date, updated.start, updated.end) : null;
+    if(fueraDeHorario && !(r12 && r12.corregido)){
+      const hm = m=>pad(Math.floor(m/60))+':'+pad(m%60);
+      showAlert(`Ese día el estudio atiende de ${hm(rango.abre)} a ${hm(rango.cierra)}. Elige las horas dentro de ese horario.`); return;
+    }
     const clave = updated.date+updated.start+updated.end;
     if(ui.modal._mananaTardeOk!==clave && preguntarMananaTarde(updated.date, updated.start, updated.end, 'El bloqueo', (s2, e2, aceptado)=>{
       ponerRelojBloqueo('f-block-start', s2);

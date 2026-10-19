@@ -1711,6 +1711,51 @@ para servir también a **Copiapó**, de la siguiente forma:
   temario / notas") para guardar cosas como la dirección o el contenido
   que se les manda a las inscritas — solo se ve dentro del curso, no se
   manda a nadie ni afecta ningún cálculo.
+- **Certificados de cursos** (19/10/2026, pedido de Juan Diego; solo
+  dueños, `esDueno()`): cada alumna recibe un certificado (PDF negro y
+  dorado, lo genera Claude con la plantilla del repo `sibana-certificados`,
+  carpeta `plantilla/`, que NO se publica — ver más abajo) con folio único y un QR que lleva a la página
+  pública de verificación (repo aparte `sibana-certificados`, en **Netlify**,
+  `CERT_VERIF_URL` = `https://sibana-certificados.netlify.app/v/<código>`),
+  que dice "Certificado válido / anulado / no encontrado". Se emiten desde el
+  curso (botón "📜 Certificados del curso", debajo de "+ Agregar inscrito")
+  o, para cursos que no están en la agenda (de años anteriores), desde
+  Más → "📜 Certificados" (último botón del menú) → "+ Certificado sin curso
+  en la agenda". Ahí mismo: registro de TODOS los certificados agrupados por
+  curso, buscador (nombre/RUT/folio/curso), "Descargar planilla (Excel)"
+  (CSV con `;` y BOM), y en cada uno "🔗 Ver", "📋 Copiar enlace", "Anular".
+  **NO van en el documento de la agenda** (no es un `DOC_KEYS`, no exige
+  subir `APP_VERSION`, no gasta su 1 MiB) sino en colecciones propias
+  (`firestore.rules`, bloque "Certificados"):
+  `sibana-certificados/<folio>` (registro completo, RUT entero, solo
+  dueños), `sibana-verificacion/<código>` (lo poco que ve la página pública:
+  se lee de a uno y solo sabiendo el código, `list` prohibido; documento a
+  medias `certDocParcial`, ej. 18.644.XXX-5), `sibana-cert-cursos/<sede>_
+  <cursoId>` (datos del curso para el certificado: nombre oficial, horas,
+  modalidad, lugar, instructora con apellido, contenidos, fecha de emisión;
+  la primera vez se proponen solos con `certDatosDesdeCurso`: quita
+  "Capacitación" del nombre, horas = fin − inicio, contenidos = líneas con
+  "-" de las notas) y `sibana-certificados-meta/folios-<año>` (último
+  número). Folio `SIB-PMU-<año de emisión>-NNN`, correlativo por año
+  (`emitirCertificado`, una sola transacción: folio + código + los dos
+  documentos). Código: 8 caracteres al azar sin 0/O/1/I (`certCodigoNuevo`,
+  `crypto.getRandomValues`), impreso junto al QR como XXXX-XXXX. **Un
+  certificado nunca se borra** (las reglas no lo permiten): se anula (con
+  motivo opcional) y, si hacía falta, se emite uno nuevo con otro folio.
+  "Emitir los N que faltan" emite en el orden de la lista del curso
+  (alfabético) y deja fuera a las Cancelada/No se presentó (a una de esas se
+  le puede emitir a mano, con aviso). El tipo de documento se adivina
+  (`certTipoSugerido`: RUT con dígito verificador válido → RUT, si no →
+  Pasaporte) y en el formulario se puede cambiar; un RUT con dígito malo no
+  se acepta. Probado con el emulador (32 pruebas de reglas + 34 de la agenda
+  real + 18 de la página pública). **Reglas: el usuario tiene que pegarlas en
+  Firebase** (si no, al abrir Certificados sale "faltan las reglas nuevas").
+  Primeros certificados: curso del 25/10/2026 (5 alumnas, folios 001–005).
+  Los PDF: Claude los genera con `sibana-certificados/plantilla` (A4
+  horizontal, 300 dpi, firmas de Salomé y Franklin digitalizadas en `sig/`):
+  `tools/desde_planilla.py` lee la planilla descargada de la agenda (folio,
+  código, enlace, contenidos de cada una) y `tools/render_cert.js` arma los
+  PDF con el QR (comprobado leyendo cada QR del PDF). Ver su LEEME.
 - **Vales** (`state.vales`, `{id,specialist,date,monto,notas}`): plata que
   una especialista va sacando de la caja durante la semana a cuenta de su
   comisión — a veces fraccionada en varios días y a veces sin avisar ni

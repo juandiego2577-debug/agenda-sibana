@@ -807,7 +807,28 @@
     align-items:center;justify-content:center;z-index:90;padding:16px;
   }
   .confirm-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:360px;width:100%;padding:20px;}
-  .confirm-box p{margin:0 0 18px 0;font-size:14px;line-height:1.45;color:var(--ink);}
+  .confirm-box p{margin:0 0 18px 0;font-size:14px;line-height:1.45;color:var(--ink);white-space:pre-line;}
+  .cert-row{display:flex;flex-direction:column;gap:8px;padding:10px 8px;border-bottom:1px solid var(--line);}
+  .cert-row:last-child{border-bottom:none;}
+  .cert-row.anulado{opacity:.72;}
+  .cert-row .cert-main{min-width:0;flex:1;}
+  .cert-row .cr-name{font-weight:600;}
+  .cert-row .cr-rut{font-size:12px;color:var(--ink-soft);}
+  .cert-chip{display:inline-block;margin-top:5px;font-size:11.5px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--ink-soft);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+  .cert-chip.ok{border-color:rgba(201,162,39,.55);color:var(--gold);}
+  .cert-chip.no{border-color:rgba(217,106,106,.55);color:var(--danger);}
+  .cert-actions{display:flex;flex-wrap:wrap;gap:6px;}
+  .cert-actions:empty{display:none;}
+  .cert-actions .btn, .cert-box .btn-sm{padding:6px 10px;font-size:12px;text-decoration:none;}
+  .cert-actions .cert-anular{color:var(--danger);}
+  .cert-box{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,0.03);}
+  .cert-box-title{font-weight:700;margin-bottom:8px;color:var(--gold);}
+  .cert-dato{display:grid;grid-template-columns:86px 1fr;gap:8px;font-size:12.5px;color:var(--ink);padding:3px 0;}
+  .cert-dato span{color:var(--ink-soft);}
+  .cert-grupo{margin-top:12px;}
+  .cert-grupo-title{font-weight:700;color:var(--gold);font-size:13.5px;padding:4px 0;border-bottom:1px solid var(--line);}
+  .cert-grupo-title span{font-weight:400;color:var(--ink-soft);font-size:12px;}
+  .cert-resumen{font-size:12.5px;color:var(--ink-soft);margin:4px 0 8px;}
   .confirm-box .confirm-actions{display:flex;justify-content:flex-end;gap:8px;}
 
   .empty-msg{text-align:center;color:var(--ink-soft);font-size:13px;padding:40px 0;}
@@ -4079,6 +4100,7 @@ function toolbarHtml(){
             ${(SEDE.descuentoMicro||{}).tipo==='dolar' ? `<button data-act="open-valores-sede">💱 Valor del dólar</button>` : ''}
             <button data-act="cambiar-cuenta">🔑 Entrar con otra contraseña</button>
             ${esDueno() ? `<button data-act="open-equipo">👥 Equipo (usuarios)</button>` : ''}
+            ${esDueno() ? `<button data-act="open-certificados">📜 Certificados</button>` : ''}
           </div>` : ''}
       </div>` : ''}
       ${specChips}
@@ -4515,6 +4537,9 @@ function modalHtml(){
   if(ui.modal.type==='staff-identity') return staffIdentityModalHtml();
   if(ui.modal.type==='mi-cuenta') return miCuentaModalHtml();
   if(ui.modal.type==='equipo') return equipoModalHtml();
+  if(ui.modal.type==='cert-curso') return certCursoModalHtml();
+  if(ui.modal.type==='cert-form') return certFormModalHtml();
+  if(ui.modal.type==='cert-registro') return certRegistroModalHtml();
   if(ui.modal.type==='sede') return sedeModalHtml();
   if(ui.modal.type==='valores-sede') return valoresSedeModalHtml();
   if(ui.modal.type==='appt' && ui.mode!=='admin') return apptViewOnlyHtml(ui.modal.data);
@@ -5448,6 +5473,7 @@ function cursoModalHtml(){
       ${c.notas ? `<div style="white-space:pre-wrap;font-size:12.5px;color:var(--ink-soft);background:rgba(255,255,255,0.04);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:8px;">${escapeHtml(c.notas)}</div>` : ''}
       <div style="margin-top:10px;">${rows || `<div class="empty-msg">Todavía no hay nadie inscrito.</div>`}</div>
       ${isAdmin ? `<button type="button" class="btn btn-ghost" style="margin-top:10px;" data-act="curso-add-attendee" data-id="${escapeHtml(c.id)}">+ Agregar inscrito</button>` : ''}
+      ${esDueno() ? `<button type="button" class="btn btn-ghost" style="margin-top:10px;" data-act="open-cert-curso" data-id="${escapeHtml(c.id)}">📜 Certificados del curso</button>` : ''}
       <div class="modal-actions">
         <div>${isAdmin ? `<button class="btn" style="background:rgba(217,106,106,0.15);color:var(--danger)" data-act="delete-course" data-id="${escapeHtml(c.id)}">Eliminar curso</button>` : ''}</div>
         <div class="right">
@@ -8405,6 +8431,511 @@ function cambiarMiContrasena(){
     });
 }
 
+// ---------------- Certificados de cursos (solo dueños, 19/10/2026) ----------------
+// Pedido de Juan Diego: cada alumna de un curso recibe un certificado con un QR
+// que lleva a una página pública (repo sibana-certificados, en Netlify) donde
+// cualquiera comprueba que es auténtico. Se emiten desde el curso
+// (📚 curso → "📜 Certificados del curso") o, para cursos que no están en la
+// agenda (ej. de años anteriores), desde Más → 📜 Certificados → "+ Certificado
+// sin curso en la agenda". NO se guardan en el documento de la agenda (no es un
+// DOC_KEYS: no exige subir APP_VERSION ni gasta su 1 MiB), sino en colecciones
+// propias que solo pueden tocar los dueños (ver firestore.rules):
+// - sibana-certificados/<folio>: registro completo (RUT entero, quién lo emitió).
+// - sibana-verificacion/<código>: lo poco que muestra la página pública.
+// - sibana-cert-cursos/<sede>_<cursoId>: datos del curso para el certificado.
+// - sibana-certificados-meta/folios-<año>: último número de folio usado.
+// Un certificado nunca se borra: se ANULA (la página dice "Certificado anulado").
+const CERT_COL = 'sibana-certificados';
+const CERT_VERIF_COL = 'sibana-verificacion';
+const CERT_CURSOS_COL = 'sibana-cert-cursos';
+const CERT_META_COL = 'sibana-certificados-meta';
+const CERT_VERIF_URL = 'https://sibana-certificados.netlify.app/v/';
+const CERT_INSTITUCION = 'Sibana Academia PMU';
+const CERT_FOLIO_PREFIJO = 'SIB-PMU';
+const CERT_ALFABETO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0/O ni 1/I, para no confundirlos al escribirlo
+const CERT_DOC_TIPOS = ['RUT', 'Pasaporte', 'DNI', 'Cédula'];
+
+function certCodigoNuevo(){
+  const bytes = new Uint32Array(8);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b=>CERT_ALFABETO[b % CERT_ALFABETO.length]).join('');
+}
+function certCodigoBonito(c){ return c ? c.slice(0,4) + '-' + c.slice(4) : ''; }
+function certEnlace(c){ return CERT_VERIF_URL + c; }
+// RUT chileno: dígito verificador (módulo 11) y formato 12.345.678-9.
+function certRutLimpio(s){ return String(s||'').toUpperCase().replace(/[^0-9K]/g, ''); }
+function certRutValido(s){
+  const r = certRutLimpio(s);
+  if(!/^[0-9]{7,8}[0-9K]$/.test(r)) return false;
+  const cuerpo = r.slice(0,-1), dv = r.slice(-1);
+  let suma = 0, mul = 2;
+  for(let i = cuerpo.length - 1; i >= 0; i--){ suma += Number(cuerpo[i]) * mul; mul = mul === 7 ? 2 : mul + 1; }
+  const res = 11 - (suma % 11);
+  return dv === (res === 11 ? '0' : res === 10 ? 'K' : String(res));
+}
+function certRutFormato(s){
+  const r = certRutLimpio(s);
+  const cuerpo = r.slice(0,-1).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return cuerpo + '-' + r.slice(-1);
+}
+function certTipoSugerido(doc){
+  if(SEDE.docIdentidad === 'RUT') return certRutValido(doc) ? 'RUT' : 'Pasaporte';
+  return SEDE.docIdentidad || 'Pasaporte';
+}
+// Lo que se muestra en la página pública: el documento a medias.
+function certDocParcial(tipo, doc){
+  if(tipo === 'RUT' && certRutValido(doc)){
+    const f = certRutFormato(doc);           // 18.644.062-5
+    return f.replace(/\d{3}-/, 'XXX-');        // 18.644.XXX-5
+  }
+  const s = String(doc||'').trim();
+  if(s.length <= 4) return s ? '•'.repeat(s.length) : '';
+  return s.slice(0,2) + '•'.repeat(s.length - 4) + s.slice(-2);
+}
+// "Santiago de Chile" (como se dice allá); en otras sedes, "Ciudad, País".
+function certLugarSede(){
+  return SEDE.id === 'santiago' ? 'Santiago de Chile' : SEDE.nombre + (SEDE.pais ? ', ' + SEDE.pais : '');
+}
+function certFechaLarga(iso){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||'');
+  return m ? `${Number(m[3])} de ${MONTHS[Number(m[2])-1]} de ${m[1]}` : (iso||'');
+}
+// Datos por defecto del certificado, sacados del propio curso de la agenda.
+function certDatosDesdeCurso(c){
+  const horas = (()=>{
+    const ini = minutesFromMidnight(c.start||'0:00'), fin = minutesFromMidnight(c.end||'0:00');
+    const h = (fin - ini) / 60;
+    return h > 0 ? `${Number.isInteger(h) ? h : h.toFixed(1).replace('.', ',')} horas cronológicas` : '';
+  })();
+  // Contenidos: las líneas que empiezan con "-" en las notas del curso ("Qué aprenderás:").
+  const contenidos = String(c.notas||'').split('\n').map(l=>l.trim()).filter(l=>/^[-•·*]\s*/.test(l))
+    .map(l=>l.replace(/^[-•·*]\s*/, '')).filter(Boolean).join('\n');
+  return {
+    curso: String(c.nombre||'').replace(/^(capacitaci[oó]n|curso)( de| en)?\s+/i, '').trim() || (c.nombre||''),
+    fecha: c.date, horas, modalidad: 'Presencial',
+    lugar: certLugarSede(),
+    instructora: c.specialist || '', contenidos,
+    emitido: c.date,
+  };
+}
+function certEstadoAlumna(certs, inscritoId){
+  const suyos = certs.filter(x=>x.inscritoId===inscritoId);
+  return suyos.find(x=>x.estado==='valido') || suyos.sort((a,b)=>(b.folio||'').localeCompare(a.folio||''))[0] || null;
+}
+
+// --- Cargar ---
+function abrirCertificadosCurso(courseId){
+  if(!esDueno()) return;
+  ui.modal = {type:'cert-curso', courseId, cfg:null, certs:null, error:'', editando:false, ocupado:false};
+  render();
+  cargarCertificadosCurso();
+}
+function cargarCertificadosCurso(){
+  const m = ui.modal; if(!m || m.type!=='cert-curso') return Promise.resolve();
+  const courseId = m.courseId;
+  return Promise.all([
+    db.collection(CERT_CURSOS_COL).doc(SEDE.id + '_' + courseId).get(),
+    db.collection(CERT_COL).where('cursoId', '==', courseId).get(),
+  ]).then(([cfgSnap, certSnap])=>{
+    if(!ui.modal || ui.modal.type!=='cert-curso' || ui.modal.courseId!==courseId) return;
+    ui.modal.cfg = cfgSnap.exists ? cfgSnap.data() : null;
+    ui.modal.certs = certSnap.docs.map(d=>d.data());
+    if(!ui.modal.cfg) ui.modal.editando = true; // la primera vez: revisar los datos antes de emitir
+    render();
+  }).catch(err=>{
+    console.error('No se pudieron leer los certificados', err);
+    if(!ui.modal || ui.modal.type!=='cert-curso') return;
+    ui.modal.error = 'No se pudieron cargar los certificados (¿sin señal, o faltan las reglas nuevas de Firebase?).';
+    render();
+  });
+}
+function abrirRegistroCertificados(){
+  if(!esDueno()) return;
+  ui.modal = {type:'cert-registro', certs:null, error:''};
+  ui.menuOpen = false;
+  render();
+  cargarRegistroCertificados();
+}
+function cargarRegistroCertificados(){
+  return db.collection(CERT_COL).get().then(snap=>{
+    if(!ui.modal || ui.modal.type!=='cert-registro') return;
+    ui.modal.certs = snap.docs.map(d=>d.data()).sort((a,b)=>(b.folio||'').localeCompare(a.folio||''));
+    render();
+  }).catch(err=>{
+    console.error('No se pudo leer el registro de certificados', err);
+    if(!ui.modal || ui.modal.type!=='cert-registro') return;
+    ui.modal.error = 'No se pudo cargar el registro (¿sin señal, o faltan las reglas nuevas de Firebase?).';
+    render();
+  });
+}
+
+// --- Datos del curso para el certificado ---
+function certLeerFormDatos(){
+  const v = id=>{ const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  return {
+    curso: v('f-cert-curso'), fecha: v('f-cert-fecha'), horas: v('f-cert-horas'), modalidad: v('f-cert-modalidad'),
+    lugar: v('f-cert-lugar'), instructora: v('f-cert-instructora'), contenidos: v('f-cert-contenidos'), emitido: v('f-cert-emitido'),
+  };
+}
+function certValidarDatos(d){
+  if(!d.curso) return 'Falta el nombre del curso.';
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(d.fecha)) return 'Falta la fecha del curso.';
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(d.emitido)) return 'Falta la fecha de emisión.';
+  if(!d.horas) return 'Falta la duración (ej. "7 horas cronológicas").';
+  if(!d.instructora) return 'Falta el nombre de la instructora, tal como va en el certificado (ej. "Salomé Toro").';
+  if(d.curso.length > 150 || d.horas.length > 20 || d.modalidad.length > 40 || d.lugar.length > 80 || d.instructora.length > 80) return 'Algún dato es demasiado largo.';
+  return '';
+}
+function guardarDatosCertCurso(){
+  const m = ui.modal; if(!esDueno() || !m || m.type!=='cert-curso') return;
+  const d = certLeerFormDatos();
+  const err = certValidarDatos(d);
+  if(err){ showAlert(err); return; }
+  m.ocupado = true; render();
+  db.collection(CERT_CURSOS_COL).doc(SEDE.id + '_' + m.courseId).set(Object.assign({}, d, {
+    sede: SEDE.id, cursoId: m.courseId, actualizadoEn: firebase.firestore.FieldValue.serverTimestamp(),
+  })).then(()=>{
+    if(!ui.modal || ui.modal.type!=='cert-curso') return;
+    ui.modal.cfg = d; ui.modal.editando = false; ui.modal.ocupado = false; render();
+  }).catch(err2=>{
+    console.error(err2);
+    if(ui.modal) ui.modal.ocupado = false;
+    render(); showAlert('No se pudieron guardar los datos. Revisa la señal e inténtalo de nuevo.');
+  });
+}
+
+// --- Emitir (un folio nuevo + código al azar, en una sola transacción) ---
+// datos: {curso, fecha, horas, modalidad, lugar, instructora, contenidos, emitido,
+//         nombre, docTipo, doc, cursoId, inscritoId}
+function emitirCertificado(datos){
+  if(!esDueno()) return Promise.reject(new Error('Solo dueños'));
+  const anio = (datos.emitido || hoySedeKey()).slice(0,4);
+  const metaRef = db.collection(CERT_META_COL).doc('folios-' + anio);
+  return db.runTransaction(async tx=>{
+    const meta = await tx.get(metaRef);
+    const n = (meta.exists ? (Number(meta.data().ultimo)||0) : 0) + 1;
+    const folio = `${CERT_FOLIO_PREFIJO}-${anio}-${String(n).padStart(3,'0')}`;
+    let codigo = '', libre = false;
+    for(let i = 0; i < 5 && !libre; i++){
+      codigo = certCodigoNuevo();
+      libre = !(await tx.get(db.collection(CERT_VERIF_COL).doc(codigo))).exists;
+    }
+    if(!libre) throw new Error('No se pudo generar un código libre');
+    const doc = datos.docTipo === 'RUT' && certRutValido(datos.doc) ? certRutFormato(datos.doc) : String(datos.doc||'').trim();
+    const publico = {
+      folio, nombre: datos.nombre, curso: datos.curso, fecha: datos.fecha, emitido: datos.emitido, estado: 'valido',
+      doc: certDocParcial(datos.docTipo, doc), docTipo: datos.docTipo || '',
+      horas: datos.horas || '', modalidad: datos.modalidad || '', lugar: datos.lugar || '',
+      instructora: datos.instructora || '', institucion: CERT_INSTITUCION,
+      actualizadoEn: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+    const privado = Object.assign({}, publico, {
+      doc, codigo, sede: SEDE.id, cursoId: datos.cursoId || '', inscritoId: datos.inscritoId || '',
+      contenidos: datos.contenidos || '', emitidoEn: firebase.firestore.FieldValue.serverTimestamp(),
+      emitidoPor: (CUENTA && (CUENTA.nombre || CUENTA.email)) || '',
+    });
+    tx.set(metaRef, {ultimo: n, actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()});
+    tx.set(db.collection(CERT_COL).doc(folio), privado);
+    tx.set(db.collection(CERT_VERIF_COL).doc(codigo), publico);
+    return {folio, codigo};
+  });
+}
+function emitirCertAlumna(inscritoId){
+  const m = ui.modal; if(!esDueno() || !m || m.type!=='cert-curso' || !m.cfg || m.ocupado) return;
+  const a = state.appointments.find(x=>x.id===inscritoId);
+  if(!a) return;
+  ui.modal = {type:'cert-form', modo:'alumna', volverA:m.courseId, cfg:m.cfg, inscritoId,
+    nombre: a.client || '', doc: a.rut || '', docTipo: certTipoSugerido(a.rut), estado: a.estado || ''};
+  render();
+}
+function abrirCertManual(){
+  if(!esDueno()) return;
+  ui.modal = {type:'cert-form', modo:'manual', cfg:{curso:'', fecha:'', horas:'', modalidad:'Presencial',
+    lugar: certLugarSede(), instructora:'', contenidos:'', emitido: hoySedeKey()},
+    nombre:'', doc:'', docTipo: SEDE.docIdentidad === 'RUT' ? 'RUT' : (SEDE.docIdentidad || 'Pasaporte')};
+  render();
+}
+function confirmarEmisionDesdeForm(){
+  const m = ui.modal; if(!esDueno() || !m || m.type!=='cert-form' || m.ocupado) return;
+  const v = id=>{ const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const cfg = m.modo === 'manual' ? certLeerFormDatos() : m.cfg;
+  const nombre = v('f-certp-nombre').replace(/\s+/g, ' ');
+  const docTipo = v('f-certp-doctipo');
+  const doc = v('f-certp-doc');
+  // guardar lo escrito por si hay que volver a mostrar el formulario
+  Object.assign(m, {nombre, docTipo, doc}); if(m.modo === 'manual') m.cfg = cfg;
+  const errCfg = m.modo === 'manual' ? certValidarDatos(cfg) : '';
+  if(errCfg){ showAlert(errCfg); return; }
+  if(nombre.length < 3){ showAlert('Escribe el nombre completo de la persona, tal como aparece en su documento.'); return; }
+  if(nombre.length > 120){ showAlert('El nombre es demasiado largo.'); return; }
+  if(!doc){ showAlert('Falta el número de documento.'); return; }
+  if(docTipo === 'RUT' && !certRutValido(doc)){ showAlert('Ese RUT no es válido (el dígito verificador no coincide). Revísalo, o si es un pasaporte elige "Pasaporte".'); return; }
+  const docMostrar = docTipo === 'RUT' ? certRutFormato(doc) : doc;
+  const aviso = (m.estado === 'Cancelada' || m.estado === 'NoShow') ? '\n\nOjo: esta persona figura como "' + (m.estado === 'NoShow' ? 'No se presentó' : 'Cancelada') + '" en el curso.' : '';
+  showConfirmDialog(`¿Emitir el certificado de ${nombre} (${docTipo} ${docMostrar})?\n\nCurso: ${cfg.curso}\nSe le asigna el siguiente folio y su código de verificación. Un certificado emitido no se borra: si algo está mal, se anula y se emite uno nuevo.${aviso}`, ()=>{
+    m.ocupado = true; render();
+    emitirCertificado(Object.assign({}, cfg, {nombre, docTipo, doc, cursoId: m.modo === 'alumna' ? m.volverA : '', inscritoId: m.inscritoId || ''}))
+      .then(({folio, codigo})=>{
+        if(m.modo === 'alumna'){ abrirCertificadosCurso(m.volverA); }
+        else { abrirRegistroCertificados(); }
+        showAlert(`✅ Certificado emitido.\n\nFolio: ${folio}\nCódigo: ${certCodigoBonito(codigo)}`);
+      })
+      .catch(err=>{
+        console.error(err);
+        m.ocupado = false; render();
+        showAlert('No se pudo emitir el certificado (no se guardó nada). Revisa la señal e inténtalo de nuevo.');
+      });
+  });
+}
+function emitirFaltantesCurso(){
+  const m = ui.modal; if(!esDueno() || !m || m.type!=='cert-curso' || !m.cfg || !m.certs || m.ocupado) return;
+  const pendientes = courseAttendees(m.courseId).filter(a=>a.estado!=='Cancelada' && a.estado!=='NoShow' && !certEstadoAlumna(m.certs, a.id));
+  if(!pendientes.length){ showAlert('Todas las inscritas que asistieron ya tienen certificado.'); return; }
+  const malos = pendientes.filter(a=>!(a.client||'').trim() || !(a.rut||'').trim());
+  if(malos.length){ showAlert('Antes de emitir, completa el nombre y el documento de: ' + malos.map(a=>a.client||'(sin nombre)').join(', ') + '.'); return; }
+  const lista = pendientes.map(a=>`• ${a.client} (${certTipoSugerido(a.rut)} ${certTipoSugerido(a.rut)==='RUT' ? certRutFormato(a.rut) : a.rut})`).join('\n');
+  showConfirmDialog(`Se van a emitir ${pendientes.length} certificado${pendientes.length===1?'':'s'}, con folios seguidos en este orden:\n\n${lista}\n\nRevisa que cada nombre esté completo (nombres y apellidos) y que el documento sea el correcto (RUT o pasaporte).`, async ()=>{
+    m.ocupado = true; render();
+    let hechos = 0;
+    try{
+      for(const a of pendientes){
+        await emitirCertificado(Object.assign({}, m.cfg, {nombre: a.client.trim().replace(/\s+/g,' '), docTipo: certTipoSugerido(a.rut), doc: a.rut, cursoId: m.courseId, inscritoId: a.id}));
+        hechos++;
+      }
+      showAlert(`✅ Listo: se emitieron ${hechos} certificado${hechos===1?'':'s'}.`);
+    }catch(err){
+      console.error(err);
+      showAlert(`Se emitieron ${hechos} de ${pendientes.length}. El resto no se pudo emitir (revisa la señal) — vuelve a tocar "Emitir" para los que faltan.`);
+    }
+    if(ui.modal && ui.modal.type==='cert-curso'){ ui.modal.ocupado = false; cargarCertificadosCurso(); }
+  });
+}
+
+// --- Anular ---
+function anularCertificado(folio){
+  if(!esDueno()) return;
+  const m = ui.modal;
+  const c = m && (m.certs||[]).find(x=>x.folio===folio);
+  if(!c || c.estado!=='valido') return;
+  showConfirmDialog(`¿Anular el certificado ${folio} de ${c.nombre}?\n\nLa página de verificación va a decir "Certificado anulado". No se puede deshacer (si fue un error, se emite uno nuevo).`, ()=>{
+    certPedirTexto('Motivo de la anulación (opcional, se muestra en la página de verificación):', 'Anular', motivoEscrito=>{
+    const motivo = (motivoEscrito || '').trim().slice(0, 200);
+    const cambios = {estado:'anulado', motivo, actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()};
+    const batch = db.batch();
+    batch.update(db.collection(CERT_VERIF_COL).doc(c.codigo), cambios);
+    batch.update(db.collection(CERT_COL).doc(folio), Object.assign({}, cambios, {
+      anuladoEn: firebase.firestore.FieldValue.serverTimestamp(), anuladoPor: (CUENTA && (CUENTA.nombre || CUENTA.email)) || '',
+    }));
+    batch.commit().then(()=>{
+      c.estado = 'anulado'; c.motivo = motivo; render();
+    }).catch(err=>{ console.error(err); showAlert('No se pudo anular. Revisa la señal e inténtalo de nuevo.'); });
+    });
+  });
+}
+// Igual que showPrompt, pero con texto visible (no contraseña).
+function certPedirTexto(message, okLabel, onSubmit){
+  const existing = document.getElementById('custom-dialog');
+  if(existing) existing.remove();
+  const wrap = document.createElement('div');
+  wrap.id = 'custom-dialog';
+  wrap.className = 'confirm-overlay';
+  wrap.innerHTML = `
+    <div class="confirm-box">
+      <p>${escapeHtml(message)}</p>
+      <input type="text" id="dlg-input" class="client-search-input" maxlength="200" autocomplete="off" style="margin-bottom:14px">
+      <div class="confirm-actions">
+        <button class="btn btn-ghost" id="dlg-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="dlg-ok">${escapeHtml(okLabel||'Aceptar')}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  const close = ()=>wrap.remove();
+  const submit = ()=>{ const val = document.getElementById('dlg-input').value; close(); onSubmit(val); };
+  wrap.querySelector('#dlg-ok').addEventListener('click', submit);
+  wrap.querySelector('#dlg-cancel').addEventListener('click', close);
+  wrap.querySelector('#dlg-input').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+  wrap.addEventListener('click', e=>{ if(e.target===wrap) close(); });
+  setTimeout(()=>{ const inp = document.getElementById('dlg-input'); if(inp) inp.focus(); }, 50);
+}
+function copiarEnlaceCert(codigo){
+  copyToClipboard(certEnlace(codigo)).then(()=>showAlert('Enlace copiado:\n' + certEnlace(codigo)));
+}
+
+// --- Planilla (Excel abre bien el CSV con ";" y la marca UTF-8) ---
+function descargarPlanillaCertificados(){
+  const m = ui.modal; if(!esDueno() || !m || !m.certs) return;
+  const col = ['Folio','Código','Estado','Nombre completo','Tipo de documento','Documento','Curso','Fecha del curso','Duración','Modalidad','Lugar','Instructora','Fecha de emisión','Emitido por','Enlace de verificación','Motivo de anulación','Contenidos'];
+  const q = v=>{ const s = String(v==null?'':v); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
+  const filas = m.certs.slice().sort((a,b)=>(a.folio||'').localeCompare(b.folio||'')).map(c=>[
+    c.folio, certCodigoBonito(c.codigo), c.estado==='valido'?'Válido':'Anulado', c.nombre, c.docTipo, c.doc, c.curso,
+    certFechaLarga(c.fecha), c.horas, c.modalidad, c.lugar, c.instructora, certFechaLarga(c.emitido), c.emitidoPor,
+    certEnlace(c.codigo), c.motivo||'', String(c.contenidos||'').split('\n').map(x=>x.trim()).filter(Boolean).join(' | '),
+  ].map(q).join(';'));
+  const blob = new Blob(['﻿' + [col.join(';')].concat(filas).join('\r\n')], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = `Sibana-registro-certificados-${hoySedeKey()}.csv`;
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  setTimeout(()=>URL.revokeObjectURL(url), 3000);
+}
+
+// --- Pantallas ---
+function certFilaHtml(c, opciones){
+  const valido = c.estado === 'valido';
+  return `
+    <div class="cert-row${valido?'':' anulado'}" data-cert-search="${escapeHtml(normalizeName([c.nombre,c.folio,c.doc,c.curso,certCodigoBonito(c.codigo)].join(' ')))}">
+      <div class="cert-main">
+        <div class="cr-name">${escapeHtml(c.nombre||'')}</div>
+        <div class="cr-rut">${escapeHtml(c.docTipo||'')} ${escapeHtml(c.doc||'')}${opciones && opciones.conCurso ? ' · ' + escapeHtml(c.curso||'') + ' · ' + escapeHtml(certFechaLarga(c.fecha)) : ''}</div>
+        <div class="cert-chip ${valido?'ok':'no'}">${valido?'✅ Válido':'⛔ Anulado'} · <b>${escapeHtml(c.folio||'')}</b> · código ${escapeHtml(certCodigoBonito(c.codigo))}</div>
+        ${!valido && c.motivo ? `<div class="cr-rut">Motivo: ${escapeHtml(c.motivo)}</div>` : ''}
+      </div>
+      <div class="cert-actions">
+        <a class="btn btn-ghost btn-sm" href="${escapeHtml(certEnlace(c.codigo))}" target="_blank" rel="noopener">🔗 Ver</a>
+        <button type="button" class="btn btn-ghost btn-sm" data-act="cert-copiar" data-codigo="${escapeHtml(c.codigo)}">📋 Copiar enlace</button>
+        ${valido ? `<button type="button" class="btn btn-ghost btn-sm cert-anular" data-act="cert-anular" data-folio="${escapeHtml(c.folio)}">Anular</button>` : ''}
+      </div>
+    </div>`;
+}
+function certDatosFormHtml(d, editableFecha){
+  return `
+      <div class="field"><label>Nombre del curso (tal como va en el certificado)</label><input type="text" id="f-cert-curso" maxlength="150" value="${escapeHtml(d.curso||'')}" placeholder="Ej.: Técnico en Micropigmentación de Cejas y Labios"></div>
+      <div class="row2">
+        <div class="field"><label>Fecha del curso</label><input type="date" id="f-cert-fecha" value="${escapeHtml(d.fecha||'')}" ${editableFecha?'':'readonly'}></div>
+        <div class="field"><label>Fecha de emisión</label><input type="date" id="f-cert-emitido" value="${escapeHtml(d.emitido||'')}"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Duración</label><input type="text" id="f-cert-horas" maxlength="20" value="${escapeHtml(d.horas||'')}" placeholder="Ej.: 7 horas cronológicas"></div>
+        <div class="field"><label>Modalidad</label><input type="text" id="f-cert-modalidad" maxlength="40" value="${escapeHtml(d.modalidad||'')}" placeholder="Presencial"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Lugar</label><input type="text" id="f-cert-lugar" maxlength="80" value="${escapeHtml(d.lugar||'')}" placeholder="Santiago de Chile"></div>
+        <div class="field"><label>Instructora (nombre y apellido)</label><input type="text" id="f-cert-instructora" maxlength="80" value="${escapeHtml(d.instructora||'')}" placeholder="Ej.: Salomé Toro"></div>
+      </div>
+      <div class="field"><label>Contenidos (uno por línea)</label><textarea id="f-cert-contenidos" rows="4" maxlength="1500" placeholder="Diseño y visagismo de cejas y labios&#10;Colorimetría">${escapeHtml(d.contenidos||'')}</textarea></div>`;
+}
+function certCursoModalHtml(){
+  const m = ui.modal;
+  const c = (state.courses||[]).find(x=>x.id===m.courseId);
+  if(!c){ ui.modal = null; return ''; }
+  const cargando = !m.certs && !m.error;
+  const cfg = m.cfg || certDatosDesdeCurso(c);
+  const alumnas = courseAttendees(c.id);
+  const filas = (m.certs ? alumnas : []).map(a=>{
+    const cert = certEstadoAlumna(m.certs, a.id);
+    const noVino = a.estado==='Cancelada' || a.estado==='NoShow';
+    if(cert && cert.estado==='valido') return certFilaHtml(cert);
+    return `${cert ? certFilaHtml(cert) : ''}
+      <div class="cert-row pendiente">
+        <div class="cert-main">
+          <div class="cr-name">${escapeHtml(a.client||'Sin nombre')}</div>
+          <div class="cr-rut">${escapeHtml(SEDE.docIdentidad)} ${escapeHtml(a.rut||'—')}${noVino ? ' · ' + (a.estado==='NoShow'?'No se presentó':'Cancelada') : ''}</div>
+          <div class="cert-chip">${cert ? 'Sin certificado vigente' : 'Sin certificado'}</div>
+        </div>
+        <div class="cert-actions">
+          ${m.cfg && !m.editando ? `<button type="button" class="btn btn-ghost btn-sm" data-act="cert-emitir" data-id="${escapeHtml(a.id)}" ${m.ocupado?'disabled':''}>📜 Emitir</button>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+  const faltan = m.certs ? alumnas.filter(a=>a.estado!=='Cancelada' && a.estado!=='NoShow' && !certEstadoAlumna(m.certs, a.id)).length : 0;
+  const contenidos = String(cfg.contenidos||'').split('\n').filter(Boolean);
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">📜 Certificados — ${escapeHtml(c.nombre||'Curso')}</h2>
+      <div class="hint">${courseDateLabel(c.date)} · Cada certificado lleva un folio único y un código QR que cualquiera puede escanear para comprobar que es auténtico.</div>
+      ${m.error ? `<div class="empty-msg" style="color:var(--danger)">${escapeHtml(m.error)}</div>` : ''}
+      ${cargando ? `<div class="empty-msg">Cargando…</div>` : ''}
+      ${!cargando && !m.error ? (m.editando ? `
+        <div class="cert-box">
+          <div class="cert-box-title">Datos que van en el certificado</div>
+          <div class="hint" style="margin-top:0">Se usan para todas las alumnas de este curso. Revísalos bien: van impresos y en la página de verificación.</div>
+          ${certDatosFormHtml(cfg, false)}
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
+            ${m.cfg ? `<button type="button" class="btn btn-ghost" data-act="cert-cancelar-datos">Cancelar</button>` : ''}
+            <button type="button" class="btn btn-primary" data-act="cert-guardar-datos" ${m.ocupado?'disabled':''}>Guardar datos</button>
+          </div>
+        </div>` : `
+        <div class="cert-box">
+          <div class="cert-box-title">Datos del certificado <button type="button" class="btn btn-ghost btn-sm" style="float:right" data-act="cert-editar-datos">✏️ Editar</button></div>
+          <div class="cert-dato"><span>Curso</span><b>${escapeHtml(cfg.curso)}</b></div>
+          <div class="cert-dato"><span>Fecha</span>${escapeHtml(certFechaLarga(cfg.fecha))} · ${escapeHtml(cfg.horas)} · ${escapeHtml(cfg.modalidad)}</div>
+          <div class="cert-dato"><span>Lugar</span>${escapeHtml(cfg.lugar)}</div>
+          <div class="cert-dato"><span>Instructora</span>${escapeHtml(cfg.instructora)}</div>
+          <div class="cert-dato"><span>Emisión</span>${escapeHtml(certFechaLarga(cfg.emitido))}</div>
+          ${contenidos.length ? `<div class="cert-dato"><span>Contenidos</span>${contenidos.map(escapeHtml).join(' · ')}</div>` : ''}
+        </div>
+        <div style="margin-top:10px;">${filas || `<div class="empty-msg">Todavía no hay nadie inscrito en este curso.</div>`}</div>
+        ${faltan > 1 ? `<button type="button" class="btn btn-primary" style="margin-top:10px;" data-act="cert-emitir-todos" ${m.ocupado?'disabled':''}>📜 Emitir los ${faltan} que faltan</button>` : ''}`) : ''}
+      <div class="modal-actions">
+        <div></div>
+        <div class="right">
+          <button class="btn btn-ghost" data-act="open-curso" data-id="${escapeHtml(c.id)}">Volver al curso</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function certFormModalHtml(){
+  const m = ui.modal;
+  const manual = m.modo === 'manual';
+  const tipos = CERT_DOC_TIPOS.map(t=>`<option value="${t}" ${m.docTipo===t?'selected':''}>${t}</option>`).join('');
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">📜 ${manual ? 'Certificado sin curso en la agenda' : 'Emitir certificado'}</h2>
+      ${manual ? `<div class="hint">Para cursos que no están en la agenda (por ejemplo, de años anteriores). Queda en el mismo registro y con su propio QR.</div>${certDatosFormHtml(m.cfg, true)}<hr style="border:0;border-top:1px solid var(--line);margin:6px 0 12px;">`
+        : `<div class="hint">${escapeHtml(m.cfg.curso)} · ${escapeHtml(certFechaLarga(m.cfg.fecha))}</div>`}
+      <div class="field"><label>Nombre completo (todos los nombres y apellidos, como en su documento)</label><input type="text" id="f-certp-nombre" maxlength="120" value="${escapeHtml(m.nombre||'')}"></div>
+      <div class="row2">
+        <div class="field"><label>Tipo de documento</label><select id="f-certp-doctipo">${tipos}</select></div>
+        <div class="field"><label>Número</label><input type="text" id="f-certp-doc" maxlength="30" value="${escapeHtml(m.doc||'')}"></div>
+      </div>
+      <div class="modal-actions">
+        <div></div>
+        <div class="right">
+          <button class="btn btn-ghost" data-act="${manual ? 'open-certificados' : 'cert-volver-curso'}" data-id="${escapeHtml(m.volverA||'')}">Cancelar</button>
+          <button class="btn btn-primary" data-act="cert-confirmar" ${m.ocupado?'disabled':''}>${m.ocupado ? 'Emitiendo…' : 'Emitir certificado'}</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function certRegistroModalHtml(){
+  const m = ui.modal;
+  const certs = m.certs || [];
+  const validos = certs.filter(c=>c.estado==='valido').length;
+  // Agrupados por curso (nombre + fecha), los más recientes primero.
+  const grupos = new Map();
+  certs.forEach(c=>{ const k = (c.fecha||'') + '|' + (c.curso||''); if(!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(c); });
+  const bloques = Array.from(grupos.entries()).sort((a,b)=>b[0].localeCompare(a[0])).map(([k, lista])=>`
+    <div class="cert-grupo">
+      <div class="cert-grupo-title">${escapeHtml(lista[0].curso||'')} <span>· ${escapeHtml(certFechaLarga(lista[0].fecha))} · ${lista.length} certificado${lista.length===1?'':'s'}</span></div>
+      ${lista.sort((a,b)=>(a.folio||'').localeCompare(b.folio||'')).map(c=>certFilaHtml(c)).join('')}
+    </div>`).join('');
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">📜 Registro de certificados</h2>
+      <div class="hint">Todos los certificados emitidos por ${escapeHtml(CERT_INSTITUCION)}, de todos los cursos. Para emitir los de un curso de la agenda: Más → 📚 Ver cursos → el curso → "📜 Certificados del curso".</div>
+      ${m.error ? `<div class="empty-msg" style="color:var(--danger)">${escapeHtml(m.error)}</div>` : ''}
+      ${!m.certs && !m.error ? `<div class="empty-msg">Cargando…</div>` : ''}
+      ${m.certs ? `
+        <div class="cert-resumen">${certs.length} emitido${certs.length===1?'':'s'} · ${validos} válido${validos===1?'':'s'}${certs.length - validos ? ' · ' + (certs.length - validos) + ' anulado' + (certs.length - validos === 1 ? '' : 's') : ''}</div>
+        ${certs.length ? `<input type="text" id="cert-search" class="client-search-input" placeholder="Buscar por nombre, RUT, folio o curso…" autocomplete="off">` : ''}
+        <div id="cert-lista">${bloques || `<div class="empty-msg">Todavía no se ha emitido ningún certificado.</div>`}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">
+          <button type="button" class="btn btn-ghost" data-act="cert-manual">+ Certificado sin curso en la agenda</button>
+          ${certs.length ? `<button type="button" class="btn btn-ghost" data-act="cert-planilla">⬇️ Descargar planilla (Excel)</button>` : ''}
+        </div>` : ''}
+      <div class="modal-actions">
+        <div></div>
+        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+
 // ---------------- Equipo: usuarios personales (solo dueños) ----------------
 // Más → 👥 Equipo. Lista a las personas con cuenta propia (de las dos sedes)
 // y los pedidos de acceso de quienes crearon su cuenta ("Crear cuenta" en la
@@ -9324,6 +9855,8 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'curso-add-attendee','curso-edit-attendee','save-curso-attendee','delete-curso-attendee',
   'delete-vale',
   'open-valores-sede','save-valores-sede','remove-dolar',
+  'open-certificados','open-cert-curso','cert-volver-curso','cert-editar-datos','cert-cancelar-datos','cert-guardar-datos',
+  'cert-emitir','cert-emitir-todos','cert-confirmar','cert-anular','cert-copiar','cert-planilla','cert-manual',
 ]);
 
 // ¿La especialista cambió el método de pago o las cremas en la vista de una
@@ -9821,6 +10354,32 @@ function onAction(e){
       cambiarMiContrasena(); break;
     case 'open-equipo':
       abrirEquipo(); break;
+    case 'open-certificados':
+      abrirRegistroCertificados(); break;
+    case 'open-cert-curso':
+      abrirCertificadosCurso(e.currentTarget.dataset.id); break;
+    case 'cert-volver-curso':
+      abrirCertificadosCurso(e.currentTarget.dataset.id); break;
+    case 'cert-editar-datos':
+      if(ui.modal && ui.modal.type==='cert-curso'){ ui.modal.editando = true; render(); } break;
+    case 'cert-cancelar-datos':
+      if(ui.modal && ui.modal.type==='cert-curso'){ ui.modal.editando = false; render(); } break;
+    case 'cert-guardar-datos':
+      guardarDatosCertCurso(); break;
+    case 'cert-emitir':
+      emitirCertAlumna(e.currentTarget.dataset.id); break;
+    case 'cert-emitir-todos':
+      emitirFaltantesCurso(); break;
+    case 'cert-confirmar':
+      confirmarEmisionDesdeForm(); break;
+    case 'cert-anular':
+      anularCertificado(e.currentTarget.dataset.folio); break;
+    case 'cert-copiar':
+      copiarEnlaceCert(e.currentTarget.dataset.codigo); break;
+    case 'cert-planilla':
+      descargarPlanillaCertificados(); break;
+    case 'cert-manual':
+      abrirCertManual(); break;
     case 'equipo-aprobar':
       aprobarPedido(e.currentTarget.dataset.uid); break;
     case 'equipo-rechazar':
@@ -10525,6 +11084,15 @@ document.addEventListener('change', e=>{
 document.addEventListener('input', e=>{
   if(e.target && e.target.id==='f-client'){
     renderClientSuggestions(e.target.value);
+  }
+  if(e.target && e.target.id==='cert-search'){
+    const q = normalizeName(e.target.value);
+    document.querySelectorAll('#cert-lista .cert-row').forEach(row=>{
+      row.style.display = (row.dataset.certSearch||'').includes(q) ? '' : 'none';
+    });
+    document.querySelectorAll('#cert-lista .cert-grupo').forEach(g=>{
+      g.style.display = g.querySelector('.cert-row:not([style*="none"])') ? '' : 'none';
+    });
   }
   if(e.target && e.target.id==='client-search'){
     const q = e.target.value.trim().toLowerCase();

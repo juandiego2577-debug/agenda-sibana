@@ -1424,6 +1424,17 @@ para servir también a **Copiapó**, de la siguiente forma:
   [00/15/30/45] (`relojBloqueoHtml` / `leerRelojBloqueo` /
   `ponerRelojBloqueo`). El aviso de madrugada sigue (sirve para bloqueos
   viejos con hora rara y para las citas, que usan el reloj del teléfono).
+  **Después (mismo día, pedido de Juan Diego):** (1) las horas son SOLO las
+  del horario del estudio ese día (`horasBloqueoPara` ← `dayHoursFor`; lun–vie
+  10–20 → "Desde" 10–19, "Hasta" 10–20; sábado hasta 19; cambian al cambiar
+  la fecha, `ajustarRelojesAlDia`; día cerrado: 08–21). Minutos que no caben
+  no salen ("Hasta 20" solo :00). Al guardar, un bloqueo fuera del horario
+  (uno viejo) pide corregirlo ("Ese día el estudio atiende de 10:00 a
+  20:00"), salvo que el aviso de madrugada lo arregle. (2) La lista blanca
+  era la del teléfono (Android): ahora al tocar una casilla se abre DEBAJO
+  una grilla propia con los colores de la agenda (`abrirRelojBloqueo`,
+  `.reloj-opciones`; inputs ocultos `-h`/`-m`). (3) Si "Hasta" queda antes
+  de "Desde", pasa sola a una hora después. Probado: e2e (57, 320–1517px).
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos

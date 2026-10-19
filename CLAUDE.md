@@ -1756,6 +1756,23 @@ para servir también a **Copiapó**, de la siguiente forma:
   `tools/desde_planilla.py` lee la planilla descargada de la agenda (folio,
   código, enlace, contenidos de cada una) y `tools/render_cert.js` arma los
   PDF con el QR (comprobado leyendo cada QR del PDF). Ver su LEEME.
+  **Revisión automática y "Corregir" (19/10/2026, pedido de Juan Diego):**
+  los 5 primeros salieron con 2 nombres incompletos ("Barbara Garone",
+  "Macarena Marlene Samit": él tenía los nombres completos, pero nunca los
+  cambió en la agenda). Ahora "Emitir los N que faltan" abre "Revisar antes
+  de emitir" (`cert-revisar`, `emitirRevisados`): nombre y documento de cada
+  una editables (solo para el certificado, no tocan la agenda) y la agenda
+  avisa sola con ⚠️ (`certAvisosNombre`): menos de 3 palabras (sin contar
+  de/la/del…), todo en minúsculas/mayúsculas, o si con el MISMO documento
+  figura en otra cita con un nombre más largo (`certNombreEnAgenda`). RUT
+  malo o documento repetido no deja emitir. El formulario de uno solo avisa
+  igual. **✏️ Corregir** en cada certificado válido (`cert-corregir`,
+  `guardarCorreccionCert`): cambia nombre/documento en los dos registros,
+  MISMO folio y código QR; el nombre anterior queda en
+  `correcciones` (solo el registro privado). Las reglas ya lo permitían
+  (dueños pueden actualizar). La instructora exige nombre Y apellido, y la
+  primera vez se propone la que ya se escribió completa en otro curso
+  (`certInstructoraCompleta`). Probado: e2e (54).
 - **Vales** (`state.vales`, `{id,specialist,date,monto,notas}`): plata que
   una especialista va sacando de la caja durante la semana a cuenta de su
   comisión — a veces fraccionada en varios días y a veces sin avisar ni

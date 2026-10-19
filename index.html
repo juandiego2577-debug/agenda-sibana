@@ -814,6 +814,9 @@
   .cert-row .cert-main{min-width:0;flex:1;}
   .cert-row .cr-name{font-weight:600;}
   .cert-row .cr-rut{font-size:12px;color:var(--ink-soft);}
+  .cert-aviso{font-size:12.5px;line-height:1.45;color:#e0a95a;margin-top:5px}
+  .cert-aviso:empty{display:none}
+  .cert-revisar-fila{border:1px solid var(--line);border-radius:10px;padding:10px 12px 2px;margin-bottom:10px}
   .cert-chip{display:inline-block;margin-top:5px;font-size:11.5px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--ink-soft);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
   .cert-chip.ok{border-color:rgba(201,162,39,.55);color:var(--gold);}
   .cert-chip.no{border-color:rgba(217,106,106,.55);color:var(--danger);}
@@ -4540,6 +4543,8 @@ function modalHtml(){
   if(ui.modal.type==='cert-curso') return certCursoModalHtml();
   if(ui.modal.type==='cert-form') return certFormModalHtml();
   if(ui.modal.type==='cert-registro') return certRegistroModalHtml();
+  if(ui.modal.type==='cert-revisar') return certRevisarModalHtml();
+  if(ui.modal.type==='cert-corregir') return certCorregirModalHtml();
   if(ui.modal.type==='sede') return sedeModalHtml();
   if(ui.modal.type==='valores-sede') return valoresSedeModalHtml();
   if(ui.modal.type==='appt' && ui.mode!=='admin') return apptViewOnlyHtml(ui.modal.data);
@@ -8500,6 +8505,57 @@ function certFechaLarga(iso){
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||'');
   return m ? `${Number(m[3])} de ${MONTHS[Number(m[2])-1]} de ${m[1]}` : (iso||'');
 }
+// --- Revisión automática del nombre antes de emitir o corregir ---
+// Un certificado lleva el nombre COMPLETO (nombres y apellidos). Lo que se
+// puede revisar solo: muy pocas palabras, mayúsculas, y si la misma persona
+// (mismo documento) figura en la agenda con un nombre más largo.
+const CERT_PARTICULAS = new Set(['de','del','la','las','los','y','da','das','do','dos','di','van','von','der','e']);
+function certPalabrasNombre(n){
+  return String(n||'').trim().split(/\s+/).filter(x=>x && !CERT_PARTICULAS.has(x.toLowerCase()));
+}
+function certDocClave(doc){ return String(doc||'').toUpperCase().replace(/[^0-9A-Z]/g,''); }
+function certNombreEnAgenda(nombre, doc){
+  const d = certDocClave(doc);
+  if(d.length < 5) return '';
+  const propias = certPalabrasNombre(nombre).map(nombreExacto);
+  let mejor = '';
+  (state.appointments||[]).forEach(a=>{
+    if(certDocClave(a.rut) !== d) return;
+    const otro = String(a.client||'').trim().replace(/\s+/g,' ');
+    const suyas = certPalabrasNombre(otro).map(nombreExacto);
+    if(suyas.length > propias.length && propias.every(x=>suyas.includes(x)) && suyas.length > certPalabrasNombre(mejor).length) mejor = otro;
+  });
+  return mejor;
+}
+function certAvisosNombre(nombre, doc){
+  const n = String(nombre||'').trim().replace(/\s+/g,' ');
+  if(!n) return [];
+  const av = [], pals = certPalabrasNombre(n);
+  if(pals.length < 3) av.push(`Tiene solo ${pals.length} palabra${pals.length===1?'':'s'}: ¿falta un nombre o un apellido?`);
+  if(n === n.toLowerCase() || (n === n.toUpperCase() && /\p{Lu}{2}/u.test(n))) av.push('Escríbelo con mayúscula solo al inicio de cada nombre (ej. "María José Pérez Soto").');
+  else if(pals.some(x=>/^\p{Ll}/u.test(x))) av.push('Hay un nombre o apellido que empieza con minúscula.');
+  const enAgenda = certNombreEnAgenda(n, doc);
+  if(enAgenda) av.push(`En la agenda, con el mismo documento, figura como "${enAgenda}".`);
+  return av;
+}
+function certAvisoHtml(id, nombre, doc){
+  const av = certAvisosNombre(nombre, doc);
+  return `<div class="cert-aviso" id="${escapeHtml(id)}">${av.map(x=>'⚠️ ' + escapeHtml(x)).join('<br>')}</div>`;
+}
+// Nombre y apellido de la instructora: si en otro curso ya se escribió completo
+// (ej. "Salomé Toro"), se propone ese en vez del nombre corto de la agenda.
+function certInstructoraCompleta(corto, configs){
+  const primera = nombreExacto(certPalabrasNombre(corto)[0] || '');
+  if(!primera) return corto || '';
+  const cuenta = new Map();
+  (configs||[]).forEach(x=>{
+    const ins = String(x.instructora||'').trim().replace(/\s+/g,' ');
+    if(certPalabrasNombre(ins).length >= 2 && nombreExacto(certPalabrasNombre(ins)[0]) === primera) cuenta.set(ins, (cuenta.get(ins)||0) + 1);
+  });
+  const mejor = Array.from(cuenta.entries()).sort((a,b)=>b[1]-a[1])[0];
+  return mejor ? mejor[0] : (corto || '');
+}
+
 // Datos por defecto del certificado, sacados del propio curso de la agenda.
 function certDatosDesdeCurso(c){
   const horas = (()=>{
@@ -8540,8 +8596,13 @@ function cargarCertificadosCurso(){
     if(!ui.modal || ui.modal.type!=='cert-curso' || ui.modal.courseId!==courseId) return;
     ui.modal.cfg = cfgSnap.exists ? cfgSnap.data() : null;
     ui.modal.certs = certSnap.docs.map(d=>d.data());
-    if(!ui.modal.cfg) ui.modal.editando = true; // la primera vez: revisar los datos antes de emitir
-    render();
+    if(ui.modal.cfg){ render(); return; }
+    ui.modal.editando = true; // la primera vez: revisar los datos antes de emitir
+    // Proponer la instructora con nombre y apellido, como se escribió en otros cursos.
+    return db.collection(CERT_CURSOS_COL).get().then(todos=>{
+      if(!ui.modal || ui.modal.type!=='cert-curso' || ui.modal.courseId!==courseId) return;
+      ui.modal.otrosCfg = todos.docs.map(d=>d.data());
+    }).catch(()=>{}).then(()=>render());
   }).catch(err=>{
     console.error('No se pudieron leer los certificados', err);
     if(!ui.modal || ui.modal.type!=='cert-curso') return;
@@ -8583,6 +8644,7 @@ function certValidarDatos(d){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(d.emitido)) return 'Falta la fecha de emisión.';
   if(!d.horas) return 'Falta la duración (ej. "7 horas cronológicas").';
   if(!d.instructora) return 'Falta el nombre de la instructora, tal como va en el certificado (ej. "Salomé Toro").';
+  if(certPalabrasNombre(d.instructora).length < 2) return `Escribe el nombre Y el apellido de la instructora (ej. "${d.instructora} Toro"): así va impreso en el certificado.`;
   if(d.curso.length > 150 || d.horas.length > 20 || d.modalidad.length > 40 || d.lugar.length > 80 || d.instructora.length > 80) return 'Algún dato es demasiado largo.';
   return '';
 }
@@ -8671,7 +8733,9 @@ function confirmarEmisionDesdeForm(){
   if(!doc){ showAlert('Falta el número de documento.'); return; }
   if(docTipo === 'RUT' && !certRutValido(doc)){ showAlert('Ese RUT no es válido (el dígito verificador no coincide). Revísalo, o si es un pasaporte elige "Pasaporte".'); return; }
   const docMostrar = docTipo === 'RUT' ? certRutFormato(doc) : doc;
-  const aviso = (m.estado === 'Cancelada' || m.estado === 'NoShow') ? '\n\nOjo: esta persona figura como "' + (m.estado === 'NoShow' ? 'No se presentó' : 'Cancelada') + '" en el curso.' : '';
+  const avisosNombre = certAvisosNombre(nombre, doc);
+  const aviso = (avisosNombre.length ? '\n\n⚠️ Revisa el nombre: ' + avisosNombre.join(' ') : '')
+    + ((m.estado === 'Cancelada' || m.estado === 'NoShow') ? '\n\nOjo: esta persona figura como "' + (m.estado === 'NoShow' ? 'No se presentó' : 'Cancelada') + '" en el curso.' : '');
   showConfirmDialog(`¿Emitir el certificado de ${nombre} (${docTipo} ${docMostrar})?\n\nCurso: ${cfg.curso}\nSe le asigna el siguiente folio y su código de verificación. Un certificado emitido no se borra: si algo está mal, se anula y se emite uno nuevo.${aviso}`, ()=>{
     m.ocupado = true; render();
     emitirCertificado(Object.assign({}, cfg, {nombre, docTipo, doc, cursoId: m.modo === 'alumna' ? m.volverA : '', inscritoId: m.inscritoId || ''}))
@@ -8691,23 +8755,103 @@ function emitirFaltantesCurso(){
   const m = ui.modal; if(!esDueno() || !m || m.type!=='cert-curso' || !m.cfg || !m.certs || m.ocupado) return;
   const pendientes = courseAttendees(m.courseId).filter(a=>a.estado!=='Cancelada' && a.estado!=='NoShow' && !certEstadoAlumna(m.certs, a.id));
   if(!pendientes.length){ showAlert('Todas las inscritas que asistieron ya tienen certificado.'); return; }
-  const malos = pendientes.filter(a=>!(a.client||'').trim() || !(a.rut||'').trim());
-  if(malos.length){ showAlert('Antes de emitir, completa el nombre y el documento de: ' + malos.map(a=>a.client||'(sin nombre)').join(', ') + '.'); return; }
-  const lista = pendientes.map(a=>`• ${a.client} (${certTipoSugerido(a.rut)} ${certTipoSugerido(a.rut)==='RUT' ? certRutFormato(a.rut) : a.rut})`).join('\n');
-  showConfirmDialog(`Se van a emitir ${pendientes.length} certificado${pendientes.length===1?'':'s'}, con folios seguidos en este orden:\n\n${lista}\n\nRevisa que cada nombre esté completo (nombres y apellidos) y que el documento sea el correcto (RUT o pasaporte).`, async ()=>{
+  // Antes de emitir se revisa a cada una en una pantalla propia (nombre y documento editables).
+  ui.modal = {type:'cert-revisar', courseId: m.courseId, cfg: m.cfg, ocupado:false,
+    personas: pendientes.map(a=>({id:a.id, nombre:(a.client||'').trim().replace(/\s+/g,' '), doc:(a.rut||'').trim(), docTipo: certTipoSugerido(a.rut)}))};
+  render();
+}
+function certRevisarLeer(){
+  const m = ui.modal;
+  m.personas.forEach((x, i)=>{
+    const v = id=>{ const el = document.getElementById(id); return el ? el.value.trim() : null; };
+    const n = v('f-crev-nombre-' + i), t = v('f-crev-doctipo-' + i), d = v('f-crev-doc-' + i);
+    if(n != null) x.nombre = n.replace(/\s+/g,' ');
+    if(t != null) x.docTipo = t;
+    if(d != null) x.doc = d;
+  });
+}
+function emitirRevisados(){
+  const m = ui.modal; if(!esDueno() || !m || m.type!=='cert-revisar' || m.ocupado) return;
+  certRevisarLeer();
+  const errores = [], avisos = [], vistos = new Map();
+  m.personas.forEach(x=>{
+    const quien = x.nombre || '(sin nombre)';
+    if(x.nombre.length < 3) errores.push(`${quien}: falta el nombre completo.`);
+    else if(x.nombre.length > 120) errores.push(`${quien}: el nombre es demasiado largo.`);
+    if(!x.doc) errores.push(`${quien}: falta el número de documento.`);
+    else if(x.docTipo === 'RUT' && !certRutValido(x.doc)) errores.push(`${quien}: el RUT ${x.doc} no es válido (el dígito verificador no coincide). Si es un pasaporte, elige "Pasaporte".`);
+    const clave = certDocClave(x.doc);
+    if(clave && vistos.has(clave)) errores.push(`${quien} y ${vistos.get(clave)} tienen el mismo documento.`);
+    else if(clave) vistos.set(clave, quien);
+    certAvisosNombre(x.nombre, x.doc).forEach(a=>avisos.push(`• ${quien}: ${a}`));
+  });
+  if(errores.length){ render(); showAlert('Antes de emitir, corrige esto:\n\n' + errores.join('\n')); return; }
+  const lista = m.personas.map(x=>`• ${x.nombre} (${x.docTipo} ${x.docTipo==='RUT' ? certRutFormato(x.doc) : x.doc})`).join('\n');
+  const n = m.personas.length;
+  render();
+  showConfirmDialog(`Se van a emitir ${n} certificado${n===1?'':'s'}, con folios seguidos en este orden:\n\n${lista}`
+    + (avisos.length ? `\n\n⚠️ La agenda encontró esto. Si está bien así, continúa; si no, toca Cancelar y corrígelo:\n${avisos.join('\n')}` : '\n\n✅ La agenda revisó los nombres y documentos y no encontró nada raro.')
+    + `\n\nUn certificado emitido no se borra (si algo queda mal, se puede corregir el nombre o anularlo).`, async ()=>{
     m.ocupado = true; render();
     let hechos = 0;
     try{
-      for(const a of pendientes){
-        await emitirCertificado(Object.assign({}, m.cfg, {nombre: a.client.trim().replace(/\s+/g,' '), docTipo: certTipoSugerido(a.rut), doc: a.rut, cursoId: m.courseId, inscritoId: a.id}));
+      for(const x of m.personas){
+        await emitirCertificado(Object.assign({}, m.cfg, {nombre: x.nombre, docTipo: x.docTipo, doc: x.doc, cursoId: m.courseId, inscritoId: x.id}));
         hechos++;
       }
+      abrirCertificadosCurso(m.courseId);
       showAlert(`✅ Listo: se emitieron ${hechos} certificado${hechos===1?'':'s'}.`);
     }catch(err){
       console.error(err);
-      showAlert(`Se emitieron ${hechos} de ${pendientes.length}. El resto no se pudo emitir (revisa la señal) — vuelve a tocar "Emitir" para los que faltan.`);
+      abrirCertificadosCurso(m.courseId);
+      showAlert(`Se emitieron ${hechos} de ${n}. El resto no se pudo emitir (revisa la señal) — vuelve a tocar "Emitir" para los que faltan.`);
     }
-    if(ui.modal && ui.modal.type==='cert-curso'){ ui.modal.ocupado = false; cargarCertificadosCurso(); }
+  });
+}
+
+// --- Corregir el nombre o el documento (mismo folio y mismo QR) ---
+function corregirCertificado(folio){
+  const m = ui.modal; if(!esDueno() || !m) return;
+  const c = (m.certs||[]).find(x=>x.folio===folio);
+  if(!c || c.estado!=='valido') return;
+  ui.modal = {type:'cert-corregir', c, origen: m.type==='cert-curso' ? m.courseId : '', nombre:c.nombre||'', docTipo:c.docTipo||'RUT', doc:c.doc||'', ocupado:false};
+  render();
+}
+function volverDeCorregir(){
+  const m = ui.modal; if(!m || m.type!=='cert-corregir') return;
+  if(m.origen) abrirCertificadosCurso(m.origen); else abrirRegistroCertificados();
+}
+function guardarCorreccionCert(){
+  const m = ui.modal; if(!esDueno() || !m || m.type!=='cert-corregir' || m.ocupado) return;
+  const v = id=>{ const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const nombre = v('f-certc-nombre').replace(/\s+/g,' '), docTipo = v('f-certc-doctipo'), docEscrito = v('f-certc-doc');
+  Object.assign(m, {nombre, docTipo, doc: docEscrito});
+  if(nombre.length < 3){ showAlert('Escribe el nombre completo de la persona, tal como aparece en su documento.'); return; }
+  if(nombre.length > 120){ showAlert('El nombre es demasiado largo.'); return; }
+  if(!docEscrito){ showAlert('Falta el número de documento.'); return; }
+  if(docTipo === 'RUT' && !certRutValido(docEscrito)){ showAlert('Ese RUT no es válido (el dígito verificador no coincide). Revísalo, o si es un pasaporte elige "Pasaporte".'); return; }
+  const doc = docTipo === 'RUT' ? certRutFormato(docEscrito) : docEscrito;
+  const c = m.c;
+  if(nombre === c.nombre && doc === c.doc && docTipo === c.docTipo){ showAlert('No cambiaste nada.'); return; }
+  const cambiosTxt = [nombre !== c.nombre ? `Nombre: "${c.nombre}" → "${nombre}"` : '', (doc !== c.doc || docTipo !== c.docTipo) ? `Documento: ${c.docTipo} ${c.doc} → ${docTipo} ${doc}` : ''].filter(Boolean).join('\n');
+  const av = certAvisosNombre(nombre, doc);
+  render();
+  showConfirmDialog(`¿Corregir el certificado ${c.folio}?\n\n${cambiosTxt}${av.length ? '\n\n⚠️ ' + av.join(' ') : ''}\n\nEl folio y el código QR no cambian. La página de verificación muestra el dato nuevo al instante. Si ya estaba impreso, hay que imprimirlo de nuevo.`, ()=>{
+    m.ocupado = true; render();
+    const ahora = firebase.firestore.FieldValue.serverTimestamp();
+    const batch = db.batch();
+    batch.update(db.collection(CERT_VERIF_COL).doc(c.codigo), {nombre, docTipo, doc: certDocParcial(docTipo, doc), actualizadoEn: ahora});
+    batch.update(db.collection(CERT_COL).doc(c.folio), {nombre, docTipo, doc, actualizadoEn: ahora,
+      correcciones: firebase.firestore.FieldValue.arrayUnion({en: new Date().toISOString(), por: (CUENTA && (CUENTA.nombre || CUENTA.email)) || '',
+        antes: {nombre: c.nombre||'', docTipo: c.docTipo||'', doc: c.doc||''}})});
+    batch.commit().then(()=>{
+      volverDeCorregir();
+      showAlert(`✅ Certificado ${c.folio} corregido.`);
+    }).catch(err=>{
+      console.error(err);
+      m.ocupado = false; render();
+      showAlert('No se pudo corregir (no se guardó nada). Revisa la señal e inténtalo de nuevo.');
+    });
   });
 }
 
@@ -8793,6 +8937,7 @@ function certFilaHtml(c, opciones){
       <div class="cert-actions">
         <a class="btn btn-ghost btn-sm" href="${escapeHtml(certEnlace(c.codigo))}" target="_blank" rel="noopener">🔗 Ver</a>
         <button type="button" class="btn btn-ghost btn-sm" data-act="cert-copiar" data-codigo="${escapeHtml(c.codigo)}">📋 Copiar enlace</button>
+        ${valido ? `<button type="button" class="btn btn-ghost btn-sm" data-act="cert-corregir" data-folio="${escapeHtml(c.folio)}">✏️ Corregir</button>` : ''}
         ${valido ? `<button type="button" class="btn btn-ghost btn-sm cert-anular" data-act="cert-anular" data-folio="${escapeHtml(c.folio)}">Anular</button>` : ''}
       </div>
     </div>`;
@@ -8819,7 +8964,7 @@ function certCursoModalHtml(){
   const c = (state.courses||[]).find(x=>x.id===m.courseId);
   if(!c){ ui.modal = null; return ''; }
   const cargando = !m.certs && !m.error;
-  const cfg = m.cfg || certDatosDesdeCurso(c);
+  const cfg = m.cfg || (()=>{ const d = certDatosDesdeCurso(c); d.instructora = certInstructoraCompleta(d.instructora, m.otrosCfg); return d; })();
   const alumnas = courseAttendees(c.id);
   const filas = (m.certs ? alumnas : []).map(a=>{
     const cert = certEstadoAlumna(m.certs, a.id);
@@ -8886,7 +9031,7 @@ function certFormModalHtml(){
       <h2 class="serif">📜 ${manual ? 'Certificado sin curso en la agenda' : 'Emitir certificado'}</h2>
       ${manual ? `<div class="hint">Para cursos que no están en la agenda (por ejemplo, de años anteriores). Queda en el mismo registro y con su propio QR.</div>${certDatosFormHtml(m.cfg, true)}<hr style="border:0;border-top:1px solid var(--line);margin:6px 0 12px;">`
         : `<div class="hint">${escapeHtml(m.cfg.curso)} · ${escapeHtml(certFechaLarga(m.cfg.fecha))}</div>`}
-      <div class="field"><label>Nombre completo (todos los nombres y apellidos, como en su documento)</label><input type="text" id="f-certp-nombre" maxlength="120" value="${escapeHtml(m.nombre||'')}"></div>
+      <div class="field"><label>Nombre completo (todos los nombres y apellidos, como en su documento)</label><input type="text" id="f-certp-nombre" maxlength="120" value="${escapeHtml(m.nombre||'')}" data-cert-aviso="f-certp-aviso" data-cert-doc="f-certp-doc">${certAvisoHtml('f-certp-aviso', m.nombre, m.doc)}</div>
       <div class="row2">
         <div class="field"><label>Tipo de documento</label><select id="f-certp-doctipo">${tipos}</select></div>
         <div class="field"><label>Número</label><input type="text" id="f-certp-doc" maxlength="30" value="${escapeHtml(m.doc||'')}"></div>
@@ -8896,6 +9041,61 @@ function certFormModalHtml(){
         <div class="right">
           <button class="btn btn-ghost" data-act="${manual ? 'open-certificados' : 'cert-volver-curso'}" data-id="${escapeHtml(m.volverA||'')}">Cancelar</button>
           <button class="btn btn-primary" data-act="cert-confirmar" ${m.ocupado?'disabled':''}>${m.ocupado ? 'Emitiendo…' : 'Emitir certificado'}</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function certRevisarModalHtml(){
+  const m = ui.modal;
+  const c = (state.courses||[]).find(x=>x.id===m.courseId);
+  const filas = m.personas.map((x, i)=>{
+    const tipos = CERT_DOC_TIPOS.map(t=>`<option value="${t}" ${x.docTipo===t?'selected':''}>${t}</option>`).join('');
+    return `
+      <div class="cert-revisar-fila">
+        <div class="field"><label>${i+1}. Nombre completo (nombres y apellidos)</label>
+          <input type="text" id="f-crev-nombre-${i}" maxlength="120" value="${escapeHtml(x.nombre)}" data-cert-aviso="f-crev-aviso-${i}" data-cert-doc="f-crev-doc-${i}">
+          ${certAvisoHtml('f-crev-aviso-' + i, x.nombre, x.doc)}</div>
+        <div class="row2">
+          <div class="field"><label>Documento</label><select id="f-crev-doctipo-${i}">${tipos}</select></div>
+          <div class="field"><label>Número</label><input type="text" id="f-crev-doc-${i}" maxlength="30" value="${escapeHtml(x.doc)}" data-cert-aviso-de="f-crev-nombre-${i}"></div>
+        </div>
+      </div>`;
+  }).join('');
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">📜 Revisar antes de emitir</h2>
+      <div class="hint">${escapeHtml(m.cfg.curso)} · ${escapeHtml(certFechaLarga(m.cfg.fecha))}. Así va a salir cada nombre en el certificado: puedes corregirlo aquí (no cambia nada en la agenda). La agenda marca con ⚠️ lo que le parece raro.</div>
+      ${filas}
+      <div class="modal-actions">
+        <div></div>
+        <div class="right">
+          <button class="btn btn-ghost" data-act="cert-volver-curso" data-id="${escapeHtml(m.courseId)}">Volver</button>
+          <button class="btn btn-primary" data-act="cert-revisar-emitir" ${m.ocupado?'disabled':''}>${m.ocupado ? 'Emitiendo…' : `Emitir ${m.personas.length} certificado${m.personas.length===1?'':'s'}`}</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function certCorregirModalHtml(){
+  const m = ui.modal, c = m.c;
+  const tipos = CERT_DOC_TIPOS.map(t=>`<option value="${t}" ${m.docTipo===t?'selected':''}>${t}</option>`).join('');
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">✏️ Corregir certificado</h2>
+      <div class="hint">${escapeHtml(c.folio)} · ${escapeHtml(c.curso||'')}. Para arreglar un error en el nombre o en el documento. El folio y el código QR no cambian. Si ya lo imprimiste, hay que volver a imprimirlo.</div>
+      <div class="field"><label>Nombre completo (todos los nombres y apellidos, como en su documento)</label><input type="text" id="f-certc-nombre" maxlength="120" value="${escapeHtml(m.nombre)}" data-cert-aviso="f-certc-aviso" data-cert-doc="f-certc-doc">${certAvisoHtml('f-certc-aviso', m.nombre, m.doc)}</div>
+      <div class="row2">
+        <div class="field"><label>Tipo de documento</label><select id="f-certc-doctipo">${tipos}</select></div>
+        <div class="field"><label>Número</label><input type="text" id="f-certc-doc" maxlength="30" value="${escapeHtml(m.doc)}" data-cert-aviso-de="f-certc-nombre"></div>
+      </div>
+      <div class="modal-actions">
+        <div></div>
+        <div class="right">
+          <button class="btn btn-ghost" data-act="cert-corregir-volver">Cancelar</button>
+          <button class="btn btn-primary" data-act="cert-corregir-guardar" ${m.ocupado?'disabled':''}>${m.ocupado ? 'Guardando…' : 'Guardar corrección'}</button>
         </div>
       </div>
     </div>
@@ -9857,6 +10057,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-valores-sede','save-valores-sede','remove-dolar',
   'open-certificados','open-cert-curso','cert-volver-curso','cert-editar-datos','cert-cancelar-datos','cert-guardar-datos',
   'cert-emitir','cert-emitir-todos','cert-confirmar','cert-anular','cert-copiar','cert-planilla','cert-manual',
+  'cert-revisar-emitir','cert-corregir','cert-corregir-volver','cert-corregir-guardar',
 ]);
 
 // ¿La especialista cambió el método de pago o las cremas en la vista de una
@@ -10380,6 +10581,14 @@ function onAction(e){
       descargarPlanillaCertificados(); break;
     case 'cert-manual':
       abrirCertManual(); break;
+    case 'cert-revisar-emitir':
+      emitirRevisados(); break;
+    case 'cert-corregir':
+      corregirCertificado(e.currentTarget.dataset.folio); break;
+    case 'cert-corregir-volver':
+      volverDeCorregir(); break;
+    case 'cert-corregir-guardar':
+      guardarCorreccionCert(); break;
     case 'equipo-aprobar':
       aprobarPedido(e.currentTarget.dataset.uid); break;
     case 'equipo-rechazar':
@@ -11084,6 +11293,12 @@ document.addEventListener('change', e=>{
 document.addEventListener('input', e=>{
   if(e.target && e.target.id==='f-client'){
     renderClientSuggestions(e.target.value);
+  }
+  if(e.target && (e.target.dataset.certAviso || e.target.dataset.certAvisoDe)){
+    const inNombre = e.target.dataset.certAviso ? e.target : document.getElementById(e.target.dataset.certAvisoDe);
+    const caja = inNombre && document.getElementById(inNombre.dataset.certAviso);
+    const inDoc = inNombre && document.getElementById(inNombre.dataset.certDoc);
+    if(caja) caja.innerHTML = certAvisosNombre(inNombre.value, inDoc ? inDoc.value : '').map(x=>'⚠️ ' + escapeHtml(x)).join('<br>');
   }
   if(e.target && e.target.id==='cert-search'){
     const q = normalizeName(e.target.value);

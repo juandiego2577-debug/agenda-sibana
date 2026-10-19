@@ -8740,9 +8740,15 @@ function confirmarEmisionDesdeForm(){
   if(docTipo === 'RUT' && !certRutValido(doc)){ showAlert('Ese RUT no es válido (el dígito verificador no coincide). Revísalo, o si es un pasaporte elige "Pasaporte".'); return; }
   const docMostrar = docTipo === 'RUT' ? certRutFormato(doc) : doc;
   const avisosNombre = certAvisosNombre(nombre, doc);
-  const aviso = (avisosNombre.length ? '\n\n⚠️ Revisa el nombre: ' + avisosNombre.join(' ') : '')
+  // Fechas: la emisión casi siempre es hoy, y un curso antiguo sin día exacto va con "Período".
+  const hoy = hoySedeKey();
+  const avisoEmision = cfg.emitido < hoy
+    ? `\n\n⚠️ La fecha de emisión es el ${certFechaLarga(cfg.emitido)}, no hoy. La emisión es el día en que Sibana entrega el certificado (normalmente hoy), y el folio lleva ese año (${String(cfg.emitido).slice(0,4)}).` : '';
+  const viejo = m.modo === 'manual' && !cfg.periodo && cfg.fecha && (new Date(hoy) - new Date(cfg.fecha)) / 864e5 > 60;
+  const avisoPeriodo = viejo ? `\n\n⚠️ El certificado va a decir "Realizado el ${certFechaLarga(cfg.fecha)}". Si no se sabe el día exacto, llena "Período" (ej. julio a septiembre de 2023).` : '';
+  const aviso = (avisosNombre.length ? '\n\n⚠️ Revisa el nombre: ' + avisosNombre.join(' ') : '') + avisoEmision + avisoPeriodo
     + ((m.estado === 'Cancelada' || m.estado === 'NoShow') ? '\n\nOjo: esta persona figura como "' + (m.estado === 'NoShow' ? 'No se presentó' : 'Cancelada') + '" en el curso.' : '');
-  showConfirmDialog(`¿Emitir el certificado de ${nombre} (${docTipo} ${docMostrar})?\n\nCurso: ${cfg.curso}${cfg.periodo ? '\nRealizado: ' + cfg.periodo : ''}\nSe le asigna el siguiente folio y su código de verificación. Un certificado emitido no se borra: si algo está mal, se anula y se emite uno nuevo.${aviso}`, ()=>{
+  showConfirmDialog(`¿Emitir el certificado de ${nombre} (${docTipo} ${docMostrar})?\n\nCurso: ${cfg.curso}\nRealizado: ${certCuandoTexto(cfg)}\nEmisión: ${certFechaLarga(cfg.emitido)}\nSe le asigna el siguiente folio y su código de verificación. Un certificado emitido no se borra: si algo está mal, se anula y se emite uno nuevo.${aviso}`, ()=>{
     m.ocupado = true; render();
     emitirCertificado(Object.assign({}, cfg, {nombre, docTipo, doc, cursoId: m.modo === 'alumna' ? m.volverA : '', inscritoId: m.inscritoId || ''}))
       .then(({folio, codigo})=>{

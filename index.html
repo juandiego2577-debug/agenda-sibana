@@ -9214,11 +9214,16 @@ function blankAppt(hour){
   };
 }
 function blankBlock(hour){
-  const h = hour!==undefined ? hour : 10;
+  // Dentro del horario del estudio ese día (las casillas del bloqueo solo
+  // ofrecen esas horas; ver horasBloqueoPara).
+  const r = horasBloqueoPara(toKey(ui.currentDate));
+  const abreH = Math.ceil(r.abre/60), ultimaH = Math.ceil(r.cierra/60) - 1;
+  const h = Math.min(Math.max(hour!==undefined ? hour : 10, abreH), ultimaH);
   const start = pad(h)+':00';
+  const finMin = Math.min(minutesFromMidnight(start) + 60, r.cierra);
   return {
     id: uid(), date: toKey(ui.currentDate),
-    start, end: addMinutesToHHMM(start, 60),
+    start, end: pad(Math.floor(finMin/60))+':'+pad(finMin%60),
     specialist: '', reason: '' // vacío a propósito: quien bloquea elige el nombre (evita bloquear a otra por error)
   };
 }

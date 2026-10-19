@@ -1394,9 +1394,23 @@ para servir también a **Copiapó**, de la siguiente forma:
   "No, dejar…"; si 12 h después no cae en el horario, solo "¿Está bien
   así?". Debajo de Desde/Hasta del bloqueo, las horas en palabras
   (`bloqueHorasTexto`, "Se bloquea desde las 4 de la tarde hasta las 8 de la
-  noche"). Probado: e2e (8). Pendiente decisión de Juan Diego: hoy
-  cualquier especialista puede editar/quitar el bloqueo de otra y elegir
-  "Todas" (no hay límite).
+  noche"). Probado: e2e (8).
+  **Mismo día, más tarde (Juan Diego: "cada una puede poner el nombre de
+  la otra, qué locura"):** los bloqueos que vio eran 01:00–19:00 (Salomé)
+  y 14:00–20:00 (Lucy). En un teléfono con reloj de 12 h, escribir "16" en
+  la hora deja 01:00. Por eso "Desde/Hasta" del bloqueo ya NO es el reloj
+  del teléfono: son listas de 24 h cada 15 min de `HOUR_START` a `HOUR_END`
+  ("16:00 · 4 de la tarde", `opcionesHoraBloqueoHtml`; una hora vieja fuera
+  de la lista se agrega para no perderla). Y en modo Especialista con
+  nombre conocido (`bloqueadoraFija` = `staffIdentity()`): el bloqueo nuevo
+  queda a SU nombre (sin elegir a otra ni "Todas"), y solo puede editar o
+  quitar los suyos (`puedeTocarBloqueo`); el de otra (o de "Todas") se abre
+  en modo solo ver (`bloqueoSoloVerHtml`), y `saveBlockFromForm`/
+  `delete-block` también lo rechazan. Admin sin cambios. Esto reemplaza la
+  decisión anterior de "bloqueo nuevo SIN especialista elegida" (era de
+  antes de las cuentas propias). `APP_VERSION` 8 para que los teléfonos con
+  la versión anterior (que dejaba tocar los de otras) recarguen. Probado:
+  e2e (10).
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos

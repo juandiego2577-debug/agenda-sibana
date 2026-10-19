@@ -289,6 +289,7 @@
   .bk-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
   .bk-name{overflow:hidden;text-overflow:ellipsis;}
   @media (max-width:600px){ .mc-block .bk-name{display:none;} .wd-block{flex-direction:column;align-items:flex-start;} }
+  .bloqueo-quien{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);font-weight:600;}
   .block-kind{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px;}
   .block-kind label{flex:1;text-align:center;padding:9px 4px;font-size:13px;cursor:pointer;color:var(--ink-soft);}
   .block-kind input{display:none;}
@@ -3697,7 +3698,7 @@ function mergeDocs(base, mine, theirs){
 // muestra el aviso de recargar — así una versión vieja nunca puede estropear
 // nada. Subir este número cada vez que se publica un cambio en cómo se
 // guardan los datos.
-const APP_VERSION = 7;
+const APP_VERSION = 8;
 let appOutdated = false;
 let appOffline = false;
 function renderSyncBanner(){
@@ -4507,22 +4508,67 @@ function modalHtml(){
   return apptModalHtml();
 }
 
+// Bloqueos de cada especialista (19/10/2026, pedido de Juan Diego): con su
+// propia cuenta, el bloqueo nuevo queda a SU nombre (no puede elegir a otra
+// ni "Todas") y solo puede cambiar o quitar los suyos; los de las demás los
+// ve, pero sin poder tocarlos. Admin (dueños) puede todo, como antes. Si el
+// teléfono no sabe quién es (sin nombre), queda como antes.
+function bloqueadoraFija(){
+  if(ui.mode==='admin') return '';
+  return staffIdentity() || '';
+}
+function puedeTocarBloqueo(b){
+  const yo = bloqueadoraFija();
+  if(!yo) return true;
+  return !!b && b.specialist!==ALL_SPECIALISTS_VALUE && normalizeName(b.specialist)===normalizeName(yo);
+}
+// "Desde/Hasta" del bloqueo como lista de horas de 24 h cada 15 minutos (antes
+// era el reloj del teléfono, que en algunos va con AM/PM: escribir "16" o "4"
+// dejaba 01:00 o 04:00 de la madrugada). Si el bloqueo ya tenía otra hora, se
+// agrega a la lista para no perderla al editar.
+function opcionesHoraBloqueoHtml(sel){
+  const horas = [];
+  for(let m = HOUR_START*60; m <= HOUR_END*60; m += 15) horas.push(pad(Math.floor(m/60))+':'+pad(m%60));
+  if(sel && !horas.includes(sel)) horas.push(sel);
+  horas.sort();
+  return horas.map(h=>`<option value="${h}" ${h===sel?'selected':''}>${h} · ${escapeHtml(horaEnPalabras(h))}</option>`).join('');
+}
 // Las horas en palabras, debajo de "Desde/Hasta", para que se note si quedó
 // en la mañana en vez de la tarde.
 function bloqueHorasTexto(start, end){
   if(!/^\d{2}:\d{2}$/.test(start||'') || !/^\d{2}:\d{2}$/.test(end||'')) return '';
   if(end <= start) return '⚠️ La hora de fin tiene que ser después de la de inicio.';
-  return `Se bloquea desde las <b>${escapeHtml(horaEnPalabras(start))}</b> hasta las <b>${escapeHtml(horaEnPalabras(end))}</b>.`;
+  const art = h=>Math.floor(minutesFromMidnight(h)/60)%12===1 ? 'la' : 'las';
+  return `Se bloquea desde ${art(start)} <b>${escapeHtml(horaEnPalabras(start))}</b> hasta ${art(end)} <b>${escapeHtml(horaEnPalabras(end))}</b>.`;
+}
+// Bloqueo de otra especialista, abierto por una especialista: solo se ve.
+function bloqueoSoloVerHtml(b){
+  const cuando = blockLastDate(b)!==b.date ? `del ${blockDateLabel(b.date)} al ${blockDateLabel(blockLastDate(b))}`
+    : blockIsFullDay(b) ? `${blockDateLabel(b.date)}, todo el día` : `${blockDateLabel(b.date)}, de ${escapeHtml(b.start)} a ${escapeHtml(b.end)}`;
+  const quien = b.specialist===ALL_SPECIALISTS_VALUE ? 'Todo el estudio' : (b.specialist||'Sin nombre');
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">🚫 Bloqueo de ${escapeHtml(quien)}</h2>
+      <p style="margin:0 0 6px;">${cuando}</p>
+      ${b.reason ? `<p class="hint" style="margin:0 0 6px;">Motivo: ${escapeHtml(b.reason)}</p>` : ''}
+      <div class="hint">${b.specialist===ALL_SPECIALISTS_VALUE ? 'Solo Sibana puede' : 'Solo '+escapeHtml(quien)+' o Sibana pueden'} cambiarlo o quitarlo.</div>
+      <div class="modal-actions"><div></div><div class="right"><button class="btn btn-primary" data-act="close-modal">Cerrar</button></div></div>
+    </div>
+  </div>`;
 }
 function blockModalHtml(){
   const d = ui.modal.data;
+  if(ui.modal.mode==='view') return bloqueoSoloVerHtml(d);
   const isEdit = ui.modal.mode==='edit';
+  const yo = bloqueadoraFija();
   const kind = blockLastDate(d)!==d.date ? 'days' : (d.allDay ? 'day' : 'hours');
   return `
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
       <h2 class="serif">${isEdit ? 'Editar bloqueo' : 'Bloquear un horario'}</h2>
       <div class="hint">Marca cuándo una especialista no puede atender (una hora médica, un día libre, un viaje), o un bloqueo general del estudio por una causa externa (por ejemplo, un corte de luz). Mientras esté bloqueado, no se pueden agendar citas ahí.</div>
+      ${yo ? `<div class="field"><label>¿A quién afecta?</label><div class="bloqueo-quien">🚫 ${escapeHtml(yo)} <span class="hint" style="margin:0;">(tú)</span></div><input type="hidden" id="f-block-specialist" value="${escapeHtml(yo)}"></div>` : `
       <div class="field">
         <label>¿A quién afecta?</label>
         <select id="f-block-specialist">
@@ -4530,7 +4576,7 @@ function blockModalHtml(){
           <option value="${ALL_SPECIALISTS_VALUE}" ${d.specialist===ALL_SPECIALISTS_VALUE?'selected':''}>Todas (motivo externo — ej: corte de luz)</option>
           ${state.specialists.map(s=>`<option value="${escapeHtml(s.name)}" ${d.specialist===s.name?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
         </select>
-      </div>
+      </div>`}
       <div class="block-kind" id="block-kind">
         <label class="${kind==='hours'?'on':''}"><input type="radio" name="block-kind" value="hours" ${kind==='hours'?'checked':''}>Unas horas</label>
         <label class="${kind==='day'?'on':''}"><input type="radio" name="block-kind" value="day" ${kind==='day'?'checked':''}>Día completo</label>
@@ -4541,8 +4587,8 @@ function blockModalHtml(){
         <div class="field" id="block-dateend-field" style="display:${kind==='days'?'block':'none'};"><label>Hasta el día (incluido)</label><input type="date" id="f-block-dateEnd" value="${d.dateEnd && d.dateEnd>d.date ? d.dateEnd : toKey(addDays(parseKey(d.date),1))}"></div>
       </div>
       <div class="row2" id="block-hours-fields" style="display:${kind==='hours'?'grid':'none'};">
-        <div class="field"><label>Desde</label><input type="time" id="f-block-start" value="${d.start}"></div>
-        <div class="field"><label>Hasta</label><input type="time" id="f-block-end" value="${d.end}"></div>
+        <div class="field"><label>Desde</label><select id="f-block-start">${opcionesHoraBloqueoHtml(d.start)}</select></div>
+        <div class="field"><label>Hasta</label><select id="f-block-end">${opcionesHoraBloqueoHtml(d.end)}</select></div>
         <div class="hint block-horas-texto" id="block-horas-texto" style="grid-column:1/-1;margin:-6px 0 4px;">${bloqueHorasTexto(d.start, d.end)}</div>
       </div>
       <div class="field"><label>Motivo (opcional)</label><input type="text" id="f-block-reason" placeholder="Ej: hora médica, viaje" value="${escapeHtml(d.reason||'')}"></div>
@@ -9243,7 +9289,7 @@ function onAction(e){
     case 'edit-block': {
       const id = e.currentTarget.dataset.id;
       const found = (state.blocks||[]).find(b=>b.id===id);
-      if(found){ ui.modal = {type:'block', mode:'edit', data: Object.assign({}, found)}; render(); }
+      if(found){ ui.modal = {type:'block', mode: puedeTocarBloqueo(found) ? 'edit' : 'view', data: Object.assign({}, found)}; render(); }
       break;
     }
     case 'toggle-split': {
@@ -9769,6 +9815,7 @@ function onAction(e){
     case 'delete-block': {
       const id = e.currentTarget.dataset.id;
       const toRemove = (state.blocks||[]).find(b=>b.id===id);
+      if(toRemove && !puedeTocarBloqueo(toRemove)){ showAlert('Este bloqueo es de otra especialista: solo ella o Sibana pueden quitarlo.'); break; }
       const many = toRemove && blockLastDate(toRemove)!==toRemove.date;
       showConfirmDialog(many ? `¿Quitar este bloqueo? Se quitan todos sus días (${blockWhenLabel(toRemove)}).` : '¿Quitar este bloqueo de horario?', ()=>{
         state.blocks = (state.blocks||[]).filter(b=>b.id!==id);
@@ -10033,6 +10080,12 @@ function saveBlockFromForm(){
     specialist: get('f-block-specialist'), reason: get('f-block-reason').trim(),
   };
   delete updated.allDay; delete updated.dateEnd;
+  const yo = bloqueadoraFija();
+  if(yo){
+    const previo = (state.blocks||[]).find(b=>b.id===updated.id);
+    if(previo && !puedeTocarBloqueo(previo)){ showAlert('Este bloqueo es de otra especialista: solo ella o Sibana pueden cambiarlo.'); return; }
+    updated.specialist = yo;
+  }
   if(!updated.date){ showAlert('Elige la fecha.'); return; }
   if(!updated.specialist){ showAlert('Elige a quién afecta el bloqueo (tu nombre, o "Todas").'); return; }
   if(kind==='hours'){

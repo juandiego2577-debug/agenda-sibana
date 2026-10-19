@@ -1414,7 +1414,11 @@ para servir también a **Copiapó**, de la siguiente forma:
   quitar "Solo X o Sibana pueden cambiarlo" de la vista del bloqueo de otra. Y
   que la lista diga solo "16:00" (sin "· 4 de la tarde": "parece para
   niños"); también se quitó la línea "Se bloquea desde las…" debajo. La
-  lista (08:00–21:00) ya impide la madrugada.
+  lista (08:00–21:00) ya impide la madrugada. **Al final (mismo día) Juan Diego prefirió volver al
+  reloj del teléfono** ("están más acostumbradas"): `<input type="time">`
+  otra vez, sin la lista ni las horas en palabras; queda el aviso
+  `preguntarMananaTarde` (en bloqueos con `volverAlForm`: "Sí, 16:00 a
+  20:00" / "No, la corrijo yo", que vuelve al formulario sin guardar).
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos

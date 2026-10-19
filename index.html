@@ -2126,15 +2126,16 @@ function revisarMananaTarde(dateKey, start, end){
 }
 // Pregunta (si hace falta) y llama a "seguir" con las horas que quedaron.
 // Devuelve true si mostró la pregunta (quien llama debe esperar).
-function preguntarMananaTarde(dateKey, start, end, que, seguir){
+function preguntarMananaTarde(dateKey, start, end, que, seguir, opts){
+  const volverAlForm = opts && opts.volverAlForm; // bloqueos: "No" vuelve al formulario para corregir
   const r = revisarMananaTarde(dateKey, start, end);
   if(!r) return false;
   const c = r.corregido;
   if(c){
     showDialog({
       message: `${que} empieza a las ${start} (${horaEnPalabras(start)}), antes de que abra el estudio. ¿Quisiste decir de ${c.start} a ${c.end} (${horaEnPalabras(c.start)} a ${horaEnPalabras(c.end)})?`,
-      confirmLabel: `Sí, ${c.start} a ${c.end}`, cancelLabel: `No, dejar ${start} a ${end}`,
-      onConfirm: ()=>seguir(c.start, c.end), onCancel: ()=>seguir(start, end, true),
+      confirmLabel: `Sí, ${c.start} a ${c.end}`, cancelLabel: volverAlForm ? 'No, la corrijo yo' : `No, dejar ${start} a ${end}`,
+      onConfirm: ()=>seguir(c.start, c.end), onCancel: volverAlForm ? null : ()=>seguir(start, end, true),
     });
   } else {
     showDialog({
@@ -4522,19 +4523,6 @@ function puedeTocarBloqueo(b){
   if(!yo) return true;
   return !!b && b.specialist!==ALL_SPECIALISTS_VALUE && normalizeName(b.specialist)===normalizeName(yo);
 }
-// "Desde/Hasta" del bloqueo como lista de horas de 24 h cada 15 minutos, solo
-// del horario del estudio (antes era el reloj del teléfono, que en algunos va
-// con AM/PM: escribir "16" o "4" dejaba 01:00 o 04:00 de la madrugada). Solo
-// el número ("16:00"): Juan Diego no quiso "4 de la tarde" al lado (le
-// pareció infantil). Si el bloqueo ya tenía otra hora, se agrega a la lista
-// para no perderla al editar.
-function opcionesHoraBloqueoHtml(sel){
-  const horas = [];
-  for(let m = HOUR_START*60; m <= HOUR_END*60; m += 15) horas.push(pad(Math.floor(m/60))+':'+pad(m%60));
-  if(sel && !horas.includes(sel)) horas.push(sel);
-  horas.sort();
-  return horas.map(h=>`<option value="${h}" ${h===sel?'selected':''}>${h}</option>`).join('');
-}
 // Bloqueo de otra especialista, abierto por una especialista: solo se ve.
 function bloqueoSoloVerHtml(b){
   const cuando = blockLastDate(b)!==b.date ? `del ${blockDateLabel(b.date)} al ${blockDateLabel(blockLastDate(b))}`
@@ -4580,8 +4568,8 @@ function blockModalHtml(){
         <div class="field" id="block-dateend-field" style="display:${kind==='days'?'block':'none'};"><label>Hasta el día (incluido)</label><input type="date" id="f-block-dateEnd" value="${d.dateEnd && d.dateEnd>d.date ? d.dateEnd : toKey(addDays(parseKey(d.date),1))}"></div>
       </div>
       <div class="row2" id="block-hours-fields" style="display:${kind==='hours'?'grid':'none'};">
-        <div class="field"><label>Desde</label><select id="f-block-start">${opcionesHoraBloqueoHtml(d.start)}</select></div>
-        <div class="field"><label>Hasta</label><select id="f-block-end">${opcionesHoraBloqueoHtml(d.end)}</select></div>
+        <div class="field"><label>Desde</label><input type="time" id="f-block-start" value="${d.start}"></div>
+        <div class="field"><label>Hasta</label><input type="time" id="f-block-end" value="${d.end}"></div>
       </div>
       <div class="field"><label>Motivo (opcional)</label><input type="text" id="f-block-reason" placeholder="Ej: hora médica, viaje" value="${escapeHtml(d.reason||'')}"></div>
       <div class="modal-actions">
@@ -10082,7 +10070,7 @@ function saveBlockFromForm(){
       document.getElementById('f-block-end').value = e2;
       if(aceptado) ui.modal._mananaTardeOk = updated.date+s2+e2;
       saveBlockFromForm();
-    })) return;
+    }, {volverAlForm:true})) return;
   } else {
     updated.allDay = true;
     updated.start = pad(HOUR_START)+':00'; updated.end = pad(HOUR_END)+':00';

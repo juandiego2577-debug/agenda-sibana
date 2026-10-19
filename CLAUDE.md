@@ -1773,6 +1773,16 @@ para servir también a **Copiapó**, de la siguiente forma:
   (dueños pueden actualizar). La instructora exige nombre Y apellido, y la
   primera vez se propone la que ya se escribió completa en otro curso
   (`certInstructoraCompleta`). Probado: e2e (54).
+  **Período en vez de día (19/10/2026, cursos antiguos de Andreina: "julio
+  a diciembre de 2023", nadie recuerda el día):** "+ Certificado sin curso
+  en la agenda" tiene "Período (solo si no se sabe el día exacto)"; si se
+  llena, `periodo` va en los dos registros (solo si hay: los certificados
+  normales no cambian) y se muestra en vez de la fecha (`certCuandoTexto`,
+  página pública: fila "Período"; certificado: "Realizado de julio a
+  diciembre de 2023"). `fecha` sigue obligatoria (primer día, solo para
+  ordenar). Reglas: `periodo` (≤60) en `verificacionValida` — **hay que
+  pegarlas en Firebase** antes de emitir uno con período. Planilla: columna
+  "Período". Certificado blanco: `plantilla/template_blanco.html`.
 - **Vales** (`state.vales`, `{id,specialist,date,monto,notas}`): plata que
   una especialista va sacando de la caja durante la semana a cuenta de su
   comisión — a veces fraccionada en varios días y a veces sin avisar ni

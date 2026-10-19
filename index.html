@@ -8501,6 +8501,9 @@ function certDocParcial(tipo, doc){
 function certLugarSede(){
   return SEDE.id === 'santiago' ? 'Santiago de Chile' : SEDE.nombre + (SEDE.pais ? ', ' + SEDE.pais : '');
 }
+// Cuándo se hizo el curso: el período escrito (cursos antiguos sin día exacto,
+// ej. "julio a diciembre de 2023") o la fecha.
+function certCuandoTexto(x){ return (x && x.periodo) ? x.periodo : certFechaLarga(x && x.fecha); }
 function certFechaLarga(iso){
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||'');
   return m ? `${Number(m[3])} de ${MONTHS[Number(m[2])-1]} de ${m[1]}` : (iso||'');
@@ -8636,6 +8639,7 @@ function certLeerFormDatos(){
   return {
     curso: v('f-cert-curso'), fecha: v('f-cert-fecha'), horas: v('f-cert-horas'), modalidad: v('f-cert-modalidad'),
     lugar: v('f-cert-lugar'), instructora: v('f-cert-instructora'), contenidos: v('f-cert-contenidos'), emitido: v('f-cert-emitido'),
+    periodo: v('f-cert-periodo').replace(/\s+/g,' '),
   };
 }
 function certValidarDatos(d){
@@ -8645,6 +8649,7 @@ function certValidarDatos(d){
   if(!d.horas) return 'Falta la duración (ej. "7 horas cronológicas").';
   if(!d.instructora) return 'Falta el nombre de la instructora, tal como va en el certificado (ej. "Salomé Toro").';
   if(certPalabrasNombre(d.instructora).length < 2) return `Escribe el nombre Y el apellido de la instructora (ej. "${d.instructora} Toro"): así va impreso en el certificado.`;
+  if((d.periodo||'').length > 60) return 'El período es demasiado largo (ej. "julio a diciembre de 2023").';
   if(d.curso.length > 150 || d.horas.length > 20 || d.modalidad.length > 40 || d.lugar.length > 80 || d.instructora.length > 80) return 'Algún dato es demasiado largo.';
   return '';
 }
@@ -8691,6 +8696,7 @@ function emitirCertificado(datos){
       instructora: datos.instructora || '', institucion: CERT_INSTITUCION,
       actualizadoEn: firebase.firestore.FieldValue.serverTimestamp(),
     };
+    if(datos.periodo) publico.periodo = String(datos.periodo).trim();
     const privado = Object.assign({}, publico, {
       doc, codigo, sede: SEDE.id, cursoId: datos.cursoId || '', inscritoId: datos.inscritoId || '',
       contenidos: datos.contenidos || '', emitidoEn: firebase.firestore.FieldValue.serverTimestamp(),
@@ -8736,7 +8742,7 @@ function confirmarEmisionDesdeForm(){
   const avisosNombre = certAvisosNombre(nombre, doc);
   const aviso = (avisosNombre.length ? '\n\n⚠️ Revisa el nombre: ' + avisosNombre.join(' ') : '')
     + ((m.estado === 'Cancelada' || m.estado === 'NoShow') ? '\n\nOjo: esta persona figura como "' + (m.estado === 'NoShow' ? 'No se presentó' : 'Cancelada') + '" en el curso.' : '');
-  showConfirmDialog(`¿Emitir el certificado de ${nombre} (${docTipo} ${docMostrar})?\n\nCurso: ${cfg.curso}\nSe le asigna el siguiente folio y su código de verificación. Un certificado emitido no se borra: si algo está mal, se anula y se emite uno nuevo.${aviso}`, ()=>{
+  showConfirmDialog(`¿Emitir el certificado de ${nombre} (${docTipo} ${docMostrar})?\n\nCurso: ${cfg.curso}${cfg.periodo ? '\nRealizado: ' + cfg.periodo : ''}\nSe le asigna el siguiente folio y su código de verificación. Un certificado emitido no se borra: si algo está mal, se anula y se emite uno nuevo.${aviso}`, ()=>{
     m.ocupado = true; render();
     emitirCertificado(Object.assign({}, cfg, {nombre, docTipo, doc, cursoId: m.modo === 'alumna' ? m.volverA : '', inscritoId: m.inscritoId || ''}))
       .then(({folio, codigo})=>{
@@ -8908,12 +8914,12 @@ function copiarEnlaceCert(codigo){
 // --- Planilla (Excel abre bien el CSV con ";" y la marca UTF-8) ---
 function descargarPlanillaCertificados(){
   const m = ui.modal; if(!esDueno() || !m || !m.certs) return;
-  const col = ['Folio','Código','Estado','Nombre completo','Tipo de documento','Documento','Curso','Fecha del curso','Duración','Modalidad','Lugar','Instructora','Fecha de emisión','Emitido por','Enlace de verificación','Motivo de anulación','Contenidos'];
+  const col = ['Folio','Código','Estado','Nombre completo','Tipo de documento','Documento','Curso','Fecha del curso','Duración','Modalidad','Lugar','Instructora','Fecha de emisión','Emitido por','Enlace de verificación','Motivo de anulación','Contenidos','Período'];
   const q = v=>{ const s = String(v==null?'':v); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
   const filas = m.certs.slice().sort((a,b)=>(a.folio||'').localeCompare(b.folio||'')).map(c=>[
     c.folio, certCodigoBonito(c.codigo), c.estado==='valido'?'Válido':'Anulado', c.nombre, c.docTipo, c.doc, c.curso,
     certFechaLarga(c.fecha), c.horas, c.modalidad, c.lugar, c.instructora, certFechaLarga(c.emitido), c.emitidoPor,
-    certEnlace(c.codigo), c.motivo||'', String(c.contenidos||'').split('\n').map(x=>x.trim()).filter(Boolean).join(' | '),
+    certEnlace(c.codigo), c.motivo||'', String(c.contenidos||'').split('\n').map(x=>x.trim()).filter(Boolean).join(' | '), c.periodo||'',
   ].map(q).join(';'));
   const blob = new Blob(['﻿' + [col.join(';')].concat(filas).join('\r\n')], {type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
@@ -8930,7 +8936,7 @@ function certFilaHtml(c, opciones){
     <div class="cert-row${valido?'':' anulado'}" data-cert-search="${escapeHtml(normalizeName([c.nombre,c.folio,c.doc,c.curso,certCodigoBonito(c.codigo)].join(' ')))}">
       <div class="cert-main">
         <div class="cr-name">${escapeHtml(c.nombre||'')}</div>
-        <div class="cr-rut">${escapeHtml(c.docTipo||'')} ${escapeHtml(c.doc||'')}${opciones && opciones.conCurso ? ' · ' + escapeHtml(c.curso||'') + ' · ' + escapeHtml(certFechaLarga(c.fecha)) : ''}</div>
+        <div class="cr-rut">${escapeHtml(c.docTipo||'')} ${escapeHtml(c.doc||'')}${opciones && opciones.conCurso ? ' · ' + escapeHtml(c.curso||'') + ' · ' + escapeHtml(certCuandoTexto(c)) : ''}</div>
         <div class="cert-chip ${valido?'ok':'no'}">${valido?'✅ Válido':'⛔ Anulado'} · <b>${escapeHtml(c.folio||'')}</b> · código ${escapeHtml(certCodigoBonito(c.codigo))}</div>
         ${!valido && c.motivo ? `<div class="cr-rut">Motivo: ${escapeHtml(c.motivo)}</div>` : ''}
       </div>
@@ -8949,6 +8955,8 @@ function certDatosFormHtml(d, editableFecha){
         <div class="field"><label>Fecha del curso</label><input type="date" id="f-cert-fecha" value="${escapeHtml(d.fecha||'')}" ${editableFecha?'':'readonly'}></div>
         <div class="field"><label>Fecha de emisión</label><input type="date" id="f-cert-emitido" value="${escapeHtml(d.emitido||'')}"></div>
       </div>
+      ${editableFecha ? `<div class="field"><label>Período (solo si no se sabe el día exacto)</label><input type="text" id="f-cert-periodo" maxlength="60" value="${escapeHtml(d.periodo||'')}" placeholder="Ej.: julio a diciembre de 2023">
+        <div class="hint" style="margin-top:4px">Si lo llenas, el certificado dice "Realizado de julio a diciembre de 2023" en vez del día. En "Fecha del curso" pon entonces el primer día del período (solo se usa para ordenar).</div></div>` : ''}
       <div class="row2">
         <div class="field"><label>Duración</label><input type="text" id="f-cert-horas" maxlength="20" value="${escapeHtml(d.horas||'')}" placeholder="Ej.: 7 horas cronológicas"></div>
         <div class="field"><label>Modalidad</label><input type="text" id="f-cert-modalidad" maxlength="40" value="${escapeHtml(d.modalidad||'')}" placeholder="Presencial"></div>
@@ -9004,7 +9012,7 @@ function certCursoModalHtml(){
         <div class="cert-box">
           <div class="cert-box-title">Datos del certificado <button type="button" class="btn btn-ghost btn-sm" style="float:right" data-act="cert-editar-datos">✏️ Editar</button></div>
           <div class="cert-dato"><span>Curso</span><b>${escapeHtml(cfg.curso)}</b></div>
-          <div class="cert-dato"><span>Fecha</span>${escapeHtml(certFechaLarga(cfg.fecha))} · ${escapeHtml(cfg.horas)} · ${escapeHtml(cfg.modalidad)}</div>
+          <div class="cert-dato"><span>Fecha</span>${escapeHtml(certCuandoTexto(cfg))} · ${escapeHtml(cfg.horas)} · ${escapeHtml(cfg.modalidad)}</div>
           <div class="cert-dato"><span>Lugar</span>${escapeHtml(cfg.lugar)}</div>
           <div class="cert-dato"><span>Instructora</span>${escapeHtml(cfg.instructora)}</div>
           <div class="cert-dato"><span>Emisión</span>${escapeHtml(certFechaLarga(cfg.emitido))}</div>
@@ -9030,7 +9038,7 @@ function certFormModalHtml(){
     <div class="modal" data-stop="1">
       <h2 class="serif">📜 ${manual ? 'Certificado sin curso en la agenda' : 'Emitir certificado'}</h2>
       ${manual ? `<div class="hint">Para cursos que no están en la agenda (por ejemplo, de años anteriores). Queda en el mismo registro y con su propio QR.</div>${certDatosFormHtml(m.cfg, true)}<hr style="border:0;border-top:1px solid var(--line);margin:6px 0 12px;">`
-        : `<div class="hint">${escapeHtml(m.cfg.curso)} · ${escapeHtml(certFechaLarga(m.cfg.fecha))}</div>`}
+        : `<div class="hint">${escapeHtml(m.cfg.curso)} · ${escapeHtml(certCuandoTexto(m.cfg))}</div>`}
       <div class="field"><label>Nombre completo (todos los nombres y apellidos, como en su documento)</label><input type="text" id="f-certp-nombre" maxlength="120" value="${escapeHtml(m.nombre||'')}" data-cert-aviso="f-certp-aviso" data-cert-doc="f-certp-doc">${certAvisoHtml('f-certp-aviso', m.nombre, m.doc)}</div>
       <div class="row2">
         <div class="field"><label>Tipo de documento</label><select id="f-certp-doctipo">${tipos}</select></div>
@@ -9066,7 +9074,7 @@ function certRevisarModalHtml(){
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
       <h2 class="serif">📜 Revisar antes de emitir</h2>
-      <div class="hint">${escapeHtml(m.cfg.curso)} · ${escapeHtml(certFechaLarga(m.cfg.fecha))}. Así va a salir cada nombre en el certificado: puedes corregirlo aquí (no cambia nada en la agenda). La agenda marca con ⚠️ lo que le parece raro.</div>
+      <div class="hint">${escapeHtml(m.cfg.curso)} · ${escapeHtml(certCuandoTexto(m.cfg))}. Así va a salir cada nombre en el certificado: puedes corregirlo aquí (no cambia nada en la agenda). La agenda marca con ⚠️ lo que le parece raro.</div>
       ${filas}
       <div class="modal-actions">
         <div></div>
@@ -9107,10 +9115,10 @@ function certRegistroModalHtml(){
   const validos = certs.filter(c=>c.estado==='valido').length;
   // Agrupados por curso (nombre + fecha), los más recientes primero.
   const grupos = new Map();
-  certs.forEach(c=>{ const k = (c.fecha||'') + '|' + (c.curso||''); if(!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(c); });
+  certs.forEach(c=>{ const k = (c.fecha||'') + '|' + (c.periodo||'') + '|' + (c.curso||''); if(!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(c); });
   const bloques = Array.from(grupos.entries()).sort((a,b)=>b[0].localeCompare(a[0])).map(([k, lista])=>`
     <div class="cert-grupo">
-      <div class="cert-grupo-title">${escapeHtml(lista[0].curso||'')} <span>· ${escapeHtml(certFechaLarga(lista[0].fecha))} · ${lista.length} certificado${lista.length===1?'':'s'}</span></div>
+      <div class="cert-grupo-title">${escapeHtml(lista[0].curso||'')} <span>· ${escapeHtml(certCuandoTexto(lista[0]))} · ${lista.length} certificado${lista.length===1?'':'s'}</span></div>
       ${lista.sort((a,b)=>(a.folio||'').localeCompare(b.folio||'')).map(c=>certFilaHtml(c)).join('')}
     </div>`).join('');
   return `

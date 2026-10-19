@@ -250,7 +250,7 @@ service cloud.firestore {
     function verificacionValida(d) {
       return d.keys().hasOnly(['folio', 'nombre', 'doc', 'docTipo', 'curso', 'fecha',
                                'horas', 'modalidad', 'lugar', 'instructora', 'institucion',
-                               'emitido', 'estado', 'motivo', 'actualizadoEn'])
+                               'emitido', 'estado', 'motivo', 'actualizadoEn', 'periodo'])
         && d.folio is string && d.folio.size() > 0 && d.folio.size() <= 30
         && d.nombre is string && d.nombre.size() > 0 && d.nombre.size() <= 120
         && d.curso is string && d.curso.size() > 0 && d.curso.size() <= 150
@@ -261,6 +261,7 @@ service cloud.firestore {
         && textoCorto(d, 'horas', 20) && textoCorto(d, 'modalidad', 40)
         && textoCorto(d, 'lugar', 80) && textoCorto(d, 'instructora', 80)
         && textoCorto(d, 'institucion', 80) && textoCorto(d, 'motivo', 200)
+        && textoCorto(d, 'periodo', 60)
         && (!('actualizadoEn' in d) || d.actualizadoEn is timestamp);
     }
     match /sibana-verificacion/{codigo} {

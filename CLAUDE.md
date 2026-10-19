@@ -898,10 +898,14 @@ para servir también a **Copiapó**, de la siguiente forma:
   ella no puede borrarlo; en Pagos sale "Lo anotó <nombre>" y Sibana lo
   borra con ✕. Campo dentro de un ajuste: sin `APP_VERSION`. Probado: e2e
   (10). **Revisión del pago de Salomé, semana 12–17/10** (su cuaderno vs la
-  agenda, $23.580 de diferencia): con lo que aclaró Juan Diego se le deben
-  $22.000 = Lexima (lifting + limpieza: la limpieza se le paga sobre
-  $40.000 aunque se cobró $30.000, según la nota de la cita) +$15.000 y
-  "Líder" +$7.000. En lo demás la agenda estaba bien: Esperanza pagó
+  agenda, $23.580 de diferencia): se le deben $12.005 = Lexima +$5.005 y
+  "Líder" +$7.000. Lexima (lifting + limpieza) se cobró $29.990 en total y,
+  según Juan Diego, la especialista cobra sobre $40.000 (precio que se iba
+  a subir): 50% de 40.000 = 20.000 − 14.995 de la agenda. ERROR MÍO que él
+  atrapó: primero le dije +$15.000 copiando el cuaderno de Salomé (lifting
+  20.000 + limpieza 40.000) en vez de lo que él había dicho. Con plata,
+  nunca rellenar con supuestos: si lo que dice el dueño y el cuaderno no
+  calzan, decirlo y preguntar (lección 7). En lo demás la agenda estaba bien: Esperanza pagó
   $59.990 (descuento por amiga), Andrea Cornejo pagó $55.000 en total
   (abono incluido), y Salomé había olvidado anotar el perfilado del martes
   13/10 (Andrea Estrada) y redondeaba 19.990 a 20.000.

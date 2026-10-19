@@ -4552,7 +4552,6 @@ function bloqueoSoloVerHtml(b){
       <h2 class="serif">🚫 Bloqueo de ${escapeHtml(quien)}</h2>
       <p style="margin:0 0 6px;">${cuando}</p>
       ${b.reason ? `<p class="hint" style="margin:0 0 6px;">Motivo: ${escapeHtml(b.reason)}</p>` : ''}
-      <div class="hint">${b.specialist===ALL_SPECIALISTS_VALUE ? 'Solo Sibana puede' : 'Solo '+escapeHtml(quien)+' o Sibana pueden'} cambiarlo o quitarlo.</div>
       <div class="modal-actions"><div></div><div class="right"><button class="btn btn-primary" data-act="close-modal">Cerrar</button></div></div>
     </div>
   </div>`;
@@ -4568,7 +4567,7 @@ function blockModalHtml(){
     <div class="modal" data-stop="1">
       <h2 class="serif">${isEdit ? 'Editar bloqueo' : 'Bloquear un horario'}</h2>
       <div class="hint">Marca cuándo una especialista no puede atender (una hora médica, un día libre, un viaje), o un bloqueo general del estudio por una causa externa (por ejemplo, un corte de luz). Mientras esté bloqueado, no se pueden agendar citas ahí.</div>
-      ${yo ? `<div class="field"><label>¿A quién afecta?</label><div class="bloqueo-quien">🚫 ${escapeHtml(yo)} <span class="hint" style="margin:0;">(tú)</span></div><input type="hidden" id="f-block-specialist" value="${escapeHtml(yo)}"></div>` : `
+      ${yo ? `<div class="field"><label>¿A quién afecta?</label><div class="bloqueo-quien">${escapeHtml(yo)}</div><input type="hidden" id="f-block-specialist" value="${escapeHtml(yo)}"></div>` : `
       <div class="field">
         <label>¿A quién afecta?</label>
         <select id="f-block-specialist">

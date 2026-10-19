@@ -1410,7 +1410,8 @@ para servir también a **Copiapó**, de la siguiente forma:
   decisión anterior de "bloqueo nuevo SIN especialista elegida" (era de
   antes de las cuentas propias). `APP_VERSION` 8 para que los teléfonos con
   la versión anterior (que dejaba tocar los de otras) recarguen. Probado:
-  e2e (10).
+  e2e (10). Después él pidió: el nombre fijo sin "(tú)" (solo "Salomé") y
+  quitar "Solo X o Sibana pueden cambiarlo" de la vista del bloqueo de otra.
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos

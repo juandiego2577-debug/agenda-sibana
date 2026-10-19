@@ -814,6 +814,7 @@
   .cert-row .cert-main{min-width:0;flex:1;}
   .cert-row .cr-name{font-weight:600;}
   .cert-row .cr-rut{font-size:12px;color:var(--ink-soft);}
+  .firma-mini{display:block;max-height:46px;max-width:180px;margin-top:6px;background:#1a1712;border-radius:6px;padding:4px}
   .cert-aviso{font-size:12.5px;line-height:1.45;color:#e0a95a;margin-top:5px}
   .cert-aviso:empty{display:none}
   .cert-revisar-fila{border:1px solid var(--line);border-radius:10px;padding:10px 12px 2px;margin-bottom:10px}
@@ -4545,6 +4546,7 @@ function modalHtml(){
   if(ui.modal.type==='cert-registro') return certRegistroModalHtml();
   if(ui.modal.type==='cert-revisar') return certRevisarModalHtml();
   if(ui.modal.type==='cert-corregir') return certCorregirModalHtml();
+  if(ui.modal.type==='cert-firmas') return certFirmasModalHtml();
   if(ui.modal.type==='sede') return sedeModalHtml();
   if(ui.modal.type==='valores-sede') return valoresSedeModalHtml();
   if(ui.modal.type==='appt' && ui.mode!=='admin') return apptViewOnlyHtml(ui.modal.data);
@@ -8981,6 +8983,268 @@ function descargarPlanillaCertificados(){
   setTimeout(()=>URL.revokeObjectURL(url), 3000);
 }
 
+// --- PDF del certificado, armado en la propia agenda (19/10/2026, pedido de Juan Diego: no depender de Claude) ---
+// Mismo diseño que los PDF hechos con la plantilla del repo sibana-certificados (copiada en certificado/):
+// negro o blanco. Se arma en un iframe escondido (achica el nombre si no cabe en una línea y revisa que todo
+// entre en la hoja), se "fotografía" a 300 dpi (SVG con foreignObject → canvas, con letras e imágenes
+// incrustadas) y se guarda como PDF A4 horizontal con esa imagen, igual que los anteriores.
+// Las firmas NO están en el repo (es público): las sube un dueño una vez y quedan en
+// sibana-certificados-meta/firmas (solo dueños pueden leerlas).
+const CERT_PDF_DIR = 'certificado/';
+const CERT_FIRMAS_DOC = 'firmas';
+const CERT_DIRECTOR = {nombre: 'Franklin José Gil Rojas', rol: 'Fundador y Director General'};
+const certPdfCache = {};
+function certCargarScript(src){
+  return new Promise((res, rej)=>{
+    if(window.qrcode) return res();
+    const s = document.createElement('script'); s.src = src; s.onload = ()=>res(); s.onerror = ()=>rej(new Error('No se pudo cargar ' + src));
+    document.head.appendChild(s);
+  });
+}
+async function certTraer(ruta, tipo){
+  const k = tipo + ':' + ruta;
+  if(certPdfCache[k]) return certPdfCache[k];
+  const r = await fetch(CERT_PDF_DIR + ruta, {cache:'no-cache'});
+  if(!r.ok) throw new Error('No se pudo leer ' + ruta);
+  certPdfCache[k] = tipo === 'texto' ? await r.text() : await new Promise((res, rej)=>{
+    r.blob().then(b=>{ const fr = new FileReader(); fr.onload = ()=>res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); });
+  });
+  return certPdfCache[k];
+}
+async function certFirmas(){
+  const s = await db.collection(CERT_META_COL).doc(CERT_FIRMAS_DOC).get();
+  return (s.exists && Array.isArray(s.data().lista)) ? s.data().lista : [];
+}
+function certFirmaDe(firmas, nombre){
+  const f = (firmas||[]).find(x=>nombreExacto(x.nombre) === nombreExacto(nombre));
+  return f && /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(f.dataUrl||'') ? f.dataUrl : '';
+}
+function certQrSvg(texto){
+  const q = window.qrcode(0, 'M'); q.addData(texto); q.make();
+  const n = q.getModuleCount(); let d = '';
+  for(let y = 0; y < n; y++) for(let x = 0; x < n; x++) if(q.isDark(y, x)) d += `M${x},${y}h1v1h-1z`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges"><path fill="#0d0c0a" d="${d}"/></svg>`;
+}
+// "del 1 de julio al 4 de octubre de 2023" → tal cual; "julio a septiembre de 2023" → "de …"; "julio de 2023" → "en …"
+function certFrasePeriodo(p){ return /^(del?|desde|entre)\b/i.test(p) ? p : ((/ a /.test(p) ? 'de ' : 'en ') + p); }
+function certLugarFrase(l){ return /^santiago(,? (de )?chile)?$/i.test(String(l||'').trim()) ? 'Santiago de Chile' : String(l||'').trim(); }
+// Los textos del certificado, igual que tools/desde_planilla.py del repo de la plantilla.
+function certTextosPdf(c){
+  const lugar = certLugarFrase(c.lugar);
+  const detalle = [c.modalidad ? 'Modalidad ' + String(c.modalidad).trim().toLowerCase() : '', String(c.horas||'').trim(),
+    /presencial/i.test(c.modalidad||'') ? 'Formación teórica y práctica en persona' : ''].filter(Boolean);
+  return {
+    name: c.nombre || '', docLabel: String(c.docTipo||'').toUpperCase(), doc: c.doc || '', folio: c.folio || '',
+    codigo: c.codigo || '', url: certEnlace(c.codigo), curso: c.curso || '', detalle,
+    realizado: c.periodo ? `Realizado ${certFrasePeriodo(c.periodo)} en ${lugar}` : `Realizado el ${certFechaLarga(c.fecha)} en ${lugar}`,
+    contenidos: String(c.contenidos||'').split('\n').map(x=>x.trim()).filter(Boolean),
+    instructora: c.instructora || '', emitido: `Emitido en ${lugar}, el ${certFechaLarga(c.emitido)}`,
+  };
+}
+async function certHtmlPdf(c, version){
+  await certCargarScript(CERT_PDF_DIR + 'qrcode.js');
+  const blanco = version === 'blanco';
+  const [tpl, css, firmas] = await Promise.all([certTraer(blanco ? 'template_blanco.html' : 'template.html', 'texto'), certTraer('fonts/local.css', 'texto'), certFirmas()]);
+  // Letras incrustadas (en una imagen SVG no se pueden cargar archivos aparte).
+  let cssIn = css;
+  for(const f of Array.from(new Set((css.match(/url\(([^)]+)\)/g)||[]).map(u=>u.slice(4,-1))))){
+    cssIn = cssIn.split('url(' + f + ')').join('url(' + await certTraer('fonts/' + f, 'datos') + ')');
+  }
+  const t = certTextosPdf(c);
+  const sep = '<span class="sep">◆</span>', sep2 = '<span class="sep">·</span>';
+  const qr = 'data:image/svg+xml;base64,' + btoa(certQrSvg(t.url));
+  const sigL = certFirmaDe(firmas, t.instructora), sigR = certFirmaDe(firmas, CERT_DIRECTOR.nombre);
+  const contenidos = t.contenidos.length ? `<p class="topics"><em>CONTENIDOS</em>${t.contenidos.map(escapeHtml).join(sep2)}</p>` : '';
+  let html = tpl.replaceAll('{{NAME}}', escapeHtml(t.name)).replaceAll('{{DOC_LABEL}}', escapeHtml(t.docLabel))
+    .replaceAll('{{DOC}}', escapeHtml(t.doc)).replaceAll('{{FOLIO}}', escapeHtml(t.folio))
+    .replaceAll('{{CURSO}}', escapeHtml(t.curso)).replaceAll('{{DETALLE}}', t.detalle.map(escapeHtml).join(sep))
+    .replaceAll('{{REALIZADO}}', escapeHtml(t.realizado)).replaceAll('{{CONTENIDOS}}', contenidos)
+    .replaceAll('{{INSTRUCTORA}}', escapeHtml(t.instructora)).replaceAll('{{INSTRUCTORA_ROL}}', 'Instructora del curso')
+    .replaceAll('{{EMITIDO}}', escapeHtml(t.emitido))
+    .replaceAll('{{SIG_LEFT}}', sigL ? `<img class="sig" src="${sigL}" alt="">` : '')
+    .replaceAll('{{SIG_RIGHT}}', sigR ? `<img class="sig" src="${sigR}" alt="">` : '')
+    .replaceAll('{{QR_BLOCK}}', `<div class="qr"><div class="tile"><img src="${qr}" alt=""></div><div class="cap">ESCANEA PARA<br>VERIFICAR</div><div class="code">${escapeHtml(certCodigoBonito(t.codigo))}</div></div>`)
+    .replaceAll('{{DIR_NAME}}', escapeHtml(CERT_DIRECTOR.nombre)).replaceAll('{{DIR_ROLE}}', escapeHtml(CERT_DIRECTOR.rol));
+  if(html.includes('{{')) throw new Error('Plantilla: falta ' + html.match(/\{\{\w+\}\}/)[0]);
+  html = html.replace(/<link rel="stylesheet" href="fonts\/local\.css">/, '<style>' + cssIn + '</style>');
+  for(const img of Array.from(new Set(html.match(/assets\/[\w.-]+\.png/g)||[]))){
+    html = html.split(img).join(await certTraer(img, 'datos'));
+  }
+  return {html, faltaFirma: [!sigL ? t.instructora : '', !sigR ? CERT_DIRECTOR.nombre : ''].filter(Boolean)};
+}
+// Arma el certificado en un iframe escondido: ajusta el nombre y revisa que todo quepa.
+function certMontar(html){
+  return new Promise((res, rej)=>{
+    const f = document.createElement('iframe');
+    f.setAttribute('aria-hidden', 'true');
+    f.style.cssText = 'position:fixed;left:-20000px;top:0;width:1123px;height:794px;border:0;visibility:hidden';
+    f.onload = async ()=>{
+      try{
+        const d = f.contentDocument;
+        await d.fonts.ready;
+        await Promise.all(Array.from(d.images).map(i=>i.complete ? 0 : new Promise(r=>{ i.onload = i.onerror = r; })));
+        const n = d.querySelector('.name'), max = d.querySelector('.content').clientWidth - 20;
+        let fs = parseFloat(d.defaultView.getComputedStyle(n).fontSize);
+        while(n.getBoundingClientRect().width > max && fs > 24){ fs -= 0.5; n.style.fontSize = fs + 'px'; }
+        const c = d.querySelector('.content'); const sobra = c.scrollHeight - c.clientHeight;
+        res({frame: f, doc: d, noCabe: sobra > 0});
+      }catch(e){ f.remove(); rej(e); }
+    };
+    f.srcdoc = html;
+    document.body.appendChild(f);
+  });
+}
+// "Fotografía" del certificado a 300 dpi (3508 × 2480) → JPEG.
+async function certFoto(doc){
+  const W = 1123, H = 794, ESC = 3508 / 1123;
+  const estilos = Array.from(doc.querySelectorAll('style')).map(s=>s.textContent).join('\n');
+  const xs = new XMLSerializer();
+  const pagina = xs.serializeToString(doc.querySelector('.page'));
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><foreignObject x="0" y="0" width="${W}" height="${H}">`
+    + `<div xmlns="http://www.w3.org/1999/xhtml" style="width:${W}px;height:${H}px"><style>${estilos.replace(/[<&]/g, ch=>ch==='<'?'&lt;':'&amp;')}</style>${pagina}</div></foreignObject></svg>`;
+  // Como "data:" y no como blob: Chrome/Edge no dejan exportar el dibujo de un blob con foreignObject.
+  const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  {
+    const img = new Image();
+    await new Promise((res, rej)=>{ img.onload = res; img.onerror = ()=>rej(new Error('No se pudo dibujar el certificado')); img.src = url; });
+    await new Promise(r=>setTimeout(r, 150)); // margen para que se pinten las letras incrustadas
+    const cv = document.createElement('canvas'); cv.width = 3508; cv.height = 2480;
+    const g = cv.getContext('2d'); g.scale(ESC, ESC); g.drawImage(img, 0, 0, W, H);
+    const blob = await new Promise((res, rej)=>cv.toBlob(b=>b ? res(b) : rej(new Error('toBlob')), 'image/jpeg', 0.95));
+    return new Uint8Array(await blob.arrayBuffer());
+  }
+}
+// PDF de una página A4 horizontal con la imagen JPEG a hoja completa.
+function certPdfDesdeJpeg(jpg, titulo){
+  const enc = new TextEncoder(), partes = [], offs = [];
+  let largo = 0;
+  const add = x=>{ const b = typeof x === 'string' ? enc.encode(x) : x; partes.push(b); largo += b.length; };
+  const obj = (n, s)=>{ offs[n] = largo; add(`${n} 0 obj\n${s}\nendobj\n`); };
+  const tit = String(titulo).replace(/[\\()]/g, ch=>'\\' + ch).replace(/[^\x20-\x7e]/g, ch=>({'á':'a','é':'e','í':'i','ó':'o','ú':'u','ñ':'n','Á':'A','É':'E','Í':'I','Ó':'O','Ú':'U','Ñ':'N','ü':'u','–':'-'}[ch]||''));
+  const PW = 841.89, PH = 595.28, contenido = `q ${PW} 0 0 ${PH} 0 0 cm /Im0 Do Q`;
+  add('%PDF-1.4\n'); add(new Uint8Array([0x25,0xE2,0xE3,0xCF,0xD3,0x0A])); // marca de archivo binario
+  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+  obj(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`);
+  offs[4] = largo; add(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width 3508 /Height 2480 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpg.length} >>\nstream\n`); add(jpg); add('\nendstream\nendobj\n');
+  obj(5, `<< /Length ${contenido.length} >>\nstream\n${contenido}\nendstream`);
+  obj(6, `<< /Title (${tit}) /Author (Sibana Academia PMU) /Producer (Agenda Sibana) >>`);
+  const xref = largo;
+  add(`xref\n0 7\n0000000000 65535 f \n` + [1,2,3,4,5,6].map(i=>String(offs[i]).padStart(10,'0') + ' 00000 n \n').join(''));
+  add(`trailer\n<< /Size 7 /Root 1 0 R /Info 6 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(partes, {type:'application/pdf'});
+}
+function certNombreArchivo(c){
+  // Sin tildes ni ñ: algunos navegadores cambian un nombre con tildes por "download".
+  return ('Certificado_' + c.folio + '_' + String(c.nombre||'').trim().replace(/\s+/g, '_'))
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w\-]/g, '') + '.pdf';
+}
+function certElegirVersion(c){
+  const existing = document.getElementById('custom-dialog'); if(existing) existing.remove();
+  const wrap = document.createElement('div'); wrap.id = 'custom-dialog'; wrap.className = 'confirm-overlay';
+  wrap.innerHTML = `<div class="confirm-box"><p>${escapeHtml('📄 PDF del certificado ' + c.folio + ' de ' + c.nombre + '\n\n¿En qué versión? (el diseño es el mismo)')}</p>
+    <div class="confirm-actions"><button class="btn btn-ghost" id="dlg-cancel">Cancelar</button>
+    <button class="btn btn-ghost" id="dlg-blanco">⬜ Blanco</button><button class="btn btn-primary" id="dlg-negro">⬛ Negro</button></div></div>`;
+  document.body.appendChild(wrap);
+  const cerrar = ()=>wrap.remove();
+  wrap.querySelector('#dlg-cancel').addEventListener('click', cerrar);
+  wrap.addEventListener('click', e=>{ if(e.target === wrap) cerrar(); });
+  wrap.querySelector('#dlg-negro').addEventListener('click', ()=>{ cerrar(); descargarPdfCertificado(c, 'negro'); });
+  wrap.querySelector('#dlg-blanco').addEventListener('click', ()=>{ cerrar(); descargarPdfCertificado(c, 'blanco'); });
+}
+let certPdfOcupado = false;
+async function descargarPdfCertificado(c, version){
+  if(!esDueno() || certPdfOcupado) return;
+  certPdfOcupado = true;
+  showAlert('📄 Armando el PDF… (unos segundos)');
+  let montado = null;
+  try{
+    const {html, faltaFirma} = await certHtmlPdf(c, version);
+    montado = await certMontar(html);
+    if(montado.noCabe) throw new Error('NO_CABE');
+    let blob;
+    try{ blob = certPdfDesdeJpeg(await certFoto(montado.doc), 'Certificado ' + c.folio + ' - ' + c.nombre); }
+    catch(e){
+      // Algunos navegadores (Safari) no dejan "fotografiar" la página: se abre para imprimir / guardar como PDF.
+      console.error(e);
+      const w = window.open('', '_blank');
+      if(!w) throw e;
+      w.document.open(); w.document.write(html.replace('</body>', '<script>window.onload=()=>setTimeout(()=>print(),400)<\/script></body>')); w.document.close();
+      cerrarAvisoPdf(); showAlert('Se abrió el certificado en otra pestaña: elige "Guardar como PDF" al imprimir.'); return;
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = certNombreArchivo(c);
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+    cerrarAvisoPdf();
+    showAlert('✅ PDF descargado: ' + certNombreArchivo(c) + (faltaFirma.length ? `\n\n⚠️ Sin firma de: ${faltaFirma.join(', ')}. Súbela en Más → 📜 Certificados → ✍️ Firmas.` : ''));
+  }catch(err){
+    console.error(err);
+    cerrarAvisoPdf();
+    showAlert(err && err.message === 'NO_CABE'
+      ? 'El certificado no cabe en una hoja (algún texto es demasiado largo, por ejemplo los contenidos o el nombre del curso). Acórtalo y vuelve a intentarlo.'
+      : 'No se pudo armar el PDF. Revisa la señal e inténtalo de nuevo.');
+  }finally{
+    if(montado) montado.frame.remove();
+    certPdfOcupado = false;
+  }
+}
+function cerrarAvisoPdf(){ const d = document.getElementById('custom-dialog'); if(d) d.remove(); }
+
+// --- Firmas para el PDF (solo dueños; quedan en Firebase, no en el código público) ---
+function abrirFirmasCert(){
+  if(!esDueno()) return;
+  ui.modal = {type:'cert-firmas', lista:null, error:''};
+  render();
+  certFirmas().then(lista=>{ if(ui.modal && ui.modal.type==='cert-firmas'){ ui.modal.lista = lista; render(); } })
+    .catch(e=>{ console.error(e); if(ui.modal && ui.modal.type==='cert-firmas'){ ui.modal.error = 'No se pudieron leer las firmas.'; render(); } });
+}
+function subirFirmaCert(){
+  const m = ui.modal; if(!esDueno() || !m || m.type!=='cert-firmas' || !m.lista) return;
+  const nombre = (document.getElementById('f-firma-nombre').value || '').trim().replace(/\s+/g,' ');
+  const archivo = document.getElementById('f-firma-archivo').files[0];
+  if(certPalabrasNombre(nombre).length < 2){ showAlert('Escribe el nombre y el apellido, tal como va en el certificado (ej. "Salomé Toro").'); return; }
+  if(!archivo || archivo.type !== 'image/png'){ showAlert('Elige la imagen de la firma en formato PNG (fondo transparente).'); return; }
+  if(archivo.size > 300000){ showAlert('La imagen es muy pesada (máximo 300 KB).'); return; }
+  const fr = new FileReader();
+  fr.onload = ()=>{
+    const lista = m.lista.filter(x=>nombreExacto(x.nombre) !== nombreExacto(nombre)).concat([{nombre, dataUrl: fr.result, subidaEn: new Date().toISOString()}]);
+    db.collection(CERT_META_COL).doc(CERT_FIRMAS_DOC).set({lista, actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()})
+      .then(()=>{ m.lista = lista; render(); showAlert('✅ Firma de ' + nombre + ' guardada.'); })
+      .catch(e=>{ console.error(e); showAlert('No se pudo guardar la firma. Revisa la señal e inténtalo de nuevo.'); });
+  };
+  fr.readAsDataURL(archivo);
+}
+function quitarFirmaCert(nombre){
+  const m = ui.modal; if(!esDueno() || !m || m.type!=='cert-firmas' || !m.lista) return;
+  showConfirmDialog(`¿Quitar la firma de ${nombre}? Los PDF nuevos saldrán sin esa firma.`, ()=>{
+    const lista = m.lista.filter(x=>x.nombre !== nombre);
+    db.collection(CERT_META_COL).doc(CERT_FIRMAS_DOC).set({lista, actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()})
+      .then(()=>{ m.lista = lista; render(); }).catch(e=>{ console.error(e); showAlert('No se pudo quitar. Revisa la señal.'); });
+  });
+}
+function certFirmasModalHtml(){
+  const m = ui.modal;
+  const filas = (m.lista||[]).map(f=>`
+    <div class="cert-row"><div class="cert-main"><div class="cr-name">${escapeHtml(f.nombre)}</div>
+      ${/^data:image\/png;base64,/.test(f.dataUrl||'') ? `<img class="firma-mini" src="${escapeHtml(f.dataUrl)}" alt="">` : ''}</div>
+      <div class="cert-actions"><button type="button" class="btn btn-ghost btn-sm" data-act="cert-firma-quitar" data-nombre="${escapeHtml(f.nombre)}">Quitar</button></div></div>`).join('');
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">✍️ Firmas para el PDF</h2>
+      <div class="hint">La firma de la instructora sale a la izquierda (se elige por su nombre, tal como está en el certificado) y la de ${escapeHtml(CERT_DIRECTOR.nombre)} a la derecha. Imágenes PNG con fondo transparente. Quedan guardadas en Firebase: solo los dueños pueden verlas.</div>
+      ${m.error ? `<div class="empty-msg" style="color:var(--danger)">${escapeHtml(m.error)}</div>` : ''}
+      ${!m.lista && !m.error ? `<div class="empty-msg">Cargando…</div>` : ''}
+      ${m.lista ? `${filas || `<div class="empty-msg">Todavía no hay firmas.</div>`}
+        <div class="cert-box" style="margin-top:10px">
+          <div class="field"><label>Nombre y apellido (como va en el certificado)</label><input type="text" id="f-firma-nombre" maxlength="80" placeholder="Ej.: Salomé Toro"></div>
+          <div class="field"><label>Imagen de la firma (PNG)</label><input type="file" id="f-firma-archivo" accept="image/png"></div>
+          <button type="button" class="btn btn-primary" data-act="cert-firma-subir">Guardar firma</button>
+        </div>` : ''}
+      <div class="modal-actions"><div></div><div class="right"><button class="btn btn-ghost" data-act="open-certificados">Volver</button></div></div>
+    </div>
+  </div>`;
+}
+
 // --- Pantallas ---
 function certFilaHtml(c, opciones){
   const valido = c.estado === 'valido';
@@ -8997,6 +9261,7 @@ function certFilaHtml(c, opciones){
         <button type="button" class="btn btn-ghost btn-sm" data-act="cert-copiar" data-codigo="${escapeHtml(c.codigo)}">📋 Copiar enlace</button>
         ${valido ? `<button type="button" class="btn btn-ghost btn-sm" data-act="cert-corregir" data-folio="${escapeHtml(c.folio)}">✏️ Corregir</button>` : ''}
         ${valido ? `<button type="button" class="btn btn-ghost btn-sm cert-anular" data-act="cert-anular" data-folio="${escapeHtml(c.folio)}">Anular</button>` : ''}
+        ${valido ? `<button type="button" class="btn btn-ghost btn-sm" data-act="cert-pdf" data-folio="${escapeHtml(c.folio)}">📄 PDF</button>` : ''}
       </div>
     </div>`;
 }
@@ -9193,6 +9458,7 @@ function certRegistroModalHtml(){
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">
           <button type="button" class="btn btn-ghost" data-act="cert-manual">+ Certificado sin curso en la agenda</button>
           ${certs.length ? `<button type="button" class="btn btn-ghost" data-act="cert-planilla">⬇️ Descargar planilla (Excel)</button>` : ''}
+          <button type="button" class="btn btn-ghost" data-act="cert-firmas">✍️ Firmas</button>
         </div>` : ''}
       <div class="modal-actions">
         <div></div>
@@ -10124,6 +10390,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'open-certificados','open-cert-curso','cert-volver-curso','cert-editar-datos','cert-cancelar-datos','cert-guardar-datos',
   'cert-emitir','cert-emitir-todos','cert-confirmar','cert-anular','cert-copiar','cert-planilla','cert-manual',
   'cert-revisar-emitir','cert-corregir','cert-corregir-volver','cert-corregir-guardar',
+  'cert-pdf','cert-firmas','cert-firma-subir','cert-firma-quitar',
 ]);
 
 // ¿La especialista cambió el método de pago o las cremas en la vista de una
@@ -10655,6 +10922,16 @@ function onAction(e){
       volverDeCorregir(); break;
     case 'cert-corregir-guardar':
       guardarCorreccionCert(); break;
+    case 'cert-pdf': {
+      const c = ui.modal && (ui.modal.certs||[]).find(x=>x.folio===e.currentTarget.dataset.folio);
+      if(c && esDueno()) certElegirVersion(c);
+      break; }
+    case 'cert-firmas':
+      abrirFirmasCert(); break;
+    case 'cert-firma-subir':
+      subirFirmaCert(); break;
+    case 'cert-firma-quitar':
+      quitarFirmaCert(e.currentTarget.dataset.nombre); break;
     case 'equipo-aprobar':
       aprobarPedido(e.currentTarget.dataset.uid); break;
     case 'equipo-rechazar':

@@ -1791,6 +1791,22 @@ para servir también a **Copiapó**, de la siguiente forma:
   privado nuevo con `folioAnterior`, el viejo queda `estado:'reemplazado'`
   y se esconde de las listas; lo público cambia `folio`, mismo código QR).
   Él pidió quitarlo después: poner `false`. Probado: e2e.
+  **"📄 PDF" desde la agenda (19/10/2026, pedido de Juan Diego: "no depender
+  de Claude"):** botón al final de cada certificado válido → "⬛ Negro / ⬜
+  Blanco" → descarga `Certificado_<folio>_<nombre sin tildes>.pdf`. Mismo
+  diseño que la plantilla (copiada en `certificado/`, ver su LEEME): se arma
+  en un iframe escondido (achica el nombre si no cabe, y si el contenido no
+  cabe en la hoja avisa y no descarga), se "fotografía" a 300 dpi (SVG con
+  foreignObject como `data:` —con blob: Chrome no deja exportarlo— → canvas
+  → JPEG) y se envuelve en un PDF A4 hecho a mano (`certPdfDesdeJpeg`). QR
+  con `certificado/qrcode.js`. Textos igual que `desde_planilla.py`
+  (`certTextosPdf`; "Formación teórica y práctica en persona" si es
+  presencial). Firmas: Más → 📜 Certificados → ✍️ Firmas (PNG, nombre y
+  apellido; la de la instructora se elige por su nombre, Franklin siempre a
+  la derecha), en `sibana-certificados-meta/firmas` (solo dueños; NO en el
+  repo, que es público). Si el navegador no deja (Safari), abre el
+  certificado para "Guardar como PDF". Probado: e2e (21; comparado con los
+  PDF de la plantilla: diferencia ~1 de 255, QR leído del PDF).
 - **Vales** (`state.vales`, `{id,specialist,date,monto,notas}`): plata que
   una especialista va sacando de la caja durante la semana a cuenta de su
   comisión — a veces fraccionada en varios días y a veces sin avisar ni

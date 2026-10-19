@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Certificado – {{NAME}}</title>
+<link rel="stylesheet" href="fonts/local.css">
+<style>
+  @page { size: 297mm 210mm; margin: 0; }
+  :root {
+    --black: #0a0a0a;
+    --ink: #121110;
+    --gold: #d4af37;
+    --gold-light: #f3dc97;
+    --gold-deep: #9c7a26;
+    --ivory: #ece5d3;
+    --muted: #a99d82;
+    --gold-grad: linear-gradient(100deg, #a8832a 0%, #e9cd7b 22%, #fff1bf 40%, #d4af37 58%, #a47c22 78%, #e6c873 100%);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 297mm; height: 210mm; background: var(--black); }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  .page {
+    position: relative; width: 297mm; height: 210mm; overflow: hidden;
+    background:
+      radial-gradient(ellipse 70% 60% at 50% 45%, #1b1915 0%, #0f0e0c 55%, #070707 100%);
+    color: var(--ivory);
+    font-family: 'Montserrat', sans-serif;
+  }
+  /* Marca de agua: ícono de Sibana muy tenue */
+  .watermark {
+    position: absolute; left: 50%; top: 52%; width: 120mm; transform: translate(-50%, -50%);
+    opacity: .045; pointer-events: none;
+  }
+  /* Marcos */
+  .frame-outer { position: absolute; inset: 7mm; border: .5mm solid var(--gold-deep); }
+  .frame-inner { position: absolute; inset: 10mm; border: .25mm solid rgba(212,175,55,.55); }
+  .corner { position: absolute; width: 22mm; height: 22mm; }
+  .corner.tl { top: 5.2mm; left: 5.2mm; }
+  .corner.tr { top: 5.2mm; right: 5.2mm; transform: scaleX(-1); }
+  .corner.bl { bottom: 5.2mm; left: 5.2mm; transform: scaleY(-1); }
+  .corner.br { bottom: 5.2mm; right: 5.2mm; transform: scale(-1,-1); }
+
+  .content {
+    position: absolute; inset: 14mm 22mm 12mm; display: flex; flex-direction: column; align-items: center; text-align: center;
+  }
+  .logo { height: 23mm; margin-top: 1mm; }
+
+  .title {
+    margin-top: 4.5mm;
+    font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 44pt; line-height: 1;
+    letter-spacing: .22em; padding-left: .22em;
+    background: var(--gold-grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .subtitle {
+    margin-top: 2.2mm; display: flex; align-items: center; gap: 4mm;
+    font-weight: 500; font-size: 8.5pt; letter-spacing: .55em; padding-left: .55em; color: var(--gold);
+  }
+  .subtitle::before, .subtitle::after { content: ""; width: 22mm; height: .25mm; background: linear-gradient(90deg, transparent, var(--gold)); }
+  .subtitle::after { transform: scaleX(-1); }
+
+  .lead { margin-top: 7mm; font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 500; font-size: 14.5pt; color: var(--ivory); }
+
+  .name {
+    margin-top: 1mm; font-family: 'Great Vibes', cursive; font-size: 50pt; line-height: 1.15; word-spacing: .14em; white-space: nowrap;
+    background: var(--gold-grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+    padding: 0 6mm;
+  }
+  .name-rule { margin-top: 1mm; width: 150mm; height: .3mm; background: linear-gradient(90deg, transparent, var(--gold) 20%, var(--gold-light) 50%, var(--gold) 80%, transparent); }
+  .doc { margin-top: 2mm; font-size: 8pt; letter-spacing: .28em; color: var(--muted); }
+  .doc b { color: var(--ivory); font-weight: 500; letter-spacing: .14em; }
+
+  .body { margin-top: 5mm; font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 500; font-size: 14pt; color: var(--ivory); }
+  .course { margin-top: 1.5mm; font-family: 'Cormorant Garamond', serif; font-weight: 700; font-size: 22pt; color: var(--ivory); letter-spacing: .02em; }
+  .details { margin-top: 3mm; font-size: 8.4pt; line-height: 1.7; color: var(--ivory); opacity: .9; }
+  .details .sep { color: var(--gold); padding: 0 2.2mm; }
+  .topics { margin-top: 3.5mm; padding-top: 3mm; border-top: .2mm solid rgba(212,175,55,.35); font-size: 7.4pt; letter-spacing: .04em; color: var(--muted); }
+  .topics em { font-style: normal; color: var(--gold); letter-spacing: .2em; font-weight: 600; font-size: 6.8pt; margin-right: 1.5mm; }
+  .topics .sep { color: var(--gold); padding: 0 1.6mm; }
+
+  .signs {
+    margin-top: auto; width: 100%; display: grid; grid-template-columns: 1fr 36mm 1fr; align-items: end; column-gap: 14mm;
+    padding: 0 10mm;
+  }
+  .sign { text-align: center; }
+  .sign .space { height: 16mm; display: flex; align-items: flex-end; justify-content: center; }
+  .sign .sig { max-height: 20mm; max-width: 64mm; margin-bottom: -3mm; }
+  .signs .sign:first-child .sig { margin-bottom: 0; }  /* la firma de Salomé baja más: se sube un poco */
+  .sign .line { height: .25mm; background: linear-gradient(90deg, transparent, var(--gold) 15%, var(--gold) 85%, transparent); margin: 0 6mm; }
+  .sign .who { margin-top: 2mm; font-family: 'Cormorant Garamond', serif; font-weight: 700; font-size: 13pt; color: var(--ivory); }
+  .sign .role { margin-top: .4mm; font-size: 7pt; letter-spacing: .22em; text-transform: uppercase; color: var(--gold); }
+  .seal { width: 36mm; height: 36mm; justify-self: center; margin-bottom: -3mm; }
+
+  .footer {
+    width: 100%; margin-top: 5mm; display: flex; justify-content: space-between; padding: 0 2mm;
+    font-size: 6.6pt; letter-spacing: .16em; color: var(--muted); text-transform: uppercase;
+  }
+  .footer b { color: var(--gold); font-weight: 600; }
+
+  /* QR de verificación (opcional) */
+  .qr { position: absolute; left: 14.5mm; bottom: 19mm; width: 18mm; text-align: center; }
+  .qr .tile { width: 18mm; height: 18mm; padding: 1.4mm; background: #f4ecd8; border-radius: 1.6mm; border: .4mm solid var(--gold); }
+  .qr .tile img { width: 100%; height: 100%; display: block; }
+  .qr .cap { margin-top: 1.2mm; font-size: 4.8pt; letter-spacing: .12em; color: var(--gold); line-height: 1.35; }
+  .qr .code { margin-top: .6mm; font-size: 5.6pt; letter-spacing: .16em; font-weight: 600; color: var(--gold-light); }
+</style>
+</head>
+<body>
+<div class="page">
+  <img class="watermark" src="assets/icon.png" alt="">
+
+  <div class="frame-outer"></div>
+  <div class="frame-inner"></div>
+  <svg class="corner tl" viewBox="0 0 100 100" aria-hidden="true">
+    <defs><linearGradient id="cg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3dc97"/><stop offset=".5" stop-color="#d4af37"/><stop offset="1" stop-color="#9c7a26"/></linearGradient></defs>
+    <path d="M8 92 V22 Q8 8 22 8 H92" fill="none" stroke="url(#cg)" stroke-width="2.2"/>
+    <path d="M20 80 V30 Q20 20 30 20 H80" fill="none" stroke="url(#cg)" stroke-width="1"/>
+    <path d="M14 14 L22 9 L30 14 L22 19 Z" fill="url(#cg)" transform="rotate(-45 22 14)"/>
+    <circle cx="8" cy="92" r="2.4" fill="url(#cg)"/><circle cx="92" cy="8" r="2.4" fill="url(#cg)"/>
+  </svg>
+  <svg class="corner tr" viewBox="0 0 100 100" aria-hidden="true">
+    <path d="M8 92 V22 Q8 8 22 8 H92" fill="none" stroke="url(#cg)" stroke-width="2.2"/>
+    <path d="M20 80 V30 Q20 20 30 20 H80" fill="none" stroke="url(#cg)" stroke-width="1"/>
+    <path d="M14 14 L22 9 L30 14 L22 19 Z" fill="url(#cg)" transform="rotate(-45 22 14)"/>
+    <circle cx="8" cy="92" r="2.4" fill="url(#cg)"/><circle cx="92" cy="8" r="2.4" fill="url(#cg)"/>
+  </svg>
+  <svg class="corner bl" viewBox="0 0 100 100" aria-hidden="true">
+    <path d="M8 92 V22 Q8 8 22 8 H92" fill="none" stroke="url(#cg)" stroke-width="2.2"/>
+    <path d="M20 80 V30 Q20 20 30 20 H80" fill="none" stroke="url(#cg)" stroke-width="1"/>
+    <path d="M14 14 L22 9 L30 14 L22 19 Z" fill="url(#cg)" transform="rotate(-45 22 14)"/>
+    <circle cx="8" cy="92" r="2.4" fill="url(#cg)"/><circle cx="92" cy="8" r="2.4" fill="url(#cg)"/>
+  </svg>
+  <svg class="corner br" viewBox="0 0 100 100" aria-hidden="true">
+    <path d="M8 92 V22 Q8 8 22 8 H92" fill="none" stroke="url(#cg)" stroke-width="2.2"/>
+    <path d="M20 80 V30 Q20 20 30 20 H80" fill="none" stroke="url(#cg)" stroke-width="1"/>
+    <path d="M14 14 L22 9 L30 14 L22 19 Z" fill="url(#cg)" transform="rotate(-45 22 14)"/>
+    <circle cx="8" cy="92" r="2.4" fill="url(#cg)"/><circle cx="92" cy="8" r="2.4" fill="url(#cg)"/>
+  </svg>
+
+  {{QR_BLOCK}}
+  <div class="content">
+    <img class="logo" src="assets/logo.png" alt="Sibana Academia PMU">
+
+    <div class="title">CERTIFICADO</div>
+    <div class="subtitle">DE APROBACIÓN</div>
+
+    <p class="lead">Sibana Academia PMU otorga el presente certificado a</p>
+    <div class="name">{{NAME}}</div>
+    <div class="name-rule"></div>
+    <div class="doc">{{DOC_LABEL}} <b>{{DOC}}</b></div>
+
+    <p class="body">por haber aprobado satisfactoriamente el curso</p>
+    <div class="course">{{CURSO}}</div>
+    <p class="details">
+      {{DETALLE}}<br>
+      {{REALIZADO}}
+    </p>
+    {{CONTENIDOS}}
+
+    <div class="signs">
+      <div class="sign">
+        <div class="space">{{SIG_LEFT}}</div><div class="line"></div>
+        <div class="who">{{INSTRUCTORA}}</div>
+        <div class="role">{{INSTRUCTORA_ROL}}</div>
+      </div>
+      <svg class="seal" viewBox="0 0 200 200" aria-hidden="true">
+        <defs>
+          <linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6e2a2"/><stop offset=".45" stop-color="#d4af37"/><stop offset="1" stop-color="#8f6e1f"/></linearGradient>
+          <path id="ring" d="M100,100 m-72,0 a72,72 0 1,1 144,0 a72,72 0 1,1 -144,0"/>
+        </defs>
+        <circle cx="100" cy="100" r="97" fill="#0d0c0a" stroke="url(#sg)" stroke-width="3"/>
+        <circle cx="100" cy="100" r="88" fill="none" stroke="url(#sg)" stroke-width="1"/>
+        <circle cx="100" cy="100" r="57" fill="none" stroke="url(#sg)" stroke-width="1"/>
+        <text font-family="Montserrat" font-weight="600" font-size="13.2" fill="url(#sg)">
+          <textPath href="#ring" startOffset="0" textLength="446" lengthAdjust="spacing">SIBANA ACADEMIA PMU ◆ SANTIAGO DE CHILE ◆</textPath>
+        </text>
+        <image href="assets/icon.png" x="66" y="66" width="68" height="68"/>
+      </svg>
+      <div class="sign">
+        <div class="space">{{SIG_RIGHT}}</div><div class="line"></div>
+        <div class="who">{{DIR_NAME}}</div>
+        <div class="role">{{DIR_ROLE}}</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>Folio N° <b>{{FOLIO}}</b></span>
+      <span>{{EMITIDO}}</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -898,8 +898,12 @@ para servir también a **Copiapó**, de la siguiente forma:
   ella no puede borrarlo; en Pagos sale "Lo anotó <nombre>" y Sibana lo
   borra con ✕. Campo dentro de un ajuste: sin `APP_VERSION`. Probado: e2e
   (10). **Revisión del pago de Salomé, semana 12–17/10** (su cuaderno vs la
-  agenda, $23.580 de diferencia): se le deben $12.005 = Lexima +$5.005 y
-  "Líder" +$7.000. Lexima (lifting + limpieza) se cobró $29.990 en total y,
+  agenda, $23.580 de diferencia): se le deben $17.005 = Lexima +$5.005,
+  "Líder" +$7.000 y Andrea Cornejo +$5.000 (Full Lips con precio viejo:
+  Juan Diego decidió pagarla con el sistema viejo, 50/50 SIN restar los
+  $10.000 de micropigmentación: 54.990/2 = 27.495 en vez de 22.495; se
+  cobraron $55.000 con el abono). Esperanza: se cobró $59.990, la agenda
+  estaba bien. Lexima (lifting + limpieza) se cobró $29.990 en total y,
   según Juan Diego, la especialista cobra sobre $40.000 (precio que se iba
   a subir): 50% de 40.000 = 20.000 − 14.995 de la agenda. ERROR MÍO que él
   atrapó: primero le dije +$15.000 copiando el cuaderno de Salomé (lifting

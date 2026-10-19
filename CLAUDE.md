@@ -1382,6 +1382,21 @@ para servir también a **Copiapó**, de la siguiente forma:
   sin abono · ✍️ 4 por firmar" (`resumenDiaHtml`; respeta el filtro de
   especialista; lo que vale 0 no sale; otro día dice "Este día"). Para
   publicarlas: poner `true` (él puede pedir solo una de las dos).
+- **¿Mañana o tarde? (19/10/2026):** Salomé y Lucy tenían bloqueos que
+  "salían de todo el día" sin haber elegido "Día completo". No es un error
+  del guardado (probado: "Unas horas" 16:00–20:00 se guarda así): lo más
+  probable es la hora puesta como 4 de la MADRUGADA (04:00–20:00 se dibuja
+  como una barra de todo el día). A Juan Diego le pasa con las citas.
+  Ahora (`revisarMananaTarde` / `preguntarMananaTarde`): si un bloqueo de
+  unas horas o una cita (solo si se cambió su horario) empieza antes de que
+  abra el estudio ese día (`dayHoursFor`), pregunta "¿Quisiste decir de
+  16:00 a 20:00 (4 de la tarde a 8 de la noche)?" con "Sí, 16:00 a 20:00" /
+  "No, dejar…"; si 12 h después no cae en el horario, solo "¿Está bien
+  así?". Debajo de Desde/Hasta del bloqueo, las horas en palabras
+  (`bloqueHorasTexto`, "Se bloquea desde las 4 de la tarde hasta las 8 de la
+  noche"). Probado: e2e (8). Pendiente decisión de Juan Diego: hoy
+  cualquier especialista puede editar/quitar el bloqueo de otra y elegir
+  "Todas" (no hay límite).
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos

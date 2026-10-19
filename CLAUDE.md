@@ -1783,6 +1783,14 @@ para servir también a **Copiapó**, de la siguiente forma:
   ordenar). Reglas: `periodo` (≤60) en `verificacionValida` — **hay que
   pegarlas en Firebase** antes de emitir uno con período. Planilla: columna
   "Período". Certificado blanco: `plantilla/template_blanco.html`.
+  **Corregir fechas (19/10/2026, TEMPORAL, pedido de Juan Diego: "no quiero
+  anular"):** con `CERT_CORREGIR_FECHAS = true`, "✏️ Corregir" también
+  cambia fecha del curso, período y emisión (los 2 de Andreina se emitieron
+  sin período y con emisiones distintas). Si cambia el AÑO de emisión, el
+  certificado pasa al siguiente folio de ese año (transacción: registro
+  privado nuevo con `folioAnterior`, el viejo queda `estado:'reemplazado'`
+  y se esconde de las listas; lo público cambia `folio`, mismo código QR).
+  Él pidió quitarlo después: poner `false`. Probado: e2e.
 - **Vales** (`state.vales`, `{id,specialist,date,monto,notas}`): plata que
   una especialista va sacando de la caja durante la semana a cuenta de su
   comisión — a veces fraccionada en varios días y a veces sin avisar ni

@@ -8456,6 +8456,9 @@ const CERT_CURSOS_COL = 'sibana-cert-cursos';
 const CERT_META_COL = 'sibana-certificados-meta';
 const CERT_VERIF_URL = 'https://sibana-certificados.netlify.app/v/';
 const CERT_INSTITUCION = 'Sibana Academia PMU';
+// Corregir también las fechas (curso, período, emisión) desde "✏️ Corregir". Pedido de Juan Diego (19/10/2026)
+// para arreglar 2 certificados de cursos antiguos sin anularlos; él pidió quitarlo después: poner false.
+const CERT_CORREGIR_FECHAS = true;
 const CERT_FOLIO_PREFIJO = 'SIB-PMU';
 const CERT_ALFABETO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0/O ni 1/I, para no confundirlos al escribirlo
 const CERT_DOC_TIPOS = ['RUT', 'Pasaporte', 'DNI', 'Cédula'];
@@ -8598,7 +8601,7 @@ function cargarCertificadosCurso(){
   ]).then(([cfgSnap, certSnap])=>{
     if(!ui.modal || ui.modal.type!=='cert-curso' || ui.modal.courseId!==courseId) return;
     ui.modal.cfg = cfgSnap.exists ? cfgSnap.data() : null;
-    ui.modal.certs = certSnap.docs.map(d=>d.data());
+    ui.modal.certs = certSnap.docs.map(d=>d.data()).filter(x=>x.estado!=='reemplazado');
     if(ui.modal.cfg){ render(); return; }
     ui.modal.editando = true; // la primera vez: revisar los datos antes de emitir
     // Proponer la instructora con nombre y apellido, como se escribió en otros cursos.
@@ -8623,7 +8626,7 @@ function abrirRegistroCertificados(){
 function cargarRegistroCertificados(){
   return db.collection(CERT_COL).get().then(snap=>{
     if(!ui.modal || ui.modal.type!=='cert-registro') return;
-    ui.modal.certs = snap.docs.map(d=>d.data()).sort((a,b)=>(b.folio||'').localeCompare(a.folio||''));
+    ui.modal.certs = snap.docs.map(d=>d.data()).filter(x=>x.estado!=='reemplazado').sort((a,b)=>(b.folio||'').localeCompare(a.folio||''));
     render();
   }).catch(err=>{
     console.error('No se pudo leer el registro de certificados', err);
@@ -8826,7 +8829,8 @@ function corregirCertificado(folio){
   const m = ui.modal; if(!esDueno() || !m) return;
   const c = (m.certs||[]).find(x=>x.folio===folio);
   if(!c || c.estado!=='valido') return;
-  ui.modal = {type:'cert-corregir', c, origen: m.type==='cert-curso' ? m.courseId : '', nombre:c.nombre||'', docTipo:c.docTipo||'RUT', doc:c.doc||'', ocupado:false};
+  ui.modal = {type:'cert-corregir', c, origen: m.type==='cert-curso' ? m.courseId : '', nombre:c.nombre||'', docTipo:c.docTipo||'RUT', doc:c.doc||'',
+    fecha:c.fecha||'', periodo:c.periodo||'', emitido:c.emitido||'', ocupado:false};
   render();
 }
 function volverDeCorregir(){
@@ -8837,28 +8841,70 @@ function guardarCorreccionCert(){
   const m = ui.modal; if(!esDueno() || !m || m.type!=='cert-corregir' || m.ocupado) return;
   const v = id=>{ const el = document.getElementById(id); return el ? el.value.trim() : ''; };
   const nombre = v('f-certc-nombre').replace(/\s+/g,' '), docTipo = v('f-certc-doctipo'), docEscrito = v('f-certc-doc');
-  Object.assign(m, {nombre, docTipo, doc: docEscrito});
+  const c = m.c;
+  const conFechas = CERT_CORREGIR_FECHAS && !!document.getElementById('f-certc-emitido');
+  const fecha = conFechas ? v('f-certc-fecha') : (c.fecha||'');
+  const periodo = conFechas ? v('f-certc-periodo').replace(/\s+/g,' ') : (c.periodo||'');
+  const emitido = conFechas ? v('f-certc-emitido') : (c.emitido||'');
+  Object.assign(m, {nombre, docTipo, doc: docEscrito, fecha, periodo, emitido});
   if(nombre.length < 3){ showAlert('Escribe el nombre completo de la persona, tal como aparece en su documento.'); return; }
   if(nombre.length > 120){ showAlert('El nombre es demasiado largo.'); return; }
   if(!docEscrito){ showAlert('Falta el número de documento.'); return; }
   if(docTipo === 'RUT' && !certRutValido(docEscrito)){ showAlert('Ese RUT no es válido (el dígito verificador no coincide). Revísalo, o si es un pasaporte elige "Pasaporte".'); return; }
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { showAlert('Falta la fecha del curso.'); return; }
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(emitido)) { showAlert('Falta la fecha de emisión.'); return; }
+  if(periodo.length > 60){ showAlert('El período es demasiado largo (ej. "julio a septiembre de 2023").'); return; }
   const doc = docTipo === 'RUT' ? certRutFormato(docEscrito) : docEscrito;
-  const c = m.c;
-  if(nombre === c.nombre && doc === c.doc && docTipo === c.docTipo){ showAlert('No cambiaste nada.'); return; }
-  const cambiosTxt = [nombre !== c.nombre ? `Nombre: "${c.nombre}" → "${nombre}"` : '', (doc !== c.doc || docTipo !== c.docTipo) ? `Documento: ${c.docTipo} ${c.doc} → ${docTipo} ${doc}` : ''].filter(Boolean).join('\n');
+  const cambios = [
+    nombre !== c.nombre ? `Nombre: "${c.nombre}" → "${nombre}"` : '',
+    (doc !== c.doc || docTipo !== c.docTipo) ? `Documento: ${c.docTipo} ${c.doc} → ${docTipo} ${doc}` : '',
+    fecha !== (c.fecha||'') ? `Fecha del curso: ${certFechaLarga(c.fecha)} → ${certFechaLarga(fecha)}` : '',
+    periodo !== (c.periodo||'') ? `Período: ${c.periodo ? '"' + c.periodo + '"' : '(sin período)'} → ${periodo ? '"' + periodo + '"' : '(sin período)'}` : '',
+    emitido !== (c.emitido||'') ? `Fecha de emisión: ${certFechaLarga(c.emitido)} → ${certFechaLarga(emitido)}` : '',
+  ].filter(Boolean);
+  if(!cambios.length){ showAlert('No cambiaste nada.'); return; }
+  // El folio lleva el año de emisión: si el año cambia, el certificado pasa a un folio nuevo de ese año
+  // (el código QR es el mismo). El folio viejo queda guardado como "reemplazado" (no se muestra).
+  const anioViejo = (/^[A-Z]+-[A-Z]+-(\d{4})-/.exec(c.folio||'')||[])[1] || '';
+  const cambiaFolio = emitido.slice(0,4) !== anioViejo;
   const av = certAvisosNombre(nombre, doc);
   render();
-  showConfirmDialog(`¿Corregir el certificado ${c.folio}?\n\n${cambiosTxt}${av.length ? '\n\n⚠️ ' + av.join(' ') : ''}\n\nEl folio y el código QR no cambian. La página de verificación muestra el dato nuevo al instante. Si ya estaba impreso, hay que imprimirlo de nuevo.`, ()=>{
+  showConfirmDialog(`¿Corregir el certificado ${c.folio}?\n\n${cambios.join('\n')}${av.length ? '\n\n⚠️ ' + av.join(' ') : ''}\n\n`
+    + (cambiaFolio ? `Como cambia el año de emisión, el certificado pasa al siguiente folio de ${emitido.slice(0,4)} (el ${c.folio} deja de usarse). El código QR no cambia.`
+                   : 'El folio y el código QR no cambian.')
+    + ' La página de verificación muestra los datos nuevos al instante. Si ya estaba impreso, hay que imprimirlo de nuevo.', ()=>{
     m.ocupado = true; render();
     const ahora = firebase.firestore.FieldValue.serverTimestamp();
-    const batch = db.batch();
-    batch.update(db.collection(CERT_VERIF_COL).doc(c.codigo), {nombre, docTipo, doc: certDocParcial(docTipo, doc), actualizadoEn: ahora});
-    batch.update(db.collection(CERT_COL).doc(c.folio), {nombre, docTipo, doc, actualizadoEn: ahora,
-      correcciones: firebase.firestore.FieldValue.arrayUnion({en: new Date().toISOString(), por: (CUENTA && (CUENTA.nombre || CUENTA.email)) || '',
-        antes: {nombre: c.nombre||'', docTipo: c.docTipo||'', doc: c.doc||''}})});
-    batch.commit().then(()=>{
+    const borrar = firebase.firestore.FieldValue.delete();
+    const correccion = {en: new Date().toISOString(), por: (CUENTA && (CUENTA.nombre || CUENTA.email)) || '',
+      antes: {nombre: c.nombre||'', docTipo: c.docTipo||'', doc: c.doc||'', fecha: c.fecha||'', periodo: c.periodo||'', emitido: c.emitido||'', folio: c.folio}};
+    const verifRef = db.collection(CERT_VERIF_COL).doc(c.codigo), viejoRef = db.collection(CERT_COL).doc(c.folio);
+    db.runTransaction(async tx=>{
+      let folio = c.folio, metaRef = null, n = 0;
+      if(cambiaFolio){
+        metaRef = db.collection(CERT_META_COL).doc('folios-' + emitido.slice(0,4));
+        const meta = await tx.get(metaRef);
+        n = (meta.exists ? (Number(meta.data().ultimo)||0) : 0) + 1;
+        folio = `${CERT_FOLIO_PREFIJO}-${emitido.slice(0,4)}-${String(n).padStart(3,'0')}`;
+      }
+      const viejo = await tx.get(viejoRef);
+      if(!viejo.exists) throw new Error('No encontré el certificado');
+      tx.update(verifRef, {nombre, docTipo, doc: certDocParcial(docTipo, doc), fecha, emitido, folio, periodo: periodo || borrar, actualizadoEn: ahora});
+      if(!cambiaFolio){
+        tx.update(viejoRef, {nombre, docTipo, doc, fecha, emitido, periodo: periodo || borrar, actualizadoEn: ahora,
+          correcciones: firebase.firestore.FieldValue.arrayUnion(correccion)});
+      } else {
+        const datos = Object.assign({}, viejo.data(), {folio, nombre, docTipo, doc, fecha, emitido, folioAnterior: c.folio, actualizadoEn: ahora});
+        if(periodo) datos.periodo = periodo; else delete datos.periodo;
+        datos.correcciones = (datos.correcciones || []).concat([correccion]);
+        tx.set(db.collection(CERT_COL).doc(folio), datos);
+        tx.update(viejoRef, {estado: 'reemplazado', reemplazadoPor: folio, actualizadoEn: ahora});
+        tx.set(metaRef, {ultimo: n, actualizadoEn: ahora});
+      }
+      return folio;
+    }).then(folio=>{
       volverDeCorregir();
-      showAlert(`✅ Certificado ${c.folio} corregido.`);
+      showAlert(folio === c.folio ? `✅ Certificado ${c.folio} corregido.` : `✅ Certificado corregido. Ahora es el folio ${folio} (mismo código QR).`);
     }).catch(err=>{
       console.error(err);
       m.ocupado = false; render();
@@ -9099,12 +9145,18 @@ function certCorregirModalHtml(){
   <div class="overlay" data-act="overlay-close">
     <div class="modal" data-stop="1">
       <h2 class="serif">✏️ Corregir certificado</h2>
-      <div class="hint">${escapeHtml(c.folio)} · ${escapeHtml(c.curso||'')}. Para arreglar un error en el nombre o en el documento. El folio y el código QR no cambian. Si ya lo imprimiste, hay que volver a imprimirlo.</div>
+      <div class="hint">${escapeHtml(c.folio)} · ${escapeHtml(c.curso||'')}. Para arreglar un error en el nombre, el documento${CERT_CORREGIR_FECHAS ? ' o las fechas' : ''}. El código QR no cambia. Si ya lo imprimiste, hay que volver a imprimirlo.</div>
       <div class="field"><label>Nombre completo (todos los nombres y apellidos, como en su documento)</label><input type="text" id="f-certc-nombre" maxlength="120" value="${escapeHtml(m.nombre)}" data-cert-aviso="f-certc-aviso" data-cert-doc="f-certc-doc">${certAvisoHtml('f-certc-aviso', m.nombre, m.doc)}</div>
       <div class="row2">
         <div class="field"><label>Tipo de documento</label><select id="f-certc-doctipo">${tipos}</select></div>
         <div class="field"><label>Número</label><input type="text" id="f-certc-doc" maxlength="30" value="${escapeHtml(m.doc)}" data-cert-aviso-de="f-certc-nombre"></div>
       </div>
+      ${CERT_CORREGIR_FECHAS ? `
+      <div class="row2">
+        <div class="field"><label>Fecha del curso</label><input type="date" id="f-certc-fecha" value="${escapeHtml(m.fecha||'')}"></div>
+        <div class="field"><label>Fecha de emisión</label><input type="date" id="f-certc-emitido" value="${escapeHtml(m.emitido||'')}"></div>
+      </div>
+      <div class="field"><label>Período (solo si no se sabe el día exacto)</label><input type="text" id="f-certc-periodo" maxlength="60" value="${escapeHtml(m.periodo||'')}" placeholder="Ej.: julio a septiembre de 2023"></div>` : ''}
       <div class="modal-actions">
         <div></div>
         <div class="right">

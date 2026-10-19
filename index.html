@@ -4522,24 +4522,18 @@ function puedeTocarBloqueo(b){
   if(!yo) return true;
   return !!b && b.specialist!==ALL_SPECIALISTS_VALUE && normalizeName(b.specialist)===normalizeName(yo);
 }
-// "Desde/Hasta" del bloqueo como lista de horas de 24 h cada 15 minutos (antes
-// era el reloj del teléfono, que en algunos va con AM/PM: escribir "16" o "4"
-// dejaba 01:00 o 04:00 de la madrugada). Si el bloqueo ya tenía otra hora, se
-// agrega a la lista para no perderla al editar.
+// "Desde/Hasta" del bloqueo como lista de horas de 24 h cada 15 minutos, solo
+// del horario del estudio (antes era el reloj del teléfono, que en algunos va
+// con AM/PM: escribir "16" o "4" dejaba 01:00 o 04:00 de la madrugada). Solo
+// el número ("16:00"): Juan Diego no quiso "4 de la tarde" al lado (le
+// pareció infantil). Si el bloqueo ya tenía otra hora, se agrega a la lista
+// para no perderla al editar.
 function opcionesHoraBloqueoHtml(sel){
   const horas = [];
   for(let m = HOUR_START*60; m <= HOUR_END*60; m += 15) horas.push(pad(Math.floor(m/60))+':'+pad(m%60));
   if(sel && !horas.includes(sel)) horas.push(sel);
   horas.sort();
-  return horas.map(h=>`<option value="${h}" ${h===sel?'selected':''}>${h} · ${escapeHtml(horaEnPalabras(h))}</option>`).join('');
-}
-// Las horas en palabras, debajo de "Desde/Hasta", para que se note si quedó
-// en la mañana en vez de la tarde.
-function bloqueHorasTexto(start, end){
-  if(!/^\d{2}:\d{2}$/.test(start||'') || !/^\d{2}:\d{2}$/.test(end||'')) return '';
-  if(end <= start) return '⚠️ La hora de fin tiene que ser después de la de inicio.';
-  const art = h=>Math.floor(minutesFromMidnight(h)/60)%12===1 ? 'la' : 'las';
-  return `Se bloquea desde ${art(start)} <b>${escapeHtml(horaEnPalabras(start))}</b> hasta ${art(end)} <b>${escapeHtml(horaEnPalabras(end))}</b>.`;
+  return horas.map(h=>`<option value="${h}" ${h===sel?'selected':''}>${h}</option>`).join('');
 }
 // Bloqueo de otra especialista, abierto por una especialista: solo se ve.
 function bloqueoSoloVerHtml(b){
@@ -4588,7 +4582,6 @@ function blockModalHtml(){
       <div class="row2" id="block-hours-fields" style="display:${kind==='hours'?'grid':'none'};">
         <div class="field"><label>Desde</label><select id="f-block-start">${opcionesHoraBloqueoHtml(d.start)}</select></div>
         <div class="field"><label>Hasta</label><select id="f-block-end">${opcionesHoraBloqueoHtml(d.end)}</select></div>
-        <div class="hint block-horas-texto" id="block-horas-texto" style="grid-column:1/-1;margin:-6px 0 4px;">${bloqueHorasTexto(d.start, d.end)}</div>
       </div>
       <div class="field"><label>Motivo (opcional)</label><input type="text" id="f-block-reason" placeholder="Ej: hora médica, viaje" value="${escapeHtml(d.reason||'')}"></div>
       <div class="modal-actions">
@@ -8946,12 +8939,6 @@ function attachEvents(){
         setServiceQty(idx, (Number(row?.dataset.qty)||0) - 1);
       }
     });
-  }
-  const bStart = document.getElementById('f-block-start'), bEnd = document.getElementById('f-block-end');
-  if(bStart && bEnd){
-    const upd = ()=>{ const t = document.getElementById('block-horas-texto'); if(t) t.innerHTML = bloqueHorasTexto(bStart.value, bEnd.value); };
-    bStart.addEventListener('input', upd); bEnd.addEventListener('input', upd);
-    bStart.addEventListener('change', upd); bEnd.addEventListener('change', upd);
   }
   const blockKind = document.getElementById('block-kind');
   if(blockKind){

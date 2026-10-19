@@ -1400,7 +1400,7 @@ para servir también a **Copiapó**, de la siguiente forma:
   y 14:00–20:00 (Lucy). En un teléfono con reloj de 12 h, escribir "16" en
   la hora deja 01:00. Por eso "Desde/Hasta" del bloqueo ya NO es el reloj
   del teléfono: son listas de 24 h cada 15 min de `HOUR_START` a `HOUR_END`
-  ("16:00 · 4 de la tarde", `opcionesHoraBloqueoHtml`; una hora vieja fuera
+  (`opcionesHoraBloqueoHtml`; una hora vieja fuera
   de la lista se agrega para no perderla). Y en modo Especialista con
   nombre conocido (`bloqueadoraFija` = `staffIdentity()`): el bloqueo nuevo
   queda a SU nombre (sin elegir a otra ni "Todas"), y solo puede editar o
@@ -1411,7 +1411,10 @@ para servir también a **Copiapó**, de la siguiente forma:
   antes de las cuentas propias). `APP_VERSION` 8 para que los teléfonos con
   la versión anterior (que dejaba tocar los de otras) recarguen. Probado:
   e2e (10). Después él pidió: el nombre fijo sin "(tú)" (solo "Salomé") y
-  quitar "Solo X o Sibana pueden cambiarlo" de la vista del bloqueo de otra.
+  quitar "Solo X o Sibana pueden cambiarlo" de la vista del bloqueo de otra. Y
+  que la lista diga solo "16:00" (sin "· 4 de la tarde": "parece para
+  niños"); también se quitó la línea "Se bloquea desde las…" debajo. La
+  lista (08:00–21:00) ya impide la madrugada.
 - **"Ver bloqueos"** (Más → 🚫, solo Admin): lista todos los bloqueos desde
   hoy en adelante (los ya pasados no se muestran, para eso está el
   historial de la vista Mes), ordenados por fecha — para verlos todos

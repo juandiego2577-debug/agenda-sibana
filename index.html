@@ -4509,6 +4509,7 @@ function modalHtml(){
   if(ui.modal.type==='curso-attendee') return cursoAttendeeModalHtml();
   if(ui.modal.type==='vales') return valesModalHtml();
   if(ui.modal.type==='ajuste') return ajusteModalHtml();
+  if(ui.modal.type==='compra') return compraModalHtml();
   if(ui.modal.type==='gasto') return gastoModalHtml();
   if(ui.modal.type==='ganancias-preview') return gananciasPreviewModalHtml();
   if(ui.modal.type==='staff-identity') return staffIdentityModalHtml();
@@ -6675,6 +6676,8 @@ function gananciasSimpleHtml(o){
       ${proximasHtml ? `<div class="gs-card">${proximasHtml}</div>` : ''}
       <button type="button" class="btn btn-primary gs-vale" data-act="open-vales">💵 Anotar un vale</button>
       <div class="hint" style="text-align:center;margin:-4px 0 14px;">¿Sacaste dinero de la caja? Anótalo apenas lo saques. Así tu pago sale exacto.</div>
+      ${o.vistaPrevia ? '' : `<button type="button" class="btn btn-ghost gs-vale" data-act="compra-nueva">🧾 Anotar una compra para el estudio</button>
+      <div class="hint" style="text-align:center;margin:-4px 0 14px;">¿Compraste algo para el estudio con tu dinero (papel, insumos…)? Anótalo y se te devuelve en tu pago.</div>`}
       <div class="gs-card">
         <div class="gs-titulo">Tus citas realizadas (${t.hechas.length})</div>
         ${lista ? '<div class="hint" style="margin:-2px 0 6px;">Toca una cita para ver de dónde sale lo que ganas.</div>' : ''}
@@ -7001,7 +7004,7 @@ function pagoDetalleHtml(g, w){
       </div>`).join('');
   const ajustes = g.ajustes.map(x=>`
       <div class="pago-fila">
-        <div><div>${escapeHtml(x.motivo||'(sin motivo)')}</div>${x.creadoEn?`<div class="como">Anotado ${pagoFechaTexto(x.creadoEn)}</div>`:''}</div>
+        <div><div>${escapeHtml(x.motivo||'(sin motivo)')}</div>${x.creadoEn?`<div class="como">${x.tipo==='compra' ? `Lo anotó ${escapeHtml(x.specialist)}` : 'Anotado'} ${pagoFechaTexto(x.creadoEn)}</div>`:''}</div>
         <div style="display:flex;align-items:center;gap:6px;"><span class="monto ${Number(x.monto)<0?'pago-mal':'pago-ok'}">${fmtSigno(x.monto)}</span><button type="button" class="iconbtn" data-act="delete-ajuste" data-id="${escapeHtml(x.id)}" title="Borrar ajuste">✕</button></div>
       </div>`).join('');
   const vales = g.vales.map(v=>`
@@ -7098,6 +7101,49 @@ function saveAjusteFromForm(){
   if(!motivo){ showAlert('Escribe el motivo del ajuste, para que después se entienda por qué cambió el pago.'); return; }
   if(!state.ajustes) state.ajustes = [];
   const x = { id: uid(), specialist: m.specialist, semana: m.semana, monto: signo*monto, motivo, creadoEn: new Date().toISOString() };
+  if(CUENTA) x.registradoPor = CUENTA.usuario || CUENTA.email || '';
+  state.ajustes.push(x);
+  ui.modal = null;
+  render();
+  saveData();
+}
+// Compras para el estudio (19/10/2026, pedido de Juan Diego): casi todas
+// las semanas una especialista compra algo barato con su dinero (papel,
+// insumos…) y hay que devolvérselo. Desde "Mi pago" lo anota ella misma: se
+// guarda como un ajuste más (tipo 'compra', siempre positivo) en la semana de
+// pago actual, así que suma en su pago sin nada extra y Finanzas lo cuenta
+// como gasto. Igual que un vale: solo Sibana puede borrarlo (en Pagos, donde
+// sale "Lo anotó <nombre>").
+const COMPRA_CONFIRMAR_DESDE = 30000;
+function compraModalHtml(){
+  const lunes = parseKey(ui.modal.semana);
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">🧾 Compra para el estudio</h2>
+      <div class="hint">Algo que compraste con tu dinero para el estudio. Se suma a tu pago de esta semana (${rangoSemanaTexto(lunes, addDays(lunes,5))}).</div>
+      <div class="field"><label>¿Qué compraste?</label><input type="text" id="f-compra-que" maxlength="120" placeholder="Ej.: papel de camilla en el Líder"></div>
+      <div class="field"><label>¿Cuánto pagaste?</label><input type="number" id="f-compra-monto" min="0" step="1" inputmode="numeric" placeholder="0"></div>
+      <div class="modal-actions">
+        <div></div>
+        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cancelar</button><button class="btn btn-primary" data-act="save-compra">Guardar</button></div>
+      </div>
+    </div>
+  </div>`;
+}
+function saveCompraFromForm(confirmado){
+  const quien = staffIdentity();
+  if(!quien){ showAlert('Primero elige tu nombre (arriba, "👤 ¿Quién eres?").'); return; }
+  const que = (((document.getElementById('f-compra-que')||{}).value)||'').trim();
+  const monto = Math.round(Math.max(0, Number((document.getElementById('f-compra-monto')||{}).value)||0));
+  if(!que){ showAlert('Escribe qué compraste.'); return; }
+  if(monto<=0){ showAlert('Escribe cuánto pagaste.'); return; }
+  if(!confirmado && monto>=COMPRA_CONFIRMAR_DESDE){
+    showConfirmDialog(`¿Seguro que fueron ${fmtCLP(monto)}? Revisa que no sobre ni falte un cero.`, ()=>saveCompraFromForm(true));
+    return;
+  }
+  if(!state.ajustes) state.ajustes = [];
+  const x = { id: uid(), tipo: 'compra', specialist: quien, semana: ui.modal.semana, monto, motivo: '🧾 Compra: '+que, creadoEn: new Date().toISOString() };
   if(CUENTA) x.registradoPor = CUENTA.usuario || CUENTA.email || '';
   state.ajustes.push(x);
   ui.modal = null;
@@ -9722,6 +9768,10 @@ function onAction(e){
       ui.modal = {type:'ajuste', specialist: e.currentTarget.dataset.name, semana: ui.pagoSemana || semanaPagoActualKey()};
       render(); break;
     case 'save-ajuste': saveAjusteFromForm(); break;
+    case 'compra-nueva':
+      ui.modal = {type:'compra', semana: semanaPagoActualKey()};
+      render(); break;
+    case 'save-compra': saveCompraFromForm(); break;
     case 'ver-ganancias':
       ui.ganSemana = ui.pagoSemana || semanaPagoActualKey();
       ui.modal = {type:'ganancias-preview', name: e.currentTarget.dataset.name};

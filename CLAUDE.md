@@ -887,6 +887,24 @@ para servir también a **Copiapó**, de la siguiente forma:
   semana, monto ±, motivo}): bonos, correcciones; entran en Finanzas como
   gasto aparte. `ajustes` y `pagos` son DOC_KEYS nuevas → `APP_VERSION` 5
   (probado: un teléfono con la 4 no puede guardar y ve "Recargar").
+  **Compras para el estudio (19/10/2026, pedido de Juan Diego):** casi
+  todas las semanas una especialista compra algo barato con su dinero
+  (papel, insumos; ej. "Líder 7.000" en el cuaderno de Salomé) y hay que
+  devolvérselo. En "Mi pago" hay "🧾 Anotar una compra para el estudio"
+  (`compraModalHtml`/`saveCompraFromForm`): qué compró + cuánto; se guarda
+  como un ajuste más (`tipo:'compra'`, siempre +, semana de pago actual,
+  motivo "🧾 Compra: …"), así suma en su pago y Finanzas lo cuenta como
+  gasto. Desde $30.000 pide confirmar (por un cero de más). Como un vale:
+  ella no puede borrarlo; en Pagos sale "Lo anotó <nombre>" y Sibana lo
+  borra con ✕. Campo dentro de un ajuste: sin `APP_VERSION`. Probado: e2e
+  (10). **Revisión del pago de Salomé, semana 12–17/10** (su cuaderno vs la
+  agenda, $23.580 de diferencia): con lo que aclaró Juan Diego se le deben
+  $22.000 = Lexima (lifting + limpieza: la limpieza se le paga sobre
+  $40.000 aunque se cobró $30.000, según la nota de la cita) +$15.000 y
+  "Líder" +$7.000. En lo demás la agenda estaba bien: Esperanza pagó
+  $59.990 (descuento por amiga), Andrea Cornejo pagó $55.000 en total
+  (abono incluido), y Salomé había olvidado anotar el perfilado del martes
+  13/10 (Andrea Estrada) y redondeaba 19.990 a 20.000.
   **Garantía hecha por OTRA especialista** (caso poco común, regla de Juan
   Diego): TODA la comisión del tratamiento original pasa a la que hace la
   garantía, en la semana de pago de la GARANTÍA (la del tratamiento ya se

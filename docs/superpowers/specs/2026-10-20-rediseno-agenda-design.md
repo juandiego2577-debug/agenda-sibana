@@ -68,10 +68,12 @@ agenda" y la de "No se pudo leer la base de datos".
 
 - **Por defecto todas siguen en oscuro.** Cada persona lo elige en SU aparato (se guarda en
   `localStorage`, como otras preferencias por aparato; nunca en Firebase).
-- **Dónde está el botón** (siempre al final, sin mover ningún otro):
-  - Dueños: último botón del menú **Más** ("☀️ Modo claro" / "🌙 Modo oscuro").
-  - Especialistas (no tienen menú Más): en **Mi cuenta** (se abre tocando su nombre arriba), último
-    botón antes de "Cerrar sesión / Cerrar".
+- **Dónde está el botón** (cambiado el 20/10 a pedido de Juan Diego: que las especialistas lo vean
+  solas, sin que nadie se los diga, pero sin molestar): un **botón redondo con un sol** (en modo
+  oscuro; una luna en modo claro) en la **barra negra de arriba**, justo a la izquierda del nombre
+  ("S Salomé") o de "📍 Santiago". Igual para todos, en teléfono y computador. No mueve nada: el
+  nombre y "Sede" siguen pegados a la derecha. Sin texto en el teléfono (solo el ícono, con
+  "Modo claro"/"Modo oscuro" como descripción para lectores de pantalla y al pasar el mouse).
 - Fondo blanco roto neutro (`#f3f2ee`) y superficies blancas; dorado de Sibana más oscuro para que se
   lea sobre blanco; colores de estado suaves; los mismos íconos un poco más oscuros.
 - **La barra de arriba con el logo queda negra también en modo claro** (decidido: el logo se ve igual

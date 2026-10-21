@@ -98,6 +98,9 @@
     --on-accent:#1B1710;  /* texto sobre dorado */
     --firma-bg:#fdfaf3;   /* fondo de las firmas (tinta oscura) */
     --sombra:0 6px 16px -8px rgba(0,0,0,.75);
+    /* Botón principal: dorado metálico (igual en los dos modos) */
+    --metal:linear-gradient(100deg,#a8832a 0%,#e3c46c 28%,#fbe9ad 46%,#d4af37 64%,#a47c22 100%);
+    --metal-ink:#1a1205; --metal-borde:#e9cd7b;
     /* Íconos: el color del emoji que había antes, para reconocerlos igual */
     --ic-agenda:#e8836f; --ic-pagos:#62c08f; --ic-fin:#79aee6; --ic-gar:#f1c84b;
     --ic-stock:#d4a06a; --ic-vale:#62c08f; --ic-buscar:#a9bccd; --ic-bloq:#ec7f7f;
@@ -126,93 +129,104 @@
   h1,h2,h3,.serif{font-family:var(--head);font-weight:700;}
   h1,h2,h3,.serif,[style*="--head"],.curdate,.wd-num,.mc-num,.val,.pago-neto,.gs-grande,.cobrar-amount,.auth-title,.loading-text{font-variant-numeric:lining-nums tabular-nums;}
 
-  /* ---------- Header ---------- */
+  /* ---------- Header (rediseño oct 2026: barra negra con el logo, también en modo claro) ---------- */
   header.topbar{
     background:linear-gradient(180deg,var(--top-bg) 0%,var(--top-bg2) 100%);
-    border-bottom:1px solid color-mix(in oklab,var(--wine) 22%,transparent);
-    box-shadow:0 1px 16px rgba(0,0,0,0.4);
-    padding:14px 24px;
+    border-bottom:1px solid var(--line-soft);
+    padding:12px 24px;
     display:flex;
     align-items:center;
     justify-content:space-between;
     flex-wrap:wrap;
     gap:12px;
   }
-  header.topbar .brand{
-    display:flex;
-    align-items:center;
-    gap:12px;
-  }
-  header.topbar .brand img{
-    height:44px;
-    width:auto;
-    display:block;
-  }
+  header.topbar .brand{display:flex;align-items:center;gap:14px;min-width:0;}
+  header.topbar .brand img{height:40px;width:auto;display:block;}
   header.topbar .brand .tagline{
-    font-family:var(--ui);
-    font-size:11.5px;
-    color:var(--gold-soft);
-    font-weight:500;
-    letter-spacing:.2px;
-    border-left:1px solid var(--line);
-    padding-left:12px;
+    font-family:var(--ui);font-size:12.5px;color:var(--ink-soft);font-weight:500;
+    border-left:1px solid var(--line);padding-left:14px;
   }
-  .mode-toggle{
+  .mode-toggle,.staff-badge{
+    display:inline-flex;align-items:center;gap:7px;min-height:36px;
     background:none;border:1px solid var(--line);border-radius:999px;
-    color:var(--ink-soft);font-size:11px;padding:5px 12px;cursor:pointer;
+    color:var(--gold);font-size:12.5px;font-weight:600;padding:5px 13px 5px 11px;cursor:pointer;
     font-family:var(--ui);flex-shrink:0;
   }
-  .topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-  .staff-badge{
-    background:none;border:1px solid var(--line);border-radius:999px;
-    color:var(--ink-soft);font-size:11px;padding:5px 12px;cursor:pointer;
-    font-family:var(--ui);flex-shrink:0;
-  }
-  .staff-badge-empty{border-color:var(--wine);color:var(--gold-soft);font-weight:600;}
+  .staff-badge{padding-left:6px;}
+  .mode-toggle .ico{width:15px;height:15px;}
+  .topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .staff-badge-empty{border-color:var(--wine);color:var(--gold);}
+  .inicial{width:22px;height:22px;border-radius:50%;display:inline-grid;place-items:center;flex-shrink:0;font:700 11px/1 var(--ui);}
+  .inicial::before{content:attr(data-l);}
+
+  /* Íconos de línea: el color del emoji de antes, para reconocerlos igual */
+  svg.ico{width:18px;height:18px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .ico-agenda{color:var(--ic-agenda);} .ico-pagos{color:var(--ic-pagos);} .ico-fin{color:var(--ic-fin);}
+  .ico-gar{color:var(--ic-gar);} .ico-stock{color:var(--ic-stock);} .ico-vale{color:var(--ic-vale);}
+  .ico-buscar{color:var(--ic-buscar);} .ico-bloq{color:var(--ic-bloq);} .ico-mas{fill:currentColor;stroke:none;}
 
   /* ---------- Toolbar ---------- */
   .toolbar{
-    background:var(--panel);
+    background:var(--bg);
     border-bottom:1px solid var(--line);
-    padding:12px 24px;
+    box-shadow:0 4px 0 -3px color-mix(in oklab,var(--wine) 40%,transparent);
+    padding:14px 24px 12px;
+    margin-bottom:4px;
     display:flex;
     align-items:center;
-    gap:14px;
+    gap:10px;
     flex-wrap:wrap;
   }
-  .datenav{display:flex;align-items:center;gap:8px;}
+  .datenav{display:flex;align-items:center;gap:10px;}
   .datenav button.arrow{
-    background:none;border:1px solid var(--line);border-radius:8px;
-    width:32px;height:32px;cursor:pointer;font-size:15px;color:var(--wine);
-    display:flex;align-items:center;justify-content:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    width:38px;height:38px;cursor:pointer;color:var(--gold);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
   }
-  .datenav button.arrow:hover{background:var(--bg);}
+  .datenav button.arrow:hover{border-color:var(--wine);}
   .datenav .curdate{
-    font-family:var(--head);
-    font-size:18px;
-    font-weight:600;
-    min-width:220px;
-    text-align:center;
-    text-transform:capitalize;
+    font-family:var(--head);font-size:27px;font-weight:700;line-height:1.1;color:var(--ink);
+    min-width:250px;text-align:center;white-space:nowrap;
   }
+  .datenav .curdate::first-letter{text-transform:uppercase;}
   .btn{
-    border:none;border-radius:10px;padding:9px 16px;font-size:13.5px;
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    border:1px solid transparent;border-radius:10px;padding:8px 15px;font-size:13.5px;
     font-weight:600;cursor:pointer;font-family:var(--ui);
-    transition:filter .12s ease, transform .12s ease;min-height:38px;
+    transition:filter .12s ease, transform .12s ease, border-color .12s ease;min-height:38px;
   }
-  .btn:hover{filter:brightness(1.08);transform:translateY(-1px);}
-  .btn:active{transform:translateY(0);}
-  .btn-primary{background:linear-gradient(180deg,var(--gold) 0%,var(--wine) 100%);color:var(--on-accent);box-shadow:0 2px 10px color-mix(in oklab,var(--wine) 25%,transparent);}
-  .btn-ghost{background:transparent;color:var(--gold-soft);border:1px solid var(--line);}
-  .btn-today{background:var(--gold-soft);color:var(--on-accent);}
+  .btn:hover{filter:brightness(1.08);}
+  .btn:active{transform:translateY(1px);}
+  /* Botón principal: dorado metálico con brillo, nunca plano */
+  .btn-primary{
+    background:var(--metal);
+    color:var(--metal-ink);border-color:var(--metal-borde);font-weight:700;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.55),inset 0 -1px 0 rgba(0,0,0,.25),var(--sombra);
+  }
+  .mas-circulo{width:20px;height:20px;border-radius:50%;display:inline-grid;place-items:center;background:var(--metal-ink);color:var(--gold);font-size:15px;font-weight:700;line-height:1;}
+  .btn-ghost{background:var(--panel);color:var(--ink);border-color:var(--line);}
+  .btn-ghost:hover{border-color:var(--wine);filter:none;}
+  .btn-today{background:var(--panel);color:var(--ink);border-color:var(--line);}
   .spacer{flex:1;}
-  .viewtoggle{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+  .viewtoggle{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel);}
   .viewtoggle button{
-    background:var(--panel);border:none;padding:8px 14px;font-size:13px;
+    background:transparent;border:none;padding:0 16px;min-height:36px;font-size:13.5px;
     cursor:pointer;color:var(--ink-soft);font-weight:600;font-family:var(--ui);
     transition:background .12s ease,color .12s ease;
   }
-  .viewtoggle button.active{background:var(--wine);color:var(--on-accent);box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--gold) 40%,transparent);}
+  .viewtoggle button.active{background:color-mix(in oklab,var(--wine) 22%,var(--panel));color:var(--gold);}
+  /* Entre 721 y 1279 px "Buscar" y "Más" quedan solo con su ícono (el texto
+     sigue ahí para lectores de pantalla), así cabe todo en la primera fila. */
+  .sr-texto,.txt-oculto .txt{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+  @media (min-width:721px) and (max-width:1279px){
+    .toolbar .btn[data-act="open-search"] .txt,.toolbar .btn[data-act="toggle-menu"] .txt{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+    .toolbar .btn[data-act="open-search"],.toolbar .btn[data-act="toggle-menu"]{padding:0;width:38px;}
+    .datenav{gap:6px;}
+    .datenav .curdate{font-size:20px;min-width:0;}
+    .toolbar{gap:8px;}
+    .toolbar .btn{padding-left:11px;padding-right:11px;}
+    .viewtoggle button{padding:0 11px;}
+  }
 
   /* ---------- Specialist filter ---------- */
   .specfilter{display:flex;gap:6px;flex-wrap:wrap;}
@@ -225,27 +239,38 @@
      especialistas sus botones se hacen un poco más compactos
      (`.specfilter-compact`), y si aun así no caben, esa fila se desliza de
      lado (sin barra visible).
-     En modo Admin, "💵 Vale" va siempre al comienzo de la segunda línea,
+     En modo Admin, "Vale" va siempre al comienzo de la segunda línea,
      donde ya estaba (en modo Especialista no hay "+ Nueva cita" y Vale se
      queda donde siempre: en ese modo no se cambia nada). */
+  /* Especialista en computador: los filtros llenan el espacio libre y
+     "Bloquear hora" + "Vale" quedan a la derecha, como siempre. */
   @media (min-width:721px){
-    .toolbar.toolbar-admin .specfilter{flex:1 1 0;min-width:200px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;}
+    .toolbar:not(.toolbar-admin) .specfilter{flex:1 1 auto;}
+  }
+  @media (min-width:1280px){
+    .toolbar:not(.toolbar-admin) .specfilter{flex:1 1 0;min-width:120px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;}
+    .toolbar:not(.toolbar-admin) .specfilter::-webkit-scrollbar{display:none;}
+    .toolbar:not(.toolbar-admin) .specfilter button{flex-shrink:0;white-space:nowrap;}
+  }
+  @media (min-width:721px){
+    .toolbar.toolbar-admin .specfilter{flex:1 1 0;min-width:120px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;}
     .toolbar.toolbar-admin .specfilter::-webkit-scrollbar{display:none;}
     .toolbar.toolbar-admin .specfilter button{flex-shrink:0;white-space:nowrap;}
     .toolbar.toolbar-admin .specfilter.specfilter-compact{gap:4px;}
-    .toolbar.toolbar-admin .specfilter.specfilter-compact button{padding:7px 9px;gap:5px;}
-    .toolbar.toolbar-admin .specfilter.has-more{-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent);}
+    .toolbar.toolbar-admin .specfilter.specfilter-compact button{padding:0 10px 0 5px;gap:5px;}
+    .toolbar .specfilter.has-more{-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent);}
     .toolbar.toolbar-admin .spacer{display:none;}
     .toolbar-break{display:block;flex-basis:100%;height:0;}
-    .toolbar-break + .btn{margin-top:-14px;} /* que el salto de línea no sume un espacio extra (el gap de .toolbar) */
+    .toolbar-break + .btn{margin-top:-10px;} /* que el salto de línea no sume un espacio extra (el gap de .toolbar) */
   }
   .specfilter button{
-    border:1px solid var(--line);background:var(--panel-2);color:var(--ink-soft);
-    border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;
-    display:flex;align-items:center;gap:6px;font-family:var(--ui);
+    border:1px solid var(--line-soft);background:var(--panel);color:var(--ink-soft);
+    border-radius:999px;padding:0 13px 0 6px;min-height:34px;font-size:13px;font-weight:600;cursor:pointer;
+    display:flex;align-items:center;gap:7px;font-family:var(--ui);
   }
-  .specfilter button.active{background:var(--wine);color:var(--on-accent);border-color:var(--wine);box-shadow:0 2px 8px color-mix(in oklab,var(--wine) 30%,transparent);}
-  .specfilter .dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;border:1px solid rgba(0,0,0,.35);}
+  .specfilter button[data-spec="all"]{padding:0 14px;}
+  .specfilter button.active{border-color:var(--wine);color:var(--gold);background:color-mix(in oklab,var(--wine) 12%,var(--panel));}
+  @media (min-width:721px) and (max-width:1279px){ .toolbar.toolbar-admin .specfilter{min-width:80px;} }
 
   /* ---------- Más menu ---------- */
   .morewrap{position:relative;}
@@ -367,9 +392,9 @@
   .appt.st-Realizada{background:var(--ok);border-color:color-mix(in oklab,var(--ok) 60%,#000);}
   .appt.st-Cancelada{background:var(--canc);border-color:color-mix(in oklab,var(--canc) 70%,#000);color:var(--ink);}
   .appt.st-NoShow{background:var(--danger);border-color:color-mix(in oklab,var(--danger) 60%,#000);}
-  .status-legend{display:flex;flex-wrap:wrap;gap:14px;padding:6px 16px 12px;font-size:12px;opacity:.85;}
+  .status-legend{display:flex;flex-wrap:wrap;gap:6px 16px;padding:8px 24px 12px;font-size:12px;color:var(--mute);}
   .legend-item{display:inline-flex;align-items:center;gap:6px;}
-  .legend-dot{width:11px;height:11px;border-radius:3px;display:inline-block;border:1px solid rgba(0,0,0,.25);}
+  .legend-dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
   .legend-dot.st-Pendiente{background:var(--pending);}
   .legend-dot.st-Confirmada{background:var(--wine);}
   .legend-dot.st-Realizada{background:var(--ok);}
@@ -426,20 +451,22 @@
   }
 
   /* ---------- Finanzas (reportes / gastos) ---------- */
-  .section-tabs{display:flex;gap:0;background:var(--panel);border-bottom:1px solid var(--line);padding:0 20px;}
+  .section-tabs{display:flex;gap:2px;background:var(--bg);border-bottom:1px solid var(--line-soft);padding:0 16px;}
   .section-tabs button{
-    background:none;border:none;color:var(--ink-soft);font-family:var(--ui);font-size:13.5px;
-    padding:13px 18px;cursor:pointer;border-bottom:2px solid transparent;transition:color .12s, border-color .12s;
+    display:inline-flex;align-items:center;gap:8px;
+    background:none;border:none;color:var(--mute);font-family:var(--ui);font-size:14px;font-weight:600;
+    padding:13px 14px 11px;cursor:pointer;border-bottom:2px solid transparent;transition:color .12s, border-color .12s;
   }
   .section-tabs button:hover{color:var(--ink);}
-  .section-tabs button.active{color:var(--gold);border-bottom-color:var(--wine);font-weight:600;}
-  /* Teléfono: con 5 pestañas (dueños, desde "💵 Pagos" el 18/10/2026) no
+  .section-tabs button.active{color:var(--gold);border-bottom-color:var(--wine);}
+  /* Teléfono: con 5 pestañas (dueños, desde "Pagos" el 18/10/2026) no
      cabían en una línea y la página se corría de lado. Se achican y, si aun
      así no caben, la fila se desliza sola sin mover la página. */
   @media (max-width:720px){
     .section-tabs{padding:0 4px;overflow-x:auto;scrollbar-width:none;}
     .section-tabs::-webkit-scrollbar{display:none;}
-    .section-tabs button{padding:12px 6px;font-size:12px;white-space:nowrap;flex-shrink:0;}
+    .section-tabs button{padding:11px 7px 9px;font-size:13px;gap:6px;white-space:nowrap;flex-shrink:0;}
+    .section-tabs button .ico{width:16px;height:16px;}
   }
   .fin-main{flex:1;overflow-y:auto;padding:20px 24px 60px;}
   .fin-page{max-width:820px;margin:0 auto;}
@@ -934,21 +961,29 @@
   @media (prefers-reduced-motion:reduce){.login-gate > *,.auth-icon{animation:none !important;}}
 
   @media (max-width:720px){
-    header.topbar{padding:10px 14px;}
-    header.topbar .brand img{height:34px;}
+    header.topbar{padding:10px 16px;}
+    header.topbar .brand img{height:32px;}
     header.topbar .brand .tagline{display:none;}
-    .toolbar{padding:10px 14px;gap:8px;}
+    .toolbar{padding:12px 16px 10px;gap:8px;}
     .toolbar .spacer{display:none;}
-    .datenav{order:1;width:100%;justify-content:space-between;}
-    .datenav .curdate{min-width:0;font-size:14.5px;flex:1;}
+    /* Mismo orden de siempre (Vale, fecha, Hoy, Día/Semana/Mes, Buscar, Más,
+       especialistas, Bloquear hora, Nueva cita), más apretado: Vale y la fecha
+       comparten fila; Buscar y Más quedan solo con su ícono. */
+    .datenav{order:1;flex:1 1 calc(100% - 110px);min-width:0;justify-content:space-between;gap:6px;}
+    .datenav .curdate{min-width:0;font-size:19px;line-height:1.05;flex:1;white-space:normal;}
+    .datenav button.arrow{width:36px;height:36px;}
     .btn[data-act="today"]{order:2;}
     .viewtoggle{order:3;flex:1;}
-    .viewtoggle button{flex:1;}
-    .btn[data-act="open-search"]{order:4;width:100%;}
+    .viewtoggle button{flex:1;padding:0 6px;}
+    .btn[data-act="open-search"]{order:4;}
     .morewrap{order:5;}
+    .toolbar .btn[data-act="open-search"] .txt,.toolbar .btn[data-act="toggle-menu"] .txt{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+    .toolbar .btn[data-act="open-search"],.toolbar .btn[data-act="toggle-menu"]{padding:0;width:40px;}
     .specfilter{order:6;width:100%;}
-    .btn[data-act="new-block"]{order:7;}
-    button.btn-primary[data-act="new-appt"]{order:8;width:100%;}
+    .specfilter button{min-height:38px;}
+    .btn[data-act="new-block"]{order:7;flex:1;}
+    button.btn-primary[data-act="new-appt"]{order:8;flex:1.3;}
+    .status-legend{padding:6px 16px 10px;gap:4px 12px;font-size:11.5px;}
     .calendar-wrap{padding:12px 10px;}
     .timecol{width:46px;}
     .timecol .slot{font-size:9.5px;}
@@ -1269,7 +1304,10 @@ const TEMA_BANDERA_ARGENTINA = {
     ['rgba(201,162,39,', 'rgba(116,172,223,'], ['rgba(240,216,137,', 'rgba(214,235,250,'],
   ],
   extra: `
-    :root{ --warn:#F6B40E; }
+    :root{ --warn:#F6B40E;
+      /* botón principal: celeste "metálico" en vez de dorado */
+      --metal:linear-gradient(100deg,#4f8fc4 0%,#8cc0ea 28%,#d6ebfa 46%,#74ACDF 64%,#3f7fb5 100%);
+      --metal-ink:#0B2A47; --metal-borde:#a9d2f2; }
     /* Franja celeste-blanca-celeste arriba, como la bandera */
     header.topbar{ background:linear-gradient(180deg,#74ACDF 0 6px,#FFFFFF 6px 12px,#74ACDF 12px 18px,#0A1826 18px 100%); padding-top:30px; }
     /* "Confirmada" sigue siendo amarilla (el sol de la bandera), para no confundirla con el celeste */
@@ -2494,10 +2532,10 @@ function checkStaffIdentityIfNeeded(){
   render();
 }
 function staffIdentityBadgeHtml(){
-  if(CUENTA && CUENTA.personal) return `<button type="button" class="staff-badge" data-act="open-mi-cuenta">👤 ${escapeHtml(CUENTA.nombre||CUENTA.usuario)}</button>`;
+  if(CUENTA && CUENTA.personal) return `<button type="button" class="staff-badge" data-act="open-mi-cuenta">${inicialHtml(CUENTA.nombre||CUENTA.usuario, specialistColor(CUENTA.nombre||''))}${escapeHtml(CUENTA.nombre||CUENTA.usuario)}</button>`;
   const identity = safeGetLocal(STAFF_IDENTITY_KEY);
   return identity
-    ? `<button type="button" class="staff-badge" data-act="open-staff-identity">👤 ${escapeHtml(identity)}</button>`
+    ? `<button type="button" class="staff-badge" data-act="open-staff-identity">${inicialHtml(identity, specialistColor(identity))}${escapeHtml(identity)}</button>`
     : `<button type="button" class="staff-badge staff-badge-empty" data-act="open-staff-identity">👤 ¿Quién eres?</button>`;
 }
 function staffIdentityModalHtml(){
@@ -2554,6 +2592,43 @@ function specialistColor(name){
 // nadie con acceso a la agenda puede esconder un programa en ese campo.
 function colorSeguro(c){
   return /^#[0-9a-fA-F]{3,8}$/.test(String(c||'').trim()) ? String(c).trim() : '#6B6152';
+}
+// Rediseño (oct 2026): negro o blanco, el que más contraste tenga sobre ese
+// color (WCAG), para la inicial de cada especialista sobre su color.
+function textoSobre(color){
+  let h = colorSeguro(color).slice(1);
+  if(h.length < 6) h = h.split('').map(c=>c+c).join('');
+  const lin = v=>{ v /= 255; return v <= 0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4); };
+  const [r,g,b] = [0,2,4].map(i=>lin(parseInt(h.slice(i,i+2),16)));
+  const L = 0.2126*r + 0.7152*g + 0.0722*b;
+  return (L+0.05)/0.05 >= 1.05/(L+0.05) ? '#0b0a08' : '#ffffff';
+}
+// Círculo con la inicial de la especialista. La letra va por CSS (data-l), no
+// como texto, para no cambiar lo que dice el botón.
+function inicialHtml(nombre, color){
+  const c = colorSeguro(color);
+  const l = String(nombre||'').trim().charAt(0).toUpperCase();
+  return `<span class="inicial" aria-hidden="true" data-l="${escapeHtml(l)}" style="background:${c};color:${textoSobre(c)}"></span>`;
+}
+// Íconos de línea (rediseño oct 2026) para la barra de arriba, las pestañas y
+// la barra de herramientas. Cada uno con el color del emoji que había antes.
+const ICONOS = {
+  agenda:'<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  pagos:'<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>',
+  fin:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  gar:'<path d="M12 3l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.4 6.8 19.2l1-5.9L3.5 9.2l5.9-.8z"/>',
+  stock:'<path d="M3.5 7.5L12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5L12 12l8.5-4.5M12 12v9"/>',
+  vale:'<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>',
+  buscar:'<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',
+  mas:'<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
+  bloq:'<circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/>',
+  izq:'<path d="M15 5l-7 7 7 7"/>', der:'<path d="M9 5l7 7-7 7"/>',
+  sol:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/>',
+  luna:'<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
+  sede:'<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+};
+function iconoSvg(nombre){
+  return `<svg class="ico ico-${nombre}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICONOS[nombre]||''}</svg>`;
 }
 // Perfil de cada especialista (pedido de Juan Diego, oct 2026), lo llenan
 // los dueños en Más → Especialistas:
@@ -4001,7 +4076,7 @@ function render(){
       </div>
       <div class="topbar-right">
         ${ui.mode!=='admin' ? staffIdentityBadgeHtml() : ''}
-        ${esDueno() ? `<button class="mode-toggle" data-act="open-sede">📍 ${escapeHtml(SEDE.nombre)}</button>`
+        ${esDueno() ? `<button class="mode-toggle" data-act="open-sede">${iconoSvg('sede')}${escapeHtml(SEDE.nombre)}</button>`
           : puedeCambiarModo() ? `<button class="mode-toggle" data-act="toggle-mode">${ui.mode==='admin' ? '🔓 Admin' : '🔒 Especialista'}</button>` : ''}
       </div>
     </header>
@@ -4030,7 +4105,7 @@ function render(){
   attachEvents();
   // Si no caben todas las especialistas en su fila (5 o más), el borde
   // derecho se difumina para que se note que hay más deslizando de lado.
-  const sf = root.querySelector('.toolbar-admin .specfilter');
+  const sf = root.querySelector('.toolbar .specfilter');
   if(sf && sf.scrollWidth > sf.clientWidth + 1) sf.classList.add('has-more');
   // En un teléfono muy angosto las pestañas se deslizan: la elegida queda a la vista.
   const tabActiva = root.querySelector('.section-tabs .active');
@@ -4053,8 +4128,8 @@ function sectionTabsHtml(){
   const isAdmin = ui.mode==='admin';
   const tab = (sec, label)=>`<button class="${(sec==='agenda' ? !['finanzas','stock','garantias','pagos'].includes(ui.section) : ui.section===sec)?'active':''}" data-act="goto-section" data-section="${sec}">${label}</button>`;
   const tabs = isAdmin
-    ? [tab('agenda','📅 Agenda'), tab('pagos','💵 Pagos'), tab('finanzas','📊 Finanzas'), puedeVerGarantias() ? tab('garantias','⭐ Garantías') : '', tab('stock','📦 Stock')]
-    : [tab('agenda','📅 Agenda'), tab('stock','📦 Stock'), MIS_GANANCIAS_VISIBLE ? tab('finanzas','💵 Mi pago') : ''];
+    ? [tab('agenda',iconoSvg('agenda')+'Agenda'), tab('pagos',iconoSvg('pagos')+'Pagos'), tab('finanzas',iconoSvg('fin')+'Finanzas'), puedeVerGarantias() ? tab('garantias',iconoSvg('gar')+'Garantías') : '', tab('stock',iconoSvg('stock')+'Stock')]
+    : [tab('agenda',iconoSvg('agenda')+'Agenda'), tab('stock',iconoSvg('stock')+'Stock'), MIS_GANANCIAS_VISIBLE ? tab('finanzas',iconoSvg('pagos')+'Mi pago') : ''];
   return `
     <div class="section-tabs">
       ${tabs.join('')}
@@ -4089,7 +4164,7 @@ function toolbarHtml(){
       <button class="${ui.specialistFilter==='all'?'active':''}" data-act="filter-specialist" data-spec="all">Todas</button>
       ${state.specialists.map(s=>`
         <button class="${ui.specialistFilter===s.name?'active':''}" data-act="filter-specialist" data-spec="${escapeHtml(s.name)}">
-          <span class="dot" style="background:${colorSeguro(s.color)}"></span>${escapeHtml(s.name)}
+          ${inicialHtml(s.name, s.color)}${escapeHtml(s.name)}
         </button>`).join('')}
     </div>`;
 
@@ -4098,9 +4173,9 @@ function toolbarHtml(){
   return `
     <div class="toolbar${isAdmin ? ' toolbar-admin' : ''}">
       <div class="datenav">
-        <button class="arrow" data-act="prev">‹</button>
+        <button class="arrow" data-act="prev" aria-label="Anterior">${iconoSvg('izq')}</button>
         <div class="curdate">${label}</div>
-        <button class="arrow" data-act="next">›</button>
+        <button class="arrow" data-act="next" aria-label="Siguiente">${iconoSvg('der')}</button>
       </div>
       <button class="btn btn-today" data-act="today">Hoy</button>
       <div class="viewtoggle">
@@ -4108,10 +4183,10 @@ function toolbarHtml(){
         <button class="${ui.view==='week'?'active':''}" data-act="view-week">Semana</button>
         <button class="${ui.view==='month'?'active':''}" data-act="view-month">Mes</button>
       </div>
-      <button class="btn btn-ghost" data-act="open-search">🔍 Buscar</button>
+      <button class="btn btn-ghost" data-act="open-search">${iconoSvg('buscar')}<span class="txt">Buscar</span></button>
       ${isAdmin ? `
       <div class="morewrap">
-        <button class="btn btn-ghost" data-act="toggle-menu">⋯ Más</button>
+        <button class="btn btn-ghost" data-act="toggle-menu">${iconoSvg('mas')}<span class="txt">Más</span></button>
         ${ui.menuOpen ? `
           <div class="moremenu">
             <div class="moremenu-label">¿Te equivocaste?</div>
@@ -4145,10 +4220,10 @@ function toolbarHtml(){
       </div>` : ''}
       ${specChips}
       <div class="spacer"></div>
-      <button class="btn btn-ghost" data-act="new-block">🚫 Bloquear hora</button>
-      ${isAdmin ? `<button class="btn btn-primary" data-act="new-appt">+ Nueva cita</button>` : ''}
+      <button class="btn btn-ghost" data-act="new-block">${iconoSvg('bloq')}Bloquear hora</button>
+      ${isAdmin ? `<button class="btn btn-primary" data-act="new-appt"><span class="mas-circulo" aria-hidden="true">+</span> Nueva cita</button>` : ''}
       ${isAdmin ? `<div class="toolbar-break"></div>` : ''}
-      <button class="btn btn-ghost" data-act="open-vales">💵 Vale</button>
+      <button class="btn btn-ghost" data-act="open-vales">${iconoSvg('vale')}Vale</button>
     </div>
   `;
 }

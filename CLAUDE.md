@@ -2047,6 +2047,33 @@ anterior" (pedido de él). Spec y plan: `docs/superpowers/`; sistema visual:
   sedes), `dia.mjs`, `barra.mjs`, `tema.mjs`, `menu.mjs`, `colores.mjs`,
   `letras.mjs`, `capturas.mjs`. Un cambio futuro de diseño debe pasar
   `paridad.mjs` (con la versión publicada del momento como `ANTES`).
+- **Resumen de abajo (día, semana y mes), 21/10/2026:** para dueños, "Entró $X
+  de $Y esperado" con barra, "⏳ N citas sin cerrar · faltan $X" (botón "Ver
+  cuáles", modal `sin-cerrar`) o "✅ Todo cobrado" (`resumenDinero`,
+  `citaCerrada`: una cita sin cerrar solo aporta su abono a "Entró"). Antes
+  "Falta por cobrar" nunca llegaba a cero. Especialistas: solo Citas/Personas,
+  como antes. Prueba: `resumen.mjs` (16).
+- **Ficha de consentimiento rediseñada (repo sibana-consentimiento, misma rama,
+  21/10/2026, SIN publicar):** la clienta ve papel claro con la barra negra del
+  logo (el logo real, letras de la agenda copiadas en su `fonts/`); el Panel
+  Sibana es oscuro como la agenda (o claro, si en ese navegador se eligió claro
+  en la agenda: comparten `localStorage.sibanaTema`). Pasos con nombre (sin
+  "PASO X DE 5"), Sí/No neutros de 44 px con lo que falta marcado en rojo
+  ("Falta responder", lleva a la primera), casillas grandes, firma más alta (230 px)
+  con línea y "Firma aquí" (sin el nombre: Juan Diego lo vio de más); pantalla final "Listo, <nombre>" con las fechas del
+  retoque (30–45 días, no si la técnica dice retoque/garantía). Fecha en hora
+  de Chile (antes UTC). La copia en PDF trae el texto que aceptó, la sede y la
+  hora de la firma, y bajo la firma solo el nombre (sin RUT). **Los textos legales y los campos que se guardan NO
+  cambiaron** (mismo `state`; lo que es solo de pantalla va aparte: `faltan`,
+  `firmadoEn`). Ya no hay botón "Panel Sibana" en la ficha (ni flotante ni al
+  pie, pedido de Juan Diego): se entra con `?panel` en la dirección, o desde la agenda: Más → "✍️
+  Fichas de consentimiento" (último botón, abre `../sibana-consentimiento/?panel`
+  con la misma sesión). Panel: alertas de salud en cada fila (Alergias,
+  Herpes…), técnica y fecha a la vista, las abiertas siguen abiertas al buscar,
+  Enter para entrar, Esc cierra, "Eliminar" en rojo. La sede va en su propia línea dorada arriba (Santiago o Viña del Mar,
+  nunca las dos) y la Ciudad de ejemplo es la de la sede. Probado:
+  `ficha-vina.mjs` (34: incluye llenar la ficha entera en un teléfono y firmar
+  con toques de dedo reales, y que la firma guardada sea un PNG con trazo).
 
 ## Cómo se trabaja en este proyecto
 - **Siempre probar antes de entregar.** Este proyecto se construyó

@@ -735,7 +735,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .r2-estado{font-size:13px;color:var(--ink-soft);display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
   .r2-estado b{color:var(--warn-text);}
   .r2-estado.ok b{color:var(--ok-text);}
-  .r2-estado .linklike{font-size:12.5px;color:var(--gold);border-bottom:1px dotted var(--gold);}
+  .r2-estado .linklike{font-size:12.5px;color:var(--gold);text-decoration:underline dotted;text-underline-offset:3px;min-height:36px;padding:0 6px;margin:-8px 0;}
   .r2-col{display:grid;gap:4px;min-width:0;}
   .r2-fila{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--ink);font-variant-numeric:tabular-nums;}
   .r2-fila span:first-child{color:var(--ink-soft);min-width:0;overflow-wrap:anywhere;}
@@ -4454,6 +4454,7 @@ function toolbarHtml(){
             <button data-act="cambiar-cuenta">🔑 Entrar con otra contraseña</button>
             ${esDueno() ? `<button data-act="open-equipo">👥 Equipo (usuarios)</button>` : ''}
             ${esDueno() ? `<button data-act="open-certificados">📜 Certificados</button>` : ''}
+            <button data-act="open-fichas">✍️ Fichas de consentimiento</button>
           </div>` : ''}
       </div>` : ''}
       ${specChips}
@@ -11331,6 +11332,12 @@ function onAction(e){
       abrirEquipo(); break;
     case 'open-certificados':
       abrirRegistroCertificados(); break;
+    case 'open-fichas':
+      // Panel Sibana (repo sibana-consentimiento): misma dirección, así que ya
+      // entra con esta misma sesión, sin volver a pedir la contraseña.
+      ui.menuOpen = false; render();
+      window.open(new URL('../sibana-consentimiento/?panel', location.href).href, '_blank', 'noopener');
+      break;
     case 'open-cert-curso':
       abrirCertificadosCurso(e.currentTarget.dataset.id); break;
     case 'cert-volver-curso':

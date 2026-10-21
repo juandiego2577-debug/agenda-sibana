@@ -28,7 +28,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   // aparato (aplicarCuenta lo guarda en 'sibanaUltimaSede'). Un teléfono
   // nuevo (todavía sin entrar) ve "Agenda Sibana": antes veía "Sibana
   // Santiago" aunque fuera de Buenos Aires (12/10/2026, pantalla de instalar).
-  var NOMBRES_SEDE = {santiago: "Sibana Santiago - Agenda", buenosaires: "Sibana Buenos Aires - Agenda"};
+  var NOMBRES_SEDE = {santiago: "Sibana Santiago - Agenda", buenosaires: "Sibana Buenos Aires - Agenda", vina: "Sibana Viña del Mar - Agenda"};
   var ultimaSede = null;
   try{ ultimaSede = localStorage.getItem('sibanaUltimaSede'); }catch(e){}
   var manifest = {
@@ -1434,6 +1434,37 @@ const SEDES = {
     voseo: true, // los mensajes de WhatsApp a las clientas van con "vos"
     migraciones: false,
     tema: TEMA_BANDERA_ARGENTINA,
+  },
+  // Viña del Mar (oct 2026): Chile, así que todo igual que Santiago (moneda,
+  // RUT, +56, hora y comisión: $10.000 por micropigmentación y 50/50, confirmado
+  // por Juan Diego). Todas sus citas tienen precios "nuevos", así que el
+  // descuento va siempre (sin soloPrecioNuevo), y el abono perdido es del
+  // negocio desde el primer día. Respaldo a Hoja/Calendar, correo
+  // post-tratamiento y link de reseñas: pendientes (todavía no hay Gmail ni
+  // Calendar de Viña).
+  vina: {
+    id: 'vina', nombre: 'Viña del Mar', pais: 'Chile',
+    zonaHoraria: 'America/Santiago',
+    telPais: '56',
+    docIdentidad: 'RUT', docPlaceholder: '12.345.678-9',
+    consentCollection: 'sibana-consentimientos-vina',
+    backupWebhookUrl: 'PEGA_AQUI_LA_URL_DEL_SCRIPT_DE_VINA',
+    resenaLink: '',
+    correoPostratamiento: false,
+    descuentoMicro: {tipo: 'fijo', pesos: 10000},
+    abonoPerdidoSoloNegocioDesde: '0000-00-00',
+    moneda: 'CLP',
+    abonoSugerido: 5000, // lo puede cambiar el dueño en Servicios y tarifario
+    abonoEditable: true,
+    migraciones: false,
+    // Al crear la agenda (crearAgendaSede): los servicios de Santiago CON sus
+    // precios, salvo la micropigmentación, que va con los precios de apertura
+    // del estudio de mercado de Viña (oct 2026). El primero que calce gana.
+    preciosIniciales: [
+      {re: /mixbrows|t[eé]cnica mixta|full lips/i, price: 99990},
+      {re: /delineado doble/i, price: null}, // sin dato de Viña: queda el de Santiago
+      {re: /microblading|sombreado|shading|delineado/i, price: 79990},
+    ],
   },
 };
 // Cada contraseña es una cuenta distinta de Firebase Authentication. El
@@ -3775,7 +3806,9 @@ function sedeSinCrearHtml(){
     <div class="login-gate">
       <img src="${LOGO_SRC}" alt="Sibana" class="login-gate-logo">
       <h1 class="serif">Agenda ${escapeHtml(SEDE.nombre)}</h1>
-      <p class="hint">La agenda de ${escapeHtml(SEDE.nombre)} todavía no está creada. Al crearla arranca vacía: sin citas, sin especialistas, y con la misma lista de servicios de Santiago pero con todos los precios en $0, para que ustedes pongan los precios de ${escapeHtml(SEDE.nombre)}. Nada de Santiago se toca ni se mezcla.</p>
+      <p class="hint">La agenda de ${escapeHtml(SEDE.nombre)} todavía no está creada. Al crearla arranca vacía: sin citas, sin especialistas, y con la misma lista de servicios de Santiago ${SEDE.preciosIniciales
+        ? 'con sus mismos precios, salvo la micropigmentación, que queda con los precios de apertura de ' + escapeHtml(SEDE.nombre) + ' (después los puedes cambiar en Servicios y tarifario)'
+        : 'pero con todos los precios en $0, para que ustedes pongan los precios de ' + escapeHtml(SEDE.nombre)}. Nada de Santiago se toca ni se mezcla.</p>
       <div class="login-gate-box">
         <div id="crear-sede-error" class="login-gate-error"></div>
         <button class="btn btn-primary" id="crear-sede-btn" style="width:100%;" onclick="crearAgendaSede()">Crear la agenda de ${escapeHtml(SEDE.nombre)}</button>
@@ -3798,15 +3831,32 @@ async function crearAgendaSede(){
     let services = [];
     try{
       const snap = await db.collection('sibana-agenda').doc('santiago').get();
-      // Se marcan como micropigmentación (llevan los 10 dólares) las que
-      // claramente lo son; el resto se puede marcar a mano en Servicios.
-      if(snap.exists) services = (snap.data().services||[]).map(x=>({
-        name: x.name, price: 0, duration: x.duration||60,
-        micropigmentacion: !/retoque/i.test(x.name||'') && /microblading|sombreado|delineado|mixbrows|t[eé]cnica mixta|full lips/i.test(x.name||''),
-      }));
+      const lista = snap.exists ? (snap.data().services||[]) : [];
+      if(SEDE.preciosIniciales){
+        // Misma moneda que Santiago (Viña): se copian los servicios con sus
+        // precios y sus casillas, y la micropigmentación va con el precio de
+        // apertura de la sede (SEDE.preciosIniciales; un retoque nunca).
+        services = lista.map(x=>{
+          const nuevo = {name: x.name, price: Number(x.price)||0, duration: x.duration||60};
+          ['micropigmentacion', 'llevaRetoque', 'llevaFirma'].forEach(k=>{ if(x[k]!=null) nuevo[k] = x[k]; });
+          if(!/retoque|garant/i.test(x.name||'')){
+            const regla = SEDE.preciosIniciales.find(r=>r.re.test(x.name||''));
+            if(regla && regla.price!=null) nuevo.price = regla.price;
+          }
+          return nuevo;
+        });
+      } else {
+        // Otra moneda (Buenos Aires): precios en $0. Se marcan como
+        // micropigmentación (llevan el descuento) las que claramente lo son;
+        // el resto se puede marcar a mano en Servicios.
+        services = lista.map(x=>({
+          name: x.name, price: 0, duration: x.duration||60,
+          micropigmentacion: !/retoque/i.test(x.name||'') && /microblading|sombreado|delineado|mixbrows|t[eé]cnica mixta|full lips/i.test(x.name||''),
+        }));
+      }
     }catch(e){ console.error('No se pudo leer la lista de servicios de Santiago (se crea vacía)', e); }
     const settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
-    settings.cremaIncluida = true; // en Buenos Aires la crema va incluida desde el primer día
+    settings.cremaIncluida = true; // en las sedes nuevas la crema va incluida desde el primer día
     settings.creadaEn = new Date().toISOString();
     const inicial = {
       appointments: [], services, specialists: [], clients: [], blocks: [], courses: [],
@@ -5792,7 +5842,7 @@ function servicesModalHtml(){
       </label>
       <div class="hint" style="margin:-8px 0 12px;">Solo afecta a las citas que se agenden DESDE ahora. Las citas ya agendadas (antes o después de este cambio) nunca se alteran.</div>
       ${SEDE.abonoEditable ? `<div class="field" style="margin-bottom:4px;">
-        <label for="f-abono-sugerido">💵 Seña (abono) sugerida por tratamiento (${SEDE.moneda})</label>
+        <label for="f-abono-sugerido">💵 ${SEDE.pais==='Argentina' ? 'Seña (abono) sugerida' : 'Abono sugerido'} por tratamiento (${SEDE.moneda})</label>
         <input type="number" id="f-abono-sugerido" min="0" step="500" value="${abonoSugeridoPorTratamiento()}">
       </div>
       <div class="hint" style="margin:0 0 12px;">Se pone sola en cada cita nueva (una por tratamiento) y en cada cita se puede cambiar. Cuando suban los precios, súbela también. Las citas ya agendadas no cambian.</div>` : ''}

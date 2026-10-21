@@ -180,6 +180,17 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     font-family:var(--ui);font-size:12.5px;color:var(--ink-soft);font-weight:500;
     border-left:1px solid var(--line);padding-left:14px;
   }
+  /* Quien puede ver más de una sede (dueños, o una especialista que trabaja en
+     dos): el nombre de la sede grande junto al logo, también en el teléfono. */
+  header.topbar .brand .tagline.tagline-sede{font-family:var(--head);font-size:26px;font-weight:700;color:var(--gold);letter-spacing:.02em;line-height:1.1;white-space:nowrap;}
+  /* ...y al entrar a otra sede, "Estás en la agenda de Viña del Mar" por unos
+     segundos (se va solo). Juan Diego (21/10/2026): a prueba; si se
+     acostumbran rápido, se quita (avisoSedeSiCambio). */
+  .aviso-sede{position:fixed;left:50%;top:calc(96px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:2000;max-width:calc(100% - 32px);
+    background:var(--panel);border:1px solid var(--wine);border-radius:14px;padding:14px 22px;box-shadow:var(--sombra);
+    font:600 15px/1.3 var(--ui);color:var(--ink);text-align:center;transition:opacity .2s;pointer-events:none;}
+  .aviso-sede b{display:block;font-family:var(--head);font-size:24px;color:var(--gold);margin-top:2px;}
+  .aviso-sede.saliendo{opacity:0;}
   .mode-toggle,.staff-badge{
     display:inline-flex;align-items:center;gap:7px;min-height:36px;
     background:none;border:1px solid var(--line);border-radius:999px;
@@ -1027,6 +1038,10 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     header.topbar{padding:10px 16px;}
     header.topbar .brand img{height:32px;}
     header.topbar .brand .tagline{display:none;}
+    header.topbar .brand .tagline.tagline-sede{display:block;font-size:19px;padding-left:10px;}
+    /* el nombre ya está junto al logo: el botón de sede queda solo con su ícono */
+    .mode-toggle.sede-btn{padding:5px 9px;}
+    .mode-toggle.sede-btn .sede-texto{display:none;}
     .toolbar{padding:12px 16px 10px;gap:8px;}
     .toolbar .spacer{display:none;}
     /* Mismo orden de siempre (Vale, fecha, Hoy, Día/Semana/Mes, Buscar, Más,
@@ -1537,7 +1552,7 @@ function cargarPerfilPersonal(user){
     const p = snap.exists ? snap.data() : null;
     // Un "lector" (la cuenta del script de correos) no entra a la agenda.
     if(p && p.activo===true && SEDES[p.sede] && p.rol!=='lector'){
-      safeSetLocal(USUARIO_PERFIL_KEY, JSON.stringify({uid:user.uid, usuario:p.usuario, email:p.email, nombre:p.nombre, sede:p.sede, rol:p.rol}));
+      safeSetLocal(USUARIO_PERFIL_KEY, JSON.stringify({uid:user.uid, usuario:p.usuario, email:p.email, nombre:p.nombre, sede:p.sede, otrasSedes:p.otrasSedes||[], rol:p.rol}));
       return p;
     }
     safeRemoveLocal(USUARIO_PERFIL_KEY);
@@ -1557,6 +1572,8 @@ function cargarPerfilPersonal(user){
 // vuelve ese botón (entrar a Admin con la contraseña de administrador).
 const SOLO_DUENOS_ADMIN_SANTIAGO = true;
 const SEDE_DUENOS_KEY = 'sibanaSedeDuenos'; // última sede que eligió un dueño en este dispositivo
+const SEDE_PERSONAL_KEY = 'sibanaSedePersonal'; // ídem, una especialista que trabaja en más de una sede
+const AVISO_SEDE_KEY = 'sibanaAvisoSede'; // última sede en que se mostró "Estás en la agenda de…"
 let CUENTA = null; // {email, rol, sede} de la sesión actual
 let SEDE = SEDES.santiago;
 // Decide sede y rol según la cuenta con la que se entró. Una cuenta que no
@@ -1567,12 +1584,18 @@ function aplicarCuenta(user, perfil){
   const c = perfil
     ? {rol: perfil.rol==='duenos' ? 'duenos' : 'equipo', sede: perfil.sede}
     : (CUENTAS.find(x=>x.email===email) || CUENTAS[0]);
+  // Sedes que puede ver: los dueños todas; una especialista la suya más las
+  // que un dueño le agregó en Equipo (perfil.otrasSedes, ej. Salomé si
+  // también atiende en Viña). Las reglas de Firebase son las que de verdad lo
+  // exigen; esto solo elige qué agenda mostrar.
+  const sedes = c.rol==='duenos' ? Object.keys(SEDES)
+    : [c.sede].concat(((perfil && perfil.otrasSedes) || []).filter(x=>SEDES[x] && x!==c.sede));
   let sede = c.sede;
-  if(c.rol==='duenos'){
-    const guardada = safeGetLocal(SEDE_DUENOS_KEY);
-    sede = SEDES[guardada] ? guardada : (SEDES[c.sede] ? c.sede : 'santiago');
+  if(sedes.length>1){
+    const guardada = safeGetLocal(c.rol==='duenos' ? SEDE_DUENOS_KEY : SEDE_PERSONAL_KEY);
+    sede = sedes.includes(guardada) ? guardada : (SEDES[c.sede] ? c.sede : 'santiago');
   }
-  CUENTA = {email, rol: c.rol, sede};
+  CUENTA = {email, rol: c.rol, sede, sedes};
   // CUENTA.usuario: con qué entra (su correo; o el usuario corto de las
   // cuentas viejas). Es lo que queda en "registradoPor" de vales y pagos.
   if(perfil){ CUENTA.personal = true; CUENTA.usuario = perfil.usuario || perfil.email || email; CUENTA.nombre = perfil.nombre || ''; }
@@ -3769,6 +3792,7 @@ function startFirestoreSync(){
       avisoEspacioSiHaceFalta();
       checkStaffIdentityIfNeeded();
       checkNewServicesIfNeeded();
+      avisoSedeSiCambio();
       escucharFichasRecientes();
       vincularConsentimientosSolos();
     } else {
@@ -3800,7 +3824,7 @@ function startFirestoreSync(){
 // ---------------- Sede nueva / cambiar de sede ----------------
 function sedeSinCrearHtml(){
   if(!esDueno()){
-    return `<div class="loading">La agenda de ${escapeHtml(SEDE.nombre)} todavía no está lista. Avísale a Juan Diego.</div>`;
+    return `<div class="loading">La agenda de ${escapeHtml(SEDE.nombre)} todavía no está lista. Avísale a Juan Diego.${veVariasSedes() ? `<br><br>${sedesDisponibles().filter(id=>id!==SEDE.id).map(id=>`<button class="btn btn-ghost" onclick="cambiarSede('${id}')">Ir a ${escapeHtml(SEDES[id].nombre)}</button>`).join(' ')}` : ''}</div>`;
   }
   return `
     <div class="login-gate">
@@ -3878,13 +3902,31 @@ async function crearAgendaSede(){
 }
 // Solo los dueños cambian de sede. Se recarga la página entera: así no queda
 // en memoria nada de la sede anterior (ni datos, ni guardados a medias).
+// Sedes que puede ver la cuenta con que se entró (ver aplicarCuenta).
+function sedesDisponibles(){ return (CUENTA && CUENTA.sedes) || [SEDE.id]; }
+function veVariasSedes(){ return sedesDisponibles().length > 1; }
+// Al entrar a una sede distinta de la última en que se avisó en este aparato
+// (o sea, después de cambiar de sede), "Estás en la agenda de …" por unos
+// segundos. Solo para quien ve más de una sede. Va fuera de #root para que
+// render() no lo borre.
+function avisoSedeSiCambio(){
+  if(!veVariasSedes()) return;
+  if(safeGetLocal(AVISO_SEDE_KEY)===SEDE.id) return;
+  safeSetLocal(AVISO_SEDE_KEY, SEDE.id);
+  const el = document.createElement('div');
+  el.className = 'aviso-sede'; el.setAttribute('role', 'status');
+  el.innerHTML = `Estás en la agenda de<b>${escapeHtml(SEDE.nombre)}</b>`;
+  document.body.appendChild(el);
+  setTimeout(()=>el.classList.add('saliendo'), 3200);
+  setTimeout(()=>el.remove(), 3500);
+}
 function cambiarSede(id){
-  if(!esDueno() || !SEDES[id]) return;
+  if(!SEDES[id] || !sedesDisponibles().includes(id)) return;
   if(ui.saving || pendingSaves.length){
     showAlert('Espera un momento a que termine de guardarse el último cambio, y vuelve a intentarlo.');
     return;
   }
-  safeSetLocal(SEDE_DUENOS_KEY, id);
+  safeSetLocal(esDueno() ? SEDE_DUENOS_KEY : SEDE_PERSONAL_KEY, id);
   if(id===SEDE.id){ ui.modal = null; render(); return; }
   document.getElementById('root').innerHTML = loadingScreenHtml('Cambiando a ' + SEDES[id].nombre + '…');
   reloadFresh();
@@ -3895,7 +3937,7 @@ function sedeModalHtml(){
     <div class="modal" data-stop="1">
       <h2 class="serif">¿Qué sede quieres ver?</h2>
       <p class="hint">Cada sede tiene sus propias citas, especialistas, precios y finanzas. Nunca se mezclan.</p>
-      ${Object.values(SEDES).map(x=>`<button type="button" class="btn ${x.id===SEDE.id?'btn-primary':'btn-ghost'}" style="width:100%;margin-bottom:8px;" data-act="set-sede" data-sede="${x.id}">${x.id===SEDE.id?'✓ ':''}📍 ${escapeHtml(x.nombre)}</button>`).join('')}
+      ${sedesDisponibles().map(id=>SEDES[id]).map(x=>`<button type="button" class="btn ${x.id===SEDE.id?'btn-primary':'btn-ghost'}" style="width:100%;margin-bottom:8px;" data-act="set-sede" data-sede="${x.id}">${x.id===SEDE.id?'✓ ':''}📍 ${escapeHtml(x.nombre)}</button>`).join('')}
       <div class="modal-actions">
         <div></div>
         <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
@@ -4241,12 +4283,12 @@ function render(){
     <header class="topbar">
       <div class="brand">
         <img src="${LOGO_SRC}" alt="Sibana" />
-        <span class="tagline">${escapeHtml(SEDE.nombre)} · Panel interno</span>
+        ${veVariasSedes() ? `<span class="tagline tagline-sede">${escapeHtml(SEDE.nombre)}</span>` : `<span class="tagline">${escapeHtml(SEDE.nombre)} · Panel interno</span>`}
       </div>
       <div class="topbar-right">
         ${temaBotonHtml()}
         ${ui.mode!=='admin' ? staffIdentityBadgeHtml() : ''}
-        ${esDueno() ? `<button class="mode-toggle" data-act="open-sede">${iconoSvg('sede')}${escapeHtml(SEDE.nombre)}</button>`
+        ${veVariasSedes() ? `<button class="mode-toggle sede-btn" data-act="open-sede" aria-label="Sede: ${escapeHtml(SEDE.nombre)} (cambiar)">${iconoSvg('sede')}<span class="sede-texto">${escapeHtml(SEDE.nombre)}</span></button>`
           : puedeCambiarModo() ? `<button class="mode-toggle" data-act="toggle-mode">${ui.mode==='admin' ? '🔓 Admin' : '🔒 Especialista'}</button>` : ''}
       </div>
     </header>
@@ -9793,7 +9835,7 @@ function cargarEquipo(){
 // Especialistas de la sede actual que todavía no tienen cuenta propia (las
 // únicas que se pueden elegir al aprobar a alguien).
 function especialistasSinCuenta(){
-  const conCuenta = new Set(((ui.modal && ui.modal.lista) || []).filter(u=>u.sede===SEDE.id && u.rol!=='lector').map(u=>normalizeName(u.nombre)));
+  const conCuenta = new Set(((ui.modal && ui.modal.lista) || []).filter(u=>(u.sede===SEDE.id || (u.otrasSedes||[]).includes(SEDE.id)) && u.rol!=='lector').map(u=>normalizeName(u.nombre)));
   return state.specialists.filter(sp=>!conCuenta.has(normalizeName(sp.name)));
 }
 // Quién parece ser, por el nombre que escribió (ej. "Salomé Pérez" → Salomé).
@@ -9819,10 +9861,14 @@ function equipoModalHtml(){
       <div>
         <div class="cr-name">${escapeHtml(u.nombre||'')}${u.nombreCompleto && normalizeName(u.nombreCompleto)!==normalizeName(u.nombre) ? ` <span class="hint" style="margin:0;">(${escapeHtml(u.nombreCompleto)})</span>` : ''}</div>
         <div class="cr-rut">${escapeHtml(u.email && !/^juandiego2577\+usr\./.test(u.email) ? u.email : ('usuario: ' + (u.usuario||'')))}</div>
-        <div class="cr-rut">${escapeHtml((SEDES[u.sede]||{}).nombre||u.sede||'')} · ${u.rol==='lector'?'🤖 Solo lectura (script de correos) · ':''}${u.activo?'✅ Activa':'⛔ Desactivada'}</div>
+        <div class="cr-rut">${[u.sede].concat(u.otrasSedes||[]).map(id=>escapeHtml((SEDES[id]||{}).nombre||id||'')).join(' + ')} · ${u.rol==='lector'?'🤖 Solo lectura (script de correos) · ':''}${u.activo?'✅ Activa':'⛔ Desactivada'}</div>
         <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
           <button type="button" class="btn btn-ghost" style="font-size:12px;" data-act="equipo-activo" data-uid="${escapeHtml(u.uid)}" data-activo="${u.activo?'0':'1'}">${u.activo?'Desactivar':'Reactivar'}</button>
           ${u.activo && u.rol!=='lector'?`<button type="button" class="btn btn-ghost" style="font-size:12px;" data-act="equipo-reset-clave" data-uid="${escapeHtml(u.uid)}">🔑 Olvidó su contraseña</button>`:''}
+          ${u.activo && u.rol==='especialista' ? Object.keys(SEDES).filter(id=>id!==u.sede).map(id=>{
+            const esta = (u.otrasSedes||[]).includes(id);
+            return `<button type="button" class="btn btn-ghost" style="font-size:12px;" data-act="equipo-otra-sede" data-uid="${escapeHtml(u.uid)}" data-sede="${id}" data-on="${esta?'0':'1'}">${esta ? 'Quitar ' + escapeHtml(SEDES[id].nombre) : '＋ También en ' + escapeHtml(SEDES[id].nombre)}</button>`;
+          }).join('') : ''}
         </div>
       </div>
     </div>`;
@@ -9898,6 +9944,26 @@ function rechazarPedido(uidPedido){
     }).then(cargarEquipo)
       .catch(err=>{ console.error(err); showAlert('No se pudo rechazar (¿sin señal?).'); });
   });
+}
+// Una especialista que también atiende en otra sede (ej. Salomé en Viña): ve
+// las dos agendas y cambia entre ellas con 📍. Sus citas, vales y pago de cada
+// sede van por separado, con su mismo nombre: por eso en la otra sede tiene que
+// estar en la lista de Especialistas con el MISMO nombre.
+function cambiarOtraSedeUsuario(uidUsuario, sedeId, agregar){
+  const u = ((ui.modal && ui.modal.lista) || []).find(x=>x.uid===uidUsuario);
+  if(!u || !SEDES[sedeId] || sedeId===u.sede) return;
+  const otras = (u.otrasSedes||[]).filter(x=>x!==sedeId && SEDES[x]);
+  if(agregar) otras.push(sedeId);
+  const nombreSede = SEDES[sedeId].nombre;
+  const hacer = ()=>db.collection(USUARIOS_COLECCION).doc(uidUsuario).update({
+    otrasSedes: otras, actualizadoEn: firebase.firestore.FieldValue.serverTimestamp(),
+  }).then(()=>{
+    if(agregar) showAlert(`Listo. ${u.nombre} ya puede ver la agenda de ${nombreSede} (con el botón 📍 arriba). Recuerda: en ${nombreSede}, Más → Especialistas, tiene que estar como "${u.nombre}", con el mismo nombre, para que sus citas y su pago cuadren.`);
+    return cargarEquipo();
+  }).catch(err=>{ console.error(err); showAlert('No se pudo guardar el cambio (¿sin señal, o faltan las reglas nuevas de Firebase?).'); });
+  showConfirmDialog(agregar
+    ? `¿${u.nombre} también trabaja en ${nombreSede}? Va a poder ver y usar la agenda de ${nombreSede} además de la de ${(SEDES[u.sede]||{}).nombre||u.sede}. Su pago de cada sede se calcula por separado.`
+    : `¿Quitarle a ${u.nombre} el acceso a la agenda de ${nombreSede}? Sus citas y pagos de ${nombreSede} no se tocan.`, hacer);
 }
 function cambiarActivoUsuario(uidUsuario, activo){
   const u = ((ui.modal && ui.modal.lista) || []).find(x=>x.uid===uidUsuario);
@@ -10740,7 +10806,7 @@ function onAction(e){
       break;
     }
     case 'open-sede':
-      if(!esDueno()) break;
+      if(!veVariasSedes()) break;
       ui.modal = {type:'sede'}; render(); break;
     case 'set-sede':
       cambiarSede(e.currentTarget.dataset.sede); break;
@@ -11228,6 +11294,8 @@ function onAction(e){
       rechazarPedido(e.currentTarget.dataset.uid); break;
     case 'equipo-activo':
       cambiarActivoUsuario(e.currentTarget.dataset.uid, e.currentTarget.dataset.activo==='1'); break;
+    case 'equipo-otra-sede':
+      cambiarOtraSedeUsuario(e.currentTarget.dataset.uid, e.currentTarget.dataset.sede, e.currentTarget.dataset.on==='1'); break;
     case 'equipo-reset-clave':
       restablecerClaveUsuario(e.currentTarget.dataset.uid); break;
     case 'save-comision-pct': {

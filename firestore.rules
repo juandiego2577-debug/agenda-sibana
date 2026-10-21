@@ -7,7 +7,9 @@ rules_version = '2';
 // - Cada sede solo la puede leer/escribir su propio equipo, más los dueños.
 //   El equipo entra con la cuenta compartida de su sede o con su usuario
 //   personal (sibana-usuarios, ver más abajo).
-//   El equipo de Buenos Aires no puede ver nada de Santiago, ni al revés.
+//   El equipo de Buenos Aires no puede ver nada de Santiago, ni al revés (lo
+//   mismo Viña del Mar), salvo una especialista a la que un dueño le haya
+//   agregado otra sede (otrasSedes).
 //   El documento de la agenda nunca se puede borrar entero.
 // - Respaldos diarios ("<sede>_YYYY-MM-DD") y copias de antes de restaurar
 //   ("<sede>_antes-restaurar-<fecha>"): misma regla de sede, pero una vez
@@ -71,10 +73,14 @@ service cloud.firestore {
     function datosUsuario() {
       return get(/databases/$(database)/documents/sibana-usuarios/$(request.auth.uid)).data;
     }
+    // "otrasSedes": las sedes extra de una especialista que atiende en más de
+    // una (ej. Salomé en Santiago y Viña). Solo un dueño se las pone (Más →
+    // Equipo). Su "sede" sigue siendo la principal.
     function usuarioActivoDe(sede) {
       return tieneUsuario() && datosUsuario().activo == true
         && (datosUsuario().rol == 'duenos'
-            || (datosUsuario().rol == 'especialista' && datosUsuario().sede == sede));
+            || (datosUsuario().rol == 'especialista'
+                && (datosUsuario().sede == sede || sede in datosUsuario().get('otrasSedes', []))));
     }
     // Rol "lector": solo puede LEER la agenda de su sede (no guardar, ni ver
     // respaldos ni fichas). Es para el script de correos post-tratamiento, que
@@ -96,12 +102,14 @@ service cloud.firestore {
     // (ej. la del script de correos); las nuevas entran con su propio correo.
     function usuarioValido(d) {
       return d.keys().hasOnly(['usuario', 'nombre', 'nombreCompleto', 'email', 'sede', 'rol',
-                               'activo', 'creadoEn', 'actualizadoEn'])
+                               'activo', 'creadoEn', 'actualizadoEn', 'otrasSedes'])
         && (!('usuario' in d) || (d.usuario is string && d.usuario.matches('^[a-z0-9]{3,20}$')))
         && (!('nombreCompleto' in d) || (d.nombreCompleto is string && d.nombreCompleto.size() <= 80))
         && d.nombre is string && d.nombre.size() > 0 && d.nombre.size() <= 60
         && d.email is string && d.email.size() <= 100
-        && d.sede in ['santiago', 'buenosaires']
+        && d.sede in ['santiago', 'buenosaires', 'vina']
+        && (!('otrasSedes' in d) || (d.otrasSedes is list && d.otrasSedes.size() <= 3
+            && d.otrasSedes.hasOnly(['santiago', 'buenosaires', 'vina'])))
         && d.rol in ['especialista', 'duenos', 'lector']
         && d.activo is bool;
     }
@@ -229,6 +237,14 @@ service cloud.firestore {
       allow create: if request.auth != null && firmaValida(request.resource.data)
         && request.resource.data.size() <= 60;
       allow read, delete: if puedeSede('buenosaires');
+    }
+
+    // Viña del Mar (oct 2026): la MISMA ficha de Santiago (con RUT), abierta
+    // con ?sede=vina, guardada aparte. La lee y borra solo quien tiene acceso a
+    // Viña (y los dueños, que en el Panel Sibana ven las dos sedes).
+    match /sibana-consentimientos-vina/{ficha} {
+      allow create: if request.auth != null && fichaSantiagoValida(request.resource.data);
+      allow read, delete: if puedeSede('vina');
     }
 
     // ---------------- Certificados de cursos (19/10/2026) ----------------

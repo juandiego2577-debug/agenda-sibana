@@ -723,6 +723,22 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   footer.summary .stat{display:flex;flex-direction:column;}
   footer.summary .stat .lbl{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;}
   footer.summary .stat .val{font-family:var(--head);font-size:22px;font-weight:600;color:var(--gold-soft);}
+  /* Resumen de dinero (dueños, 21/10/2026): "Entró $X de $Y" con barrita,
+     las citas sin cerrar o "Todo cobrado", por método y citas. */
+  footer.summary.r2{display:grid;grid-template-columns:minmax(0,1.6fr) repeat(2,minmax(0,1fr));gap:14px 22px;align-items:start;}
+  .r2-main{display:grid;gap:6px;min-width:0;}
+  .r2-lbl{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;}
+  .r2-cifra{font-family:var(--head);font-weight:700;font-size:30px;line-height:1.05;color:var(--gold);font-variant-numeric:lining-nums tabular-nums;}
+  .r2-cifra small{font-family:var(--ui);font-weight:500;font-size:13px;color:var(--ink-soft);margin-left:6px;}
+  .r2-barra{height:7px;border-radius:5px;background:var(--tenue);overflow:hidden;}
+  .r2-barra i{display:block;height:100%;border-radius:5px;background:var(--metal);}
+  .r2-estado{font-size:13px;color:var(--ink-soft);display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+  .r2-estado b{color:var(--warn-text);}
+  .r2-estado.ok b{color:var(--ok-text);}
+  .r2-estado .linklike{font-size:12.5px;color:var(--gold);border-bottom:1px dotted var(--gold);}
+  .r2-col{display:grid;gap:4px;min-width:0;}
+  .r2-fila{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .r2-fila span:first-child{color:var(--ink-soft);min-width:0;overflow-wrap:anywhere;}
 
   /* ---------- Modal ---------- */
   .overlay{
@@ -1076,6 +1092,9 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     .appt-modal .row2{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
     footer.summary{gap:16px;padding:10px 14px;}
     footer.summary .stat .val{font-size:19px;}
+    footer.summary.r2{grid-template-columns:1fr 1fr;}
+    .r2-main{grid-column:1/-1;}
+    .r2-cifra{font-size:26px;}
     .modal{padding:18px 16px;}
     .field input,.field select,.field textarea{font-size:16px;} /* evita zoom automático en iOS */
     .modal-actions{flex-direction:column-reverse;align-items:stretch;}
@@ -4764,9 +4783,10 @@ function paymentBreakdown(appts){
   return porMetodo;
 }
 
-function summaryHtml(){
+// Las citas que cuenta el resumen de abajo (vista y especialista elegidas).
+function filtroCitasDelResumen(){
   const dateKey = toKey(ui.currentDate);
-  const appts = filterBySpecialist(
+  return filterBySpecialist(
     ui.view==='day' ? apptsForDate(dateKey) :
     ui.view==='week' ? (()=>{
       const start = startOfWeek(ui.currentDate);
@@ -4782,38 +4802,98 @@ function summaryHtml(){
       return all;
     })()
   );
+}
+function summaryHtml(){
+  const dateKey = toKey(ui.currentDate);
+  const appts = filtroCitasDelResumen();
   const total = appts.length;
   const personas = countPersonas(appts);
-  // El abono se lo quedan aunque la cita se cancele o la clienta no llegue, así que
-  // siempre cuenta como plata recibida — excepto si ya se contó antes en la cita
-  // original que se reagendó (abonoPrevio), porque ahí no entró plata nueva.
-  const abonos = appts.reduce((s,a)=>s+(a.abonoPrevio ? 0 : (Number(a.abono)||0)),0);
-  // Si la cita se canceló o no llegó, ya no queda nada pendiente de cobrar por ella
-  // (si la clienta reagenda, ese abono se descuenta del nuevo precio, pero eso es
-  // otra cita nueva, no esta).
-  const saldos = appts.reduce((s,a)=>{
-    if(a.estado==='Cancelada' || a.estado==='NoShow') return s;
-    return s + (Number(a.saldo)||0);
-  }, 0);
-  // El ingreso real de una cita cancelada o sin show es solo el abono, salvo que
-  // se haya devuelto (ver apptRevenue) — el servicio nunca se hizo, así que el
-  // resto del precio no debe contarse como ingreso.
-  const ingreso = appts.reduce((s,a)=> s + apptRevenue(a), 0);
   const isAdmin = ui.mode==='admin';
-  const breakdown = paymentBreakdown(appts);
-  const breakdownEntries = Object.keys(breakdown).sort((a,b)=>breakdown[b]-breakdown[a]);
-  return `
+  const periodo = ui.view==='day' ? 'este día' : ui.view==='week' ? 'esta semana' : 'este mes';
+  if(!isAdmin){
+    return `
     <footer class="summary">
       <div class="stat"><div class="lbl">Citas (${ui.view==='day'?'día':ui.view==='week'?'semana':'mes'})</div><div class="val">${total}</div></div>
       ${personasWorthShowing(appts) ? `<div class="stat"><div class="lbl">Personas atendidas</div><div class="val">${personas}</div></div>` : ''}
-      ${isAdmin ? `
-      <div class="stat"><div class="lbl">Abonos recibidos</div><div class="val">${fmtCLP(abonos)}</div></div>
-      <div class="stat"><div class="lbl">Falta por cobrar</div><div class="val">${fmtCLP(saldos)}</div></div>
-      <div class="stat"><div class="lbl">Ingreso total</div><div class="val">${fmtCLP(ingreso)}</div></div>
-      ${breakdownEntries.length ? `<div class="stat"><div class="lbl">Por método de pago</div><div class="val" style="font-size:13px;line-height:1.4;">${breakdownEntries.map(m=>`${escapeHtml(m)}: ${fmtCLP(breakdown[m])}`).join('<br>')}</div></div>` : ''}` : ''}
       ${ui.saving ? '<div class="stat"><div class="lbl">&nbsp;</div><div class="val" style="font-size:12px;color:var(--ink-soft)">Guardando…</div></div>' : ''}
+    </footer>`;
+  }
+  const r = resumenDinero(appts);
+  // ¿El período entero todavía no llega? Entonces no "entró" nada: se muestra lo esperado.
+  const primerDia = ui.view==='day' ? dateKey
+    : ui.view==='week' ? toKey(startOfWeek(ui.currentDate))
+    : toKey(new Date(ui.currentDate.getFullYear(), ui.currentDate.getMonth(), 1));
+  const futuro = primerDia > sedeNow().date;
+  const pct = r.esperado ? Math.min(100, Math.round(r.entro / r.esperado * 100)) : 0;
+  const metodos = Object.keys(r.porMetodo).sort((x,y)=>r.porMetodo[y]-r.porMetodo[x]);
+  const estado = !total ? '' : r.falta > 0
+    ? `<div class="r2-estado">⏳ <b>${r.sinCerrar.length} cita${r.sinCerrar.length===1?'':'s'} sin cerrar</b> · faltan ${fmtCLP(r.falta)} <button type="button" class="linklike" data-act="open-sin-cerrar">Ver cuáles</button></div>`
+    : `<div class="r2-estado ok">✅ <b>Todo cobrado</b></div>`;
+  return `
+    <footer class="summary r2">
+      <div class="r2-main">
+        <div class="r2-lbl">${futuro ? 'Esperado ' + periodo : 'Entró ' + periodo}</div>
+        <div class="r2-cifra">${fmtCLP(futuro ? r.esperado : r.entro)}${!futuro && r.falta>0 ? `<small>de ${fmtCLP(r.esperado)}</small>` : ''}</div>
+        ${futuro
+          ? `<div class="r2-estado">Si se hacen todas las citas${r.entro ? ' · abonos ya recibidos ' + fmtCLP(r.entro) : ''}</div>`
+          : `${total ? `<div class="r2-barra" aria-hidden="true"><i style="width:${pct}%"></i></div>` : ''}${estado}`}
+      </div>
+      <div class="r2-col"><div class="r2-lbl">Por método</div>${metodos.length
+        ? metodos.map(m=>`<div class="r2-fila"><span>${escapeHtml(m)}</span><span>${fmtCLP(r.porMetodo[m])}</span></div>`).join('')
+        : '<div class="r2-fila"><span>Todavía nada</span></div>'}</div>
+      <div class="r2-col"><div class="r2-lbl">Citas</div>
+        <div class="r2-fila"><span>Citas</span><span>${total}</span></div>
+        ${personasWorthShowing(appts) ? `<div class="r2-fila"><span>Personas atendidas</span><span>${personas}</span></div>` : ''}
+        ${ui.saving ? '<div class="r2-fila"><span>Guardando…</span></div>' : ''}
+      </div>
     </footer>
   `;
+}
+// Dinero de un grupo de citas (resumen de abajo, solo dueños). Una cita
+// cerrada (Realizada, o Cancelada/No llegó con su abono) ya entró completa
+// (apptRevenue); de una que todavía no se cierra solo entró su abono (salvo
+// que fuera de una cita anterior, abonoPrevio) y falta el resto. "Esperado" =
+// si se hacen todas. Por método: solo lo que ya entró. Antes "Falta por cobrar"
+// sumaba el saldo de TODAS las citas, también las ya cobradas, y nunca llegaba
+// a $0 (Juan Diego, 21/10/2026). Solo cambia cómo se muestra.
+function citaCerrada(a){ return a.estado==='Realizada' || a.estado==='Cancelada' || a.estado==='NoShow'; }
+function resumenDinero(appts){
+  let entro = 0, esperado = 0, falta = 0;
+  const sinCerrar = [];
+  appts.forEach(a=>{
+    const rev = apptRevenue(a);
+    esperado += rev;
+    if(citaCerrada(a)){ entro += rev; return; }
+    const ab = a.abonoPrevio ? 0 : (Number(a.abono)||0);
+    entro += ab;
+    falta += Math.max(rev - ab, 0);
+    sinCerrar.push(a);
+  });
+  // Lo que entró, por método: de las abiertas solo cuenta el abono.
+  const porMetodo = paymentBreakdown(appts.map(a=>citaCerrada(a) ? a : Object.assign({}, a, {saldo:0, montoSaldo2:0})));
+  return {entro, esperado, falta, sinCerrar, porMetodo};
+}
+// "Ver cuáles": las citas sin cerrar del período que se está viendo.
+function sinCerrarModalHtml(){
+  const lista = (ui.modal.lista||[]).slice().sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
+  return `
+  <div class="overlay" data-act="overlay-close">
+    <div class="modal" data-stop="1">
+      <h2 class="serif">⏳ Citas sin cerrar</h2>
+      <div class="hint">Se cuentan como dinero recibido cuando quedan Realizadas (o Canceladas / No llegó, con su abono). Toca una para abrirla.</div>
+      ${lista.length ? lista.map(a=>`
+        <div class="curso-row" data-act="edit-appt" data-id="${escapeHtml(a.id)}">
+          <div>
+            <div class="cr-name">${escapeHtml(a.client||'')} · ${fmtCLP(Math.max(apptRevenue(a) - (a.abonoPrevio ? 0 : (Number(a.abono)||0)), 0))}</div>
+            <div class="cr-rut">${escapeHtml(diaCorto(a.date))} ${escapeHtml(a.start||'')} · ${escapeHtml(apptServiciosTexto(a))}${a.specialist ? ' · ' + escapeHtml(a.specialist) : ''} · ${escapeHtml(a.estado==='Confirmada' ? 'Confirmada' : 'Pendiente')}</div>
+          </div>
+        </div>`).join('') : `<div class="empty-msg">No queda ninguna cita sin cerrar.</div>`}
+      <div class="modal-actions">
+        <div></div>
+        <div class="right"><button class="btn btn-ghost" data-act="close-modal">Cerrar</button></div>
+      </div>
+    </div>
+  </div>`;
 }
 
 function escapeHtml(s){
@@ -4878,6 +4958,7 @@ function modalHtml(){
   if(ui.modal.type==='cert-corregir') return certCorregirModalHtml();
   if(ui.modal.type==='cert-firmas') return certFirmasModalHtml();
   if(ui.modal.type==='sede') return sedeModalHtml();
+  if(ui.modal.type==='sin-cerrar') return sinCerrarModalHtml();
   if(ui.modal.type==='valores-sede') return valoresSedeModalHtml();
   if(ui.modal.type==='appt' && ui.mode!=='admin') return apptViewOnlyHtml(ui.modal.data);
   return apptModalHtml();
@@ -10950,6 +11031,10 @@ function onAction(e){
         showAlert('✅ Listo, el pago quedó guardado.');
       });
       break;
+    }
+    case 'open-sin-cerrar': {
+      ui.modal = {type:'sin-cerrar', lista: resumenDinero(filtroCitasDelResumen()).sinCerrar};
+      render(); break;
     }
     case 'edit-appt': {
       const id = e.currentTarget.dataset.id;

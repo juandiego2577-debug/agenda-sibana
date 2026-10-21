@@ -225,7 +225,7 @@ export async function recorrer(page, rol, fn) {
 // Huella de una pantalla: qué botones hay, en qué orden, con qué datos y textos.
 export async function huella(page) {
   return page.evaluate(() => {
-    const norm = t => (t || '').replace(/\p{Extended_Pictographic}|️|‍|[‹›]/gu, '').replace(/\s+/g, ' ').trim();
+    const norm = t => (t || '').replace(/\p{Extended_Pictographic}|️|‍|[‹›⋯]/gu, '').replace(/\s+/g, ' ').trim();
     const out = [];
     const raiz = [document.getElementById('root'), document.getElementById('custom-dialog')].filter(Boolean);
     for (const r of raiz) {

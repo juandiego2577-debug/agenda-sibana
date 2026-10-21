@@ -4128,8 +4128,8 @@ function sectionTabsHtml(){
   const isAdmin = ui.mode==='admin';
   const tab = (sec, label)=>`<button class="${(sec==='agenda' ? !['finanzas','stock','garantias','pagos'].includes(ui.section) : ui.section===sec)?'active':''}" data-act="goto-section" data-section="${sec}">${label}</button>`;
   const tabs = isAdmin
-    ? [tab('agenda',iconoSvg('agenda')+'Agenda'), tab('pagos',iconoSvg('pagos')+'Pagos'), tab('finanzas',iconoSvg('fin')+'Finanzas'), puedeVerGarantias() ? tab('garantias',iconoSvg('gar')+'Garantías') : '', tab('stock',iconoSvg('stock')+'Stock')]
-    : [tab('agenda',iconoSvg('agenda')+'Agenda'), tab('stock',iconoSvg('stock')+'Stock'), MIS_GANANCIAS_VISIBLE ? tab('finanzas',iconoSvg('pagos')+'Mi pago') : ''];
+    ? [tab('agenda',iconoSvg('agenda')+' Agenda'), tab('pagos',iconoSvg('pagos')+' Pagos'), tab('finanzas',iconoSvg('fin')+' Finanzas'), puedeVerGarantias() ? tab('garantias',iconoSvg('gar')+' Garantías') : '', tab('stock',iconoSvg('stock')+' Stock')]
+    : [tab('agenda',iconoSvg('agenda')+' Agenda'), tab('stock',iconoSvg('stock')+' Stock'), MIS_GANANCIAS_VISIBLE ? tab('finanzas',iconoSvg('pagos')+' Mi pago') : ''];
   return `
     <div class="section-tabs">
       ${tabs.join('')}

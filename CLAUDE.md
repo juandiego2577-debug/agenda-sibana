@@ -2082,6 +2082,25 @@ anterior" (pedido de él). Spec y plan: `docs/superpowers/`; sistema visual:
   el correo de aviso no siempre llega (depende de que quien transfiere ponga
   un correo). Las especialistas le mandan el comprobante y él lo revisa en el
   banco. No volver a proponerlo salvo que él lo pida.
+- **⚖️ Reparto de trabajo entre especialistas (21/10/2026, SIN publicar):** una
+  especialista tenía mucho más trabajo y Helen (de reemplazo) quiere trabajar
+  más seguido: Juan Diego quiere equilibrar a Salomé, Lucy y Helen. Decidido
+  con él: se mide en DINERO (precio de las citas, sin canceladas/no llegó ni
+  cursos, contando también las ya agendadas), en los últimos 28 días pero
+  **arrancando de cero el 22/10/2026** (`REPARTO_DESDE`: así Helen no tiene que
+  "recuperar" de golpe lo de antes; él va a avisarles a las especialistas).
+  Solo muestra, nunca elige sola: (1) recuadro "⚖️ Reparto de trabajo" al
+  final de Pagos (barra por especialista, raya de lo parejo, "conviene darle
+  las próximas citas a X" o "✅ Están parejas"); (2) en Nueva cita (dueños),
+  "⚖️ le falta trabajo" al lado de la que menos tiene entre las que se pueden
+  elegir (no bloqueadas), solo si está bajo el 85% del promedio. **El orden
+  por medallas de Garantías NO cambia** (él no quería que perdieran el
+  sentido) y **sin textos explicativos en el formulario** (lo pidió: ya es
+  largo). Quién entra: casilla "⚖️ Entra en el reparto de trabajo" en Más →
+  Especialistas (`s.reparto`; si nunca se tocó, en Santiago
+  `REPARTO_POR_DEFECTO` = Salomé, Lucy, Helen; en otra sede nadie). Sin
+  `APP_VERSION`. Probado: `reparto.mjs` (19) y `medidas.mjs` sin problemas
+  nuevos.
 
 ## Cómo se trabaja en este proyecto
 - **Siempre probar antes de entregar.** Este proyecto se construyó

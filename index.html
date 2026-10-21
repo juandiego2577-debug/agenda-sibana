@@ -606,6 +606,17 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .pago-suma div{display:flex;justify-content:space-between;padding:3px 0;}
   .pago-suma .neto{border-top:1px solid var(--line);margin-top:4px;padding-top:7px;font-weight:700;color:var(--gold);font-size:14px;}
   .pago-aviso{border:1px solid var(--warn);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;}
+  .reparto{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+  .reparto h3{margin:0 0 4px;font-size:22px;color:var(--ink);}
+  .reparto-fila{margin:12px 0;}
+  .reparto-top{display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:600;font-size:14px;}
+  .reparto-top > span:first-child{display:flex;align-items:center;gap:8px;}
+  .reparto-monto{font-family:var(--head);font-size:19px;font-variant-numeric:lining-nums tabular-nums;white-space:nowrap;}
+  .reparto-barra{position:relative;height:10px;background:var(--panel-2);border-radius:5px;margin-top:6px;}
+  .reparto-barra i{position:absolute;left:0;top:0;bottom:0;border-radius:5px;}
+  .reparto-meta{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink);}
+  .reparto-aviso{margin-top:12px;border-left:3px solid var(--warn);background:var(--tenue);border-radius:0 8px 8px 0;padding:9px 12px;font-size:13px;}
+  .reparto-aviso.ok{border-left-color:var(--ok);}
   .pago-aviso.peligro{border-color:var(--danger);}
   .pago-aviso.ok{border-color:var(--ok);}
   .pago-aviso.gan-proximas{border-color:var(--line);}
@@ -869,6 +880,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   }
   .spec-row{display:flex;gap:8px;align-items:center;margin-bottom:6px;}
   .spec-item{margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--line);}
+  .spec-reparto{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);margin:6px 0 2px;cursor:pointer;}
   .spec-perfil summary{cursor:pointer;font-size:12.5px;color:var(--ink);padding:2px 0;}
   .spec-perfil-head,.spec-perfil-row{display:grid;grid-template-columns:1fr 74px;gap:8px;align-items:center;}
   .spec-perfil-head{font-size:11px;color:var(--ink-soft);margin:0 0 4px;}
@@ -5510,6 +5522,81 @@ function sesionInicialDelForm(servicios){
   const v = id=>{ const el = document.getElementById(id); return el ? el.value : ''; };
   return sesionInicialDeRetoque(v('f-client'), servicios, v('f-date'), ui.modal && ui.modal.data && ui.modal.data.id);
 }
+// ⚖️ Reparto de trabajo (21/10/2026, pedido de Juan Diego: una especialista
+// tenía mucho más trabajo que las otras, y Helen quiere trabajar más). Se mide
+// en DINERO (precio de sus citas; decidido con él: por cantidad no es justo,
+// un Full Lips no vale lo mismo que un perfilado), sin canceladas/no llegó ni
+// cursos, contando también las citas ya agendadas (lo que importa al dar la
+// próxima cita es cuánto trabajo tiene cada una). Ventana: los últimos
+// REPARTO_DIAS días, pero nunca antes de REPARTO_DESDE (decidido: arranca de
+// cero, para que Helen no tenga que "recuperar" de golpe lo de antes). Solo
+// muestra (recuadro al final de Pagos y "⚖️ le falta trabajo" en la lista al
+// agendar, solo dueños): no cambia el orden de las medallas ni elige sola.
+// Quién entra: casilla en Más → Especialistas (s.reparto); si nunca se tocó,
+// en Santiago Salomé, Lucy y Helen. Campo dentro de cada especialista: no
+// exige subir APP_VERSION.
+const REPARTO_DESDE = '2026-10-22';
+const REPARTO_DIAS = 28;
+const REPARTO_POR_DEFECTO = ['salome','lucy','helen'];
+function entraEnReparto(s){
+  if(!s) return false;
+  if(s.reparto===true) return true;
+  if(s.reparto===false) return false;
+  return SEDE.id==='santiago' && REPARTO_POR_DEFECTO.includes(sinTildes(s.name));
+}
+function repartoDesdeKey(){
+  const ini = toKey(addDays(parseKey(sedeNow().date), -(REPARTO_DIAS-1)));
+  return ini > REPARTO_DESDE ? ini : REPARTO_DESDE;
+}
+function repartoDatos(){
+  const desde = repartoDesdeKey();
+  const filas = state.specialists.filter(entraEnReparto).map(s=>({name:s.name, color:s.color, monto:0, citas:0}));
+  if(filas.length < 2) return null;
+  const fila = nombre=> filas.find(f=>normalizeName(f.name)===normalizeName(nombre));
+  state.appointments.forEach(a=>{
+    if(!a.date || a.date < desde || a.cursoId) return;
+    if(a.estado==='Cancelada' || a.estado==='NoShow') return;
+    const f = fila(a.specialist);
+    if(!f) return;
+    f.monto += Number(a.price)||0; f.citas++;
+  });
+  const total = filas.reduce((t,f)=>t+f.monto, 0);
+  filas.forEach(f=>{ f.pct = total ? Math.round(f.monto*100/total) : 0; });
+  return {desde, filas, total, fila};
+}
+// De las que se pueden elegir en este momento, la que menos trabajo tiene
+// (solo si está claramente por debajo: menos del 85% del promedio).
+function leFaltaTrabajo(rep, nombres){
+  if(!rep) return [];
+  const cand = nombres.map(n=>rep.fila(n)).filter(Boolean);
+  if(cand.length < 2) return [];
+  const prom = cand.reduce((t,f)=>t+f.monto, 0) / cand.length;
+  const min = Math.min(...cand.map(f=>f.monto));
+  return prom > 0 && min < prom*0.85 ? cand.filter(f=>f.monto===min).map(f=>normalizeName(f.name)) : [];
+}
+function repartoPagosHtml(){
+  const rep = repartoDatos();
+  if(!rep) return '';
+  const d = parseKey(rep.desde);
+  const desdeTxt = rep.desde===REPARTO_DESDE ? `desde el ${d.getDate()} de ${MONTHS[d.getMonth()]}` : 'en las últimas 4 semanas';
+  const parejo = 100/rep.filas.length;
+  const falta = leFaltaTrabajo(rep, rep.filas.map(f=>f.name));
+  const nombresFalta = rep.filas.filter(f=>falta.includes(normalizeName(f.name))).map(f=>`<b>${escapeHtml(f.name)}</b>`);
+  return `
+    <div class="reparto">
+      <h3 class="serif">⚖️ Reparto de trabajo</h3>
+      <div class="hint" style="margin:0 0 12px;">Dinero de las citas de cada una ${desdeTxt}, contando las que ya están agendadas (sin canceladas ni cursos). La raya marca lo parejo.</div>
+      ${rep.filas.map(f=>`
+        <div class="reparto-fila">
+          <div class="reparto-top"><span>${inicialHtml(f.name, f.color)}${escapeHtml(f.name)}</span><span class="reparto-monto">${fmtCLP(f.monto)} · ${f.pct}%</span></div>
+          <div class="reparto-barra"><i style="width:${f.pct}%;background:${colorSeguro(f.color)}"></i><span class="reparto-meta" style="left:${parejo.toFixed(1)}%"></span></div>
+          <div class="hint" style="margin:3px 0 0;">${f.citas} cita${f.citas===1?'':'s'}</div>
+        </div>`).join('')}
+      ${!rep.total ? `<div class="hint" style="margin:10px 0 0;">Todavía no hay citas ${desdeTxt}.</div>`
+        : nombresFalta.length ? `<div class="reparto-aviso">⚖️ Para emparejar, conviene darle las próximas citas a ${nombresFalta.join(' y ')}.</div>`
+        : `<div class="reparto-aviso ok">✅ Están parejas.</div>`}
+    </div>`;
+}
 function opcionesEspecialistaHtml(servicios, actual, inicial, horario){
   const aptas = state.specialists.filter(s=>noHaceDe(s.name, servicios).length===0);
   // Si nadie hace todo lo elegido junto, se muestran todas (con el aviso).
@@ -5533,15 +5620,17 @@ function opcionesEspecialistaHtml(servicios, actual, inicial, horario){
   // Las que bloquearon ese horario van al final.
   const bloqueada = nombre=> !!bloqueoDeEspecialista(nombre, horario);
   ordenada.sort((x,y)=> bloqueada(x.name) - bloqueada(y.name));
+  const falta = esDueno() ? leFaltaTrabajo(repartoDatos(), ordenada.filter(s=>!bloqueada(s.name)).map(s=>s.name)) : [];
+  const balanza = nombre=> falta.includes(normalizeName(nombre)) ? ' · ⚖️ le falta trabajo' : '';
   return `<option value="">— Sin asignar —</option>${extra}` + ordenada.map(s=>{
-    const falta = aptas.length ? [] : noHaceDe(s.name, servicios);
+    const noHaceS = aptas.length ? [] : noHaceDe(s.name, servicios);
     const f = filaDe(s.name);
     const gar = f ? ` ${f.medalla ? f.medalla+' ' : ''}${f.pct}% bien · ${f.c.n} trabajo${f.c.n===1?'':'s'}` : '';
     const ini = esInicial(s.name) ? ' ⭐' : ''; // corto a pedido de Juan Diego; el detalle va en el mensaje de abajo
     if(bloqueada(s.name)){
       return `<option value="${escapeHtml(s.name)}" ${actual===s.name?'selected':'disabled'}>${escapeHtml(s.name)}${ini} 🚫 bloqueó esta hora</option>`;
     }
-    return `<option value="${escapeHtml(s.name)}" ${actual===s.name?'selected':''}>${escapeHtml(s.name)}${ini}${ini ? '' : gar}${falta.length ? ` (no hace ${escapeHtml(summarizeServices(falta))})` : ''}</option>`;
+    return `<option value="${escapeHtml(s.name)}" ${actual===s.name?'selected':''}>${escapeHtml(s.name)}${ini}${ini ? '' : gar}${balanza(s.name)}${noHaceS.length ? ` (no hace ${escapeHtml(summarizeServices(noHaceS))})` : ''}</option>`;
   }).join('');
 }
 function filtroEspecialistaHint(servicios, actual, inicial, horario){
@@ -6019,6 +6108,7 @@ function specialistsModalHtml(){
       <button class="iconbtn" data-act="remove-specialist" data-idx="${i}">✕</button>
     </div>
     ${perfilEspecialistaHtml(s, i)}
+    <label class="spec-reparto"><input type="checkbox" data-spec-reparto="${i}" ${entraEnReparto(s)?'checked':''}> ⚖️ Entra en el reparto de trabajo (Pagos)</label>
     </div>`).join('');
   return `
   <div class="overlay" data-act="overlay-close">
@@ -7349,7 +7439,8 @@ function pagosPageHtml(){
     <div class="hint" style="margin-bottom:10px;">Toca a cada especialista para ver de dónde sale su número: cada cita con su cuenta, los vales y los ajustes.</div>
     ${tarjetas}
     ${pagosHistorialHtml()}
-    <div class="hint" style="margin-top:16px;">Cómo se calcula: a cada micropigmentación ${SEDE.descuentoMicro && SEDE.descuentoMicro.soloPrecioNuevo ? '(con los precios nuevos) ' : ''}se le restan ${descuentoMicroTexto()} que quedan para el negocio, y lo que queda se divide ${Math.round(comisionPctForMonth(w.start.getFullYear(), w.start.getMonth())*100)}% para la especialista. Lo demás (lifting, perfilado, retoques, cursos…) se divide directo. La crema es 100% del negocio. Si la clienta cancela o no llega, el abono queda entero para el negocio. Los vales sacados en la semana se restan.</div>`;
+    <div class="hint" style="margin-top:16px;">Cómo se calcula: a cada micropigmentación ${SEDE.descuentoMicro && SEDE.descuentoMicro.soloPrecioNuevo ? '(con los precios nuevos) ' : ''}se le restan ${descuentoMicroTexto()} que quedan para el negocio, y lo que queda se divide ${Math.round(comisionPctForMonth(w.start.getFullYear(), w.start.getMonth())*100)}% para la especialista. Lo demás (lifting, perfilado, retoques, cursos…) se divide directo. La crema es 100% del negocio. Si la clienta cancela o no llega, el abono queda entero para el negocio. Los vales sacados en la semana se restan.</div>
+    ${repartoPagosHtml()}`;
 }
 function pagoEspecialistaHtml(g, w){
   const abierto = !!ui.pagoAbiertos[normalizeName(g.name)];
@@ -11976,6 +12067,10 @@ function saveSpecialistsFromForm(){
     // Solo se anota si cambió respecto de lo que ya valía (así no se escribe
     // nada si solo se tocó un nombre o un color).
     if((boxDeEspecialista(state.specialists[i].name)||'libre') !== v) state.specialists[i].box = v;
+  });
+  document.querySelectorAll('[data-spec-reparto]').forEach(cb=>{
+    const sp = state.specialists[Number(cb.dataset.specReparto)];
+    if(sp && entraEnReparto(sp) !== cb.checked) sp.reparto = cb.checked;
   });
   // Perfil: qué hace y su propio tiempo. Solo se escribe si cambió.
   state.specialists.forEach((sp,i)=>{

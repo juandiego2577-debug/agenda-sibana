@@ -1945,6 +1945,44 @@ para servir también a **Copiapó**, de la siguiente forma:
   considera instalable (`Page.getInstallabilityErrors` vacío). Probado:
   e2e (Android, iPhone, Instagram, instalada, computador, Santiago y BA).
 
+## Rediseño visual (oct 2026, rama `claude/rediseno-visual`, SIN publicar)
+Pedido por Juan Diego ("funciona perfectamente, pero se ve anticuada"). Solo
+cambia cómo se ve: ningún botón cambia de lugar ni de orden, ninguna función ni
+dato cambia (no hubo que subir `APP_VERSION`). Se lanza **todo de una vez**, un
+día tranquilo después de la última cita; sin botón de "volver al diseño
+anterior" (pedido de él). Spec y plan: `docs/superpowers/`; sistema visual:
+`DESIGN.md`.
+- **Colores en variables** (`:root` oscuro, `:root[data-tema="claro"]` claro).
+  Un color nuevo va como variable, con su reemplazo en `TEMA_BANDERA_ARGENTINA`
+  (y su valor claro en el `extra` de BA). `pruebas/rediseno/colores.mjs` falla
+  si aparece un color suelto.
+- **Letras propias** en `fonts/` (Montserrat + Cormorant Garamond, números
+  rectos: el "9 raro" de los números antiguos fue rechazado). Letra mínima 11 px
+  (`letras.mjs`). Logo "Sibana" sin "Academia PMU" (`LOGO_SRC`, transparente) y
+  `LOGO_ICONO_SRC` (solo el rostro) para la pantalla de carga.
+- **Íconos** `iconoSvg()` solo en barra de arriba, pestañas y barra de
+  herramientas, con el color del emoji de antes (Bloquear rojo, Vale/Pagos
+  verde…). Botón principal dorado metálico (`--metal`; en BA celeste).
+- **Vista Día**: ficha teñida por estado; `ajustarFichasDia` (después de cada
+  `render()`, al cargar la letra y al cambiar el tamaño) deja solo líneas
+  enteras. `COMPACT_HEIGHT_PX` sigue en 50 (con 40 cambiaba el texto de las
+  citas de 45 min). "Sin abono" siempre visible (palabra o ícono); el ✍️ de
+  "Falta firmar" en fichas angostas va ABAJO a la derecha.
+- **Modo claro**: botón sol/luna (`toggle-tema`) primero a la derecha de la
+  barra de arriba, igual para todos; `localStorage.sibanaTema`, aplicado en el
+  `<head>` (sin destello). Por defecto oscuro. La barra del logo queda negra.
+- Encontrado y corregido de paso (ya pasaba en la versión publicada): con 6
+  especialistas a 1024 px "+ Nueva cita" bajaba a la 2da fila; el menú Más se
+  salía de la pantalla a 768 px (ahora se abre hacia donde quepa); en las citas
+  de 1 h el tratamiento quedaba cortado a la mitad.
+- **Pruebas** (`pruebas/rediseno/`, ver LEEME; datos inventados contra los
+  emuladores): `paridad.mjs` compara pantalla por pantalla con la versión
+  publicada `b5082a2` (mismos botones, orden y textos; ~154 pantallas),
+  `medidas.mjs` (nada cortado ni fuera de pantalla, 7 anchos × 2 modos × 2
+  sedes), `dia.mjs`, `barra.mjs`, `tema.mjs`, `menu.mjs`, `colores.mjs`,
+  `letras.mjs`, `capturas.mjs`. Un cambio futuro de diseño debe pasar
+  `paridad.mjs` (con la versión publicada del momento como `ANTES`).
+
 ## Cómo se trabaja en este proyecto
 - **Siempre probar antes de entregar.** Este proyecto se construyó
   simulando Firebase con mocks (Playwright + un `window.firebase` falso)

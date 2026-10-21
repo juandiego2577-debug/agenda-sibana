@@ -1040,6 +1040,11 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     .btn[data-act="new-block"]{order:7;flex:1;}
     button.btn-primary[data-act="new-appt"]{order:8;flex:1.3;}
     .status-legend{padding:6px 16px 10px;gap:4px 12px;font-size:11.5px;}
+    /* Botones y campos chicos: al menos ~36 px de alto para el dedo */
+    .svc-qty-btn{width:36px;height:36px;}
+    .spec-row select,.spec-row input[type=text],.sched-day-row select,.exp-row input,.exp-row select,.stock-row input,.stock-row select,.svc-row input{min-height:38px;}
+    .gasto-info{min-height:38px;}
+    .client-delete-btn{padding:11px 2px;}
     .calendar-wrap{padding:12px 10px;}
     .timecol{width:46px;}
     .timecol .slot{font-size:11px;padding-right:6px;}

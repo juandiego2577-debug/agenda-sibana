@@ -277,7 +277,8 @@ export async function revisarMedidas(page) {
       const own = [...t.childNodes].some(n => n.nodeType === 3 && n.nodeValue.trim());
       if (!own) continue;
       const s = getComputedStyle(t);
-      if (t.scrollWidth > t.clientWidth + 1 && /hidden|clip/.test(s.overflowX) && s.textOverflow !== 'ellipsis') out.push('CORTADO-LADO ' + lbl(t));
+      // (un texto oculto a propósito para lectores de pantalla mide 1 px: no cuenta)
+      if (t.clientWidth > 2 && t.scrollWidth > t.clientWidth + 1 && /hidden|clip/.test(s.overflowX) && s.textOverflow !== 'ellipsis') out.push('CORTADO-LADO ' + lbl(t));
       if (parseFloat(s.fontSize) < 11) out.push('LETRA-CHICA ' + s.fontSize + ' ' + lbl(t));
     }
     if (W <= 600) for (const b of todos.filter(e => e.matches('button,select,input:not([type=checkbox]):not([type=radio]),[data-act]'))) {

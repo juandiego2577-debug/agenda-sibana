@@ -404,8 +404,13 @@ publica DESPUÉS del rediseño.
 - Probado contra los emuladores: `pruebas/rediseno/reglas-vina.mjs` (32),
   `vina.mjs` (43: crear, precios, comisión, datos separados, Equipo, Salomé
   con dos sedes, especialistas de una sola sede sin cambios),
-  `ficha-vina.mjs` (ficha y Panel), más `medidas.mjs`/`paridad.mjs` del
-  rediseño.
+  `ficha-vina.mjs` (14: ficha y Panel; con `REGLAS=<reglas viejas>` comprueba
+  que sin pegar las reglas el Panel sigue mostrando Santiago sin error, pero
+  el QR de Viña NO guarda fichas: no usarlo hasta pegar las reglas), más
+  `medidas.mjs` (0 problemas nuevos en Santiago; en Viña solo los mismos que
+  ya tiene Santiago) y `paridad.mjs` contra el rediseño `60c3ce0` (diferencias
+  solo en pantallas de dueños: el nombre de la sede junto al logo, Viña en la
+  lista de sedes y "＋ También en…" en Equipo; especialistas sin cambios).
 
 ## Posible extensión a Copiapó (en pausa, probablemente no se haga)
 **Actualización (oct 2026):** la sede de Copiapó al parecer prefiere seguir

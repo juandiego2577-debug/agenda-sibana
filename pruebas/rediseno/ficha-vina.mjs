@@ -11,7 +11,7 @@ import { createRequire } from 'module';
 import { AGENDA_DIR, CLAVE, CORREO_DUENOS } from './comun.mjs';
 const FICHA_DIR = path.resolve(process.env.FICHA_DIR || path.join(AGENDA_DIR, '..', 'sibana-consentimiento'));
 const NM = path.dirname(createRequire(import.meta.url).resolve('firebase/package.json'));
-const env = await initializeTestEnvironment({ projectId: 'sibana-santiago', firestore: { rules: fs.readFileSync(AGENDA_DIR + '/firestore.rules', 'utf8'), host: '127.0.0.1', port: 8080 } });
+const env = await initializeTestEnvironment({ projectId: 'sibana-santiago', firestore: { rules: fs.readFileSync(process.env.REGLAS || (AGENDA_DIR + '/firestore.rules'), 'utf8'), host: '127.0.0.1', port: 8080 } });
 await env.clearFirestore();
 await fetch('http://127.0.0.1:9099/emulator/v1/projects/sibana-santiago/accounts', { method: 'DELETE' });
 const alta = async email => (await (await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signUp?key=x', { method: 'POST',

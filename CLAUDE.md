@@ -2074,6 +2074,14 @@ anterior" (pedido de él). Spec y plan: `docs/superpowers/`; sistema visual:
   nunca las dos) y la Ciudad de ejemplo es la de la sede. Probado:
   `ficha-vina.mjs` (34: incluye llenar la ficha entera en un teléfono y firmar
   con toques de dedo reales, y que la firma guardada sea un PNG con trazo).
+  Abierto desde la agenda, el botón de arriba del Panel dice "Volver a la
+  agenda" (cierra esa pestaña).
+- **Verificación de transferencias (21/10/2026): MANUAL, no construir nada.**
+  Se evaluó leer los correos de aviso de Santander Office Banking con un Apps
+  Script y una casilla "Revisé en el banco": Juan Diego decidió que no, porque
+  el correo de aviso no siempre llega (depende de que quien transfiere ponga
+  un correo). Las especialistas le mandan el comprobante y él lo revisa en el
+  banco. No volver a proponerlo salvo que él lo pida.
 
 ## Cómo se trabaja en este proyecto
 - **Siempre probar antes de entregar.** Este proyecto se construyó

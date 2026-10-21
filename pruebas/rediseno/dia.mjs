@@ -33,7 +33,7 @@ for (const largos of [false, true]) {
       const c3 = ficha('c3'), c7 = ficha('c7');
       const seVe = (c, sel) => !!c && [...c.querySelectorAll(sel)].some(vis);
       return { out, c3: !!c3, c3serv: seVe(c3, '.t-service'), c3nombre: seVe(c3, '.t-name,.t-name-compact'),
-        c3sinAbono: seVe(c3, '.no-abono-badge'), c7sinAbono: seVe(c7, '.no-abono-badge'), c3firma: seVe(c3, '.firma-badge,.firma-esquina') };
+        c3sinAbono: seVe(c3, '.no-abono-badge'), c3sinAbonoTexto: !!c3 && [...c3.querySelectorAll('.no-abono-badge .txt')].some(e => vis(e) && e.getBoundingClientRect().width > 20), c7sinAbono: seVe(c7, '.no-abono-badge'), c3firma: seVe(c3, '.firma-badge,.firma-esquina') };
     });
     const k = `${rol} ${ancho}px${zoom !== 100 ? ' letra ' + zoom + '%' : ''}${largos ? ' nombres largos' : ''}`;
     pruebas++;
@@ -42,6 +42,7 @@ for (const largos of [false, true]) {
       ok(r.c3nombre, `${k}: la cita de 1 h (Emma) muestra el nombre`);
       ok(r.c3serv, `${k}: la cita de 1 h (Emma) muestra el tratamiento`);
       ok(r.c3sinAbono, `${k}: Emma muestra "Sin abono"`);
+      if (ancho >= 390) ok(r.c3sinAbonoTexto, `${k}: en Emma "Sin abono" se lee en palabras (hay espacio)`);
       ok(r.c7sinAbono, `${k}: Valentina (30 min) muestra "Sin abono"`);
       ok(r.c3firma, `${k}: Emma muestra "Falta firmar"`);
     }

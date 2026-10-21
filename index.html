@@ -398,7 +398,6 @@
   .no-abono-badge{display:inline-flex;align-items:center;gap:3px;background:var(--warn-ink);color:var(--on-accent);font-size:11px;line-height:15px;font-weight:700;padding:0 7px;border-radius:999px;flex-shrink:0;white-space:nowrap;}
   .no-abono-badge .ico{display:none;width:12px;height:12px;stroke-width:2.4;}
   @container (max-width:185px){ .appt .fin{display:none;} }
-  @container (max-width:130px){ .no-abono-badge{padding:2px;} .no-abono-badge .ico{display:block;} .no-abono-badge .txt{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);} }
   .appt.angosta .fin{display:none;}
   .appt.angosta .no-abono-badge{padding:2px;} .appt.angosta .no-abono-badge .ico{display:block;}
   .appt.angosta .no-abono-badge .txt{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}
@@ -1607,14 +1606,14 @@ const DEFAULT_SETTINGS = {
 const HOUR_START = 8;
 const HOUR_END = 21;
 const SLOT_PX = 56; // px per hour
-// Bajo esta altura una ficha va en UNA sola línea (hora + nombre…). Rediseño
-// (oct 2026): desde esta altura caben hora y nombre; el tratamiento se muestra
+// Bajo esta altura una ficha va en UNA sola línea (hora + "nombre · tratamiento").
+// Se mantiene el valor de antes (50) para que las fichas digan lo mismo que
+// antes. Rediseño (oct 2026): desde esta altura, el tratamiento se muestra
 // solo si cabe ENTERO (ajustarFichasDia lo esconde si no, nunca a la mitad).
-// Medido con la letra nueva (Montserrat): hora 13 px + nombre 16 px + 8 de
-// relleno + 2 de borde = 39 px → 40 con margen. Una cita de 1 h (56 px) muestra
-// las 3 líneas (13+16+15+10 = 54). Si se cambia la letra o el relleno de
-// .appt, volver a medir (pruebas/rediseno/dia.mjs).
-const COMPACT_HEIGHT_PX = 40;
+// Con la letra nueva una cita de 1 h (56 px) muestra las 3 líneas
+// (13+16+15+10 = 54). Si se cambia la letra o el relleno de .appt, volver a
+// medir con pruebas/rediseno/dia.mjs.
+const COMPACT_HEIGHT_PX = 50;
 
 let state = {
   appointments: [], // {id,date:'YYYY-MM-DD',start:'HH:MM',end:'HH:MM',client,phone,services:[],price,specialist,estado,abono,metodoAbono,saldo,metodoSaldo,notas}
@@ -2655,6 +2654,11 @@ function ajustarFichasDia(raiz){
     if(sobra()) c.classList.add('apretada');
   });
 }
+// Se vuelven a medir cuando termina de cargar la letra (antes de eso el
+// navegador usa otra más ancha) y al cambiar el tamaño de la pantalla.
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>ajustarFichasDia(document));
+let ajusteFichasTimer = null;
+window.addEventListener('resize', ()=>{ clearTimeout(ajusteFichasTimer); ajusteFichasTimer = setTimeout(()=>ajustarFichasDia(document), 120); });
 // Íconos de línea (rediseño oct 2026) para la barra de arriba, las pestañas y
 // la barra de herramientas. Cada uno con el color del emoji que había antes.
 const ICONOS = {

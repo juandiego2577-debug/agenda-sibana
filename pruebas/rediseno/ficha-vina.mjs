@@ -60,7 +60,8 @@ ok('sin errores (ficha Viña)', errores.length === 0, errores.join(' | '));
 await ctx.close();
 
 ({ page, ctx, errores } = await abrir(''));
-ok('sin ?sede: la ficha de siempre (sin "VIÑA DEL MAR", Ciudad vacía)', !(await page.textContent('.brand .sub')).includes('VIÑA') && await page.inputValue('[data-bind="ciudad"]') === '');
+ok('sin ?sede: Santiago (dice "SANTIAGO", no Viña; Ciudad vacía)', (await page.textContent('.brand .sub')).includes('· SANTIAGO') && !(await page.textContent('.brand .sub')).includes('VIÑA') && await page.inputValue('[data-bind="ciudad"]') === '');
+await page.screenshot({ path: (process.env.FOTO || '/tmp') + '/ficha_santiago.png' });
 await ctx.close();
 
 console.log('Panel Sibana');

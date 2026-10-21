@@ -36,8 +36,8 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     short_name: "Agenda Sibana",
     start_url: ".",
     display: "standalone",
-    background_color: "#0C0B0A",
-    theme_color: "#0C0B0A",
+    background_color: "#100d09",
+    theme_color: "#100d09",
     icons: [
       {src: iconHref, sizes: "200x200", type: "image/png", purpose: "any maskable"}
     ]
@@ -103,9 +103,14 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     --on-accent:#1B1710;  /* texto sobre dorado */
     --firma-bg:#fdfaf3;   /* fondo de las firmas (tinta oscura) */
     --sombra:0 6px 16px -8px rgba(0,0,0,.75);
+    /* Texto de aviso/ok/error y relleno dorado de "elegido" (con contraste AA en los dos modos) */
+    --warn-text:#E7B25A; --ok-text:#62c08f; --danger-text:#E58A8A; --gold-fill:#F0D889;
+    --firma-cert-bg:#1a1712;  /* firmas de los certificados: tinta dorada, fondo oscuro en los dos modos */
+    --cerrado-a:rgba(241,232,214,.045); --cerrado-b:rgba(241,232,214,.008); /* rayas de horas cerradas */
+    --tenue:rgba(241,232,214,.06);    /* fondos y divisores muy suaves */
     /* Botón principal: dorado metálico (igual en los dos modos) */
     --metal:linear-gradient(100deg,#a8832a 0%,#e3c46c 28%,#fbe9ad 46%,#d4af37 64%,#a47c22 100%);
-    --metal-ink:#1a1205; --metal-borde:#e9cd7b;
+    --metal-ink:#1a1205; --metal-borde:#e9cd7b; --metal-luz:rgba(255,250,225,.55);
     /* Íconos: el color del emoji que había antes, para reconocerlos igual */
     --ic-agenda:#e8836f; --ic-pagos:#62c08f; --ic-fin:#79aee6; --ic-gar:#f1c84b;
     --ic-stock:#d4a06a; --ic-vale:#62c08f; --ic-buscar:#a9bccd; --ic-bloq:#ec7f7f;
@@ -125,6 +130,8 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     --sombra:0 6px 14px -8px rgba(90,65,10,.45);
     --ic-agenda:#c95f4b; --ic-pagos:#2f8a5c; --ic-fin:#3f7fbf; --ic-gar:#b88a12;
     --ic-stock:#a87538; --ic-vale:#2f8a5c; --ic-buscar:#5f7286; --ic-bloq:#c94f4f;
+    --warn-text:#8a5a00; --ok-text:#2f7d55; --danger-text:#a83c3c; --gold-fill:#e3c46c; --wine-dark:#2a1f05;
+    --cerrado-a:rgba(60,45,15,.075); --cerrado-b:rgba(60,45,15,.02); --tenue:rgba(60,45,15,.06);
   }
   :root[data-tema="claro"] header.topbar{
     --ink:#F1E8D6; --ink-soft:#C4B694; --mute:#A09378; --gold:#F0D889; --wine:#C9A227;
@@ -154,7 +161,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   /* Cormorant Garamond: títulos, fechas grandes y montos. Sus números "antiguos"
      (que suben y bajan, el "9 raro") se reemplazan siempre por rectos y parejos. */
   h1,h2,h3,.serif{font-family:var(--head);font-weight:700;}
-  h1,h2,h3,.serif,[style*="--head"],.curdate,.wd-num,.mc-num,.val,.pago-neto,.gs-grande,.cobrar-amount,.auth-title,.loading-text{font-variant-numeric:lining-nums tabular-nums;}
+  h1,h2,h3,.serif,[style*="--head"],.t-service,.curdate,.wd-num,.mc-num,.val,.pago-neto,.gs-grande,.cobrar-amount,.auth-title,.loading-text{font-variant-numeric:lining-nums tabular-nums;}
 
   /* ---------- Header (rediseño oct 2026: barra negra con el logo, también en modo claro) ---------- */
   header.topbar{
@@ -231,7 +238,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .btn-primary{
     background:var(--metal);
     color:var(--metal-ink);border-color:var(--metal-borde);font-weight:700;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.55),inset 0 -1px 0 rgba(0,0,0,.25),var(--sombra);
+    box-shadow:inset 0 1px 0 var(--metal-luz),inset 0 -1px 0 rgba(0,0,0,.25),var(--sombra);
   }
   .mas-circulo{width:20px;height:20px;border-radius:50%;display:inline-grid;place-items:center;background:var(--metal-ink);color:var(--gold);font-size:15px;font-weight:700;line-height:1;}
   .btn-ghost{background:var(--panel);color:var(--ink);border-color:var(--line);}
@@ -313,7 +320,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     display:block;width:100%;text-align:left;background:none;border:none;
     padding:11px 14px;font-size:13.5px;color:var(--ink);cursor:pointer;font-family:var(--ui);
   }
-  .moremenu button:hover{background:var(--panel);}
+  .moremenu button:hover{background:color-mix(in oklab,var(--wine) 12%,var(--panel));}
   .moremenu hr{border:none;border-top:1px solid var(--line);margin:4px 0;}
   .moremenu-label{
     padding:8px 14px 4px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;
@@ -339,7 +346,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .gridcol .emptyclick:hover{background:color-mix(in oklab,var(--wine) 7%,transparent);}
   .gridcol .blocked{
     position:absolute;left:0;right:0;
-    background:repeating-linear-gradient(45deg, rgba(255,255,255,0.035) 0 8px, rgba(255,255,255,0.005) 8px 16px);
+    background:repeating-linear-gradient(45deg, var(--cerrado-a) 0 8px, var(--cerrado-b) 8px 16px);
     pointer-events:none;
   }
   .day-closed-msg{text-align:center;color:var(--ink-soft);font-size:13px;padding:14px 8px 0;line-height:1.5;}
@@ -360,7 +367,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     container-type:inline-size;
   }
   .appt .t-time{font-size:11px;line-height:13px;font-weight:600;color:var(--ink-soft);display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums;}
-  .appt .spec-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .appt .spec-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 1.5px color-mix(in oklab,var(--ink) 55%,transparent);}
   .appt .t-name{font-size:13px;line-height:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .appt .t-service{font:italic 500 14px/15px var(--head);color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .appt.sin-serv .t-service{display:none;}
@@ -400,18 +407,17 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .reloj-opciones .reloj-titulo{font-size:12px;color:var(--ink-soft);margin:0 0 8px 2px;}
   .reloj-grilla{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
   .reloj-op{font:inherit;font-size:18px;padding:10px 0;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);cursor:pointer;}
-  .reloj-op.on{background:var(--gold);border-color:var(--gold);color:var(--on-accent);font-weight:700;}
+  .reloj-op.on{background:var(--gold-fill);border-color:var(--gold);color:var(--on-accent);font-weight:700;}
   .bloqueo-quien{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);font-weight:600;}
   .block-kind{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px;}
   .block-kind label{flex:1;text-align:center;padding:9px 4px;font-size:13px;cursor:pointer;color:var(--ink-soft);}
   .block-kind input{display:none;}
-  .block-kind label.on{background:var(--gold);color:var(--on-accent);font-weight:700;}
+  .block-kind label.on{background:var(--gold-fill);color:var(--on-accent);font-weight:700;}
   .personas-badge{background:var(--badge-bg);color:var(--badge-ink);font-size:11px;font-weight:700;padding:1px 6px;border-radius:999px;flex-shrink:0;white-space:nowrap;margin-left:4px;}
   .firma-badge{background:var(--badge-bg);color:var(--badge-ink);font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;flex-shrink:1;min-width:22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   /* En una ficha angosta (varias citas a la misma hora, sobre todo en el
      teléfono) la etiqueta no cabe: se cambia por un ✍️ en la esquina. */
   #f-specialist option:disabled{color:var(--ink-soft);opacity:.6;}
-  .appt.con-firma{}
   .firma-esquina{display:none;position:absolute;bottom:3px;right:3px;font-size:11px;line-height:1;padding:1px 3px;border-radius:999px;background:var(--badge-bg);z-index:1;}
   /* El ✍️ va abajo a la derecha (arriba le quitaba el lugar a "Sin abono") */
   @container (max-width:170px){ .firma-badge{display:none;} .firma-esquina{display:block;} .appt.con-firma .t-name,.appt.con-firma .t-service,.appt.con-firma .t-name-compact{padding-right:20px;} }
@@ -470,7 +476,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .weekday.today{outline:2px solid var(--gold);}
   .weekday .wd-label{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.5px;}
   .weekday .wd-num{font-family:var(--head);font-size:24px;font-weight:600;}
-  .weekday .wd-count{font-size:12px;color:var(--wine);font-weight:600;margin-top:auto;}
+  .weekday .wd-count{font-size:12px;color:var(--gold);font-weight:600;margin-top:auto;}
   .weekday .wd-rev{font-size:11.5px;color:var(--ink-soft);}
 
   /* ---------- Month view ---------- */
@@ -487,7 +493,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .month-cell.other-month{opacity:.35;}
   .month-cell.today{outline:2px solid var(--gold);}
   .month-cell .mc-num{font-family:var(--head);font-size:17px;font-weight:600;}
-  .month-cell .mc-count{display:none;font-size:11px;color:var(--wine);font-weight:600;}
+  .month-cell .mc-count{display:none;font-size:11px;color:var(--gold);font-weight:600;}
   .month-cell .mc-event{
     font-size:11px;line-height:1.35;padding:2px 5px;border-radius:5px;
     background:color-mix(in oklab,var(--wine) 16%,transparent);color:var(--ink);
@@ -496,7 +502,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   }
   .month-cell .mc-event .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
   .month-cell .mc-more{font-size:11px;color:var(--ink-soft);padding-left:5px;}
-  .month-cell .mc-rev{font-size:11px;color:var(--wine);margin-top:auto;font-weight:600;}
+  .month-cell .mc-rev{font-size:11px;color:var(--gold);margin-top:auto;font-weight:600;}
   @media (max-width:720px){
     .month-cell{min-height:52px;padding:4px 5px;}
     .month-cell .mc-event, .month-cell .mc-more, .month-cell .mc-rev{display:none;}
@@ -575,7 +581,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .gar-pct{font-size:12.5px;color:var(--ink-soft);white-space:nowrap;}
   .gar-pct b{font-size:15px;color:var(--ink);}
   .gar-rank .gar-rec{margin-top:4px;}
-  .gar-ojo{color:var(--warn);}
+  .gar-ojo{color:var(--warn-text);}
   .gar-quien{font-size:13.5px;display:flex;align-items:center;gap:6px;min-width:0;overflow-wrap:anywhere;}
   .gar-quien .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
   .gar-barra{height:10px;border-radius:5px;background:var(--line);overflow:hidden;}
@@ -593,7 +599,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .pago-aviso.ok{border-color:var(--ok);}
   .pago-aviso.gan-proximas{border-color:var(--line);}
   .pago-fila.por-cerrar > div:first-child > div:first-child, .pago-fila.por-cerrar .monto s{opacity:.75;}
-  .pago-fila .pago-cierre{color:var(--warn);}
+  .pago-fila .pago-cierre{color:var(--warn-text);}
   .gan-page{max-width:720px;}
   .gan-total .val{font-size:28px;}
   .gan-total.pagado{border-color:var(--ok);}
@@ -609,14 +615,14 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .gs-linea.total{font-weight:700;color:var(--gold);border-top:1px solid var(--line);}
   .gs-linea.chica{font-size:13.5px;}
   .gs-no-vino{color:var(--ink-soft);}
-  .gs-pista{text-align:center;font-size:12.5px;color:var(--warn);margin-top:8px;}
+  .gs-pista{text-align:center;font-size:12.5px;color:var(--warn-text);margin-top:8px;}
   .gs-titulo{font-weight:600;font-size:15px;margin-bottom:6px;}
   .gs-cerrar{display:flex;width:100%;justify-content:space-between;align-items:center;gap:10px;text-align:left;background:none;border:0;border-top:1px solid var(--line-soft);border-radius:0;padding:14px 2px;color:var(--ink);font:inherit;cursor:pointer;}
   .gs-cerrar b{font-size:15.5px;}
-  .gs-cerrar.tarde small{color:var(--danger);}
+  .gs-cerrar.tarde small{color:var(--danger-text);}
   .gs-cerrar small,.gs-cita small,.gs-no-vino small{display:block;font-size:12px;color:var(--ink-soft);font-weight:400;margin-top:2px;}
-  .gs-mas{font-weight:700;color:var(--warn);white-space:nowrap;}
-  .gs-listo{font-size:14.5px;color:var(--ok);font-weight:600;}
+  .gs-mas{font-weight:700;color:var(--warn-text);white-space:nowrap;}
+  .gs-listo{font-size:14.5px;color:var(--ok-text);font-weight:600;}
   .gs-vale{width:100%;font-size:15px;padding:12px;margin-bottom:10px;}
   .gs-cita{border-top:1px dashed var(--line);padding:8px 0;font-size:14.5px;}
   .gs-cita summary{display:flex;justify-content:space-between;gap:10px;cursor:pointer;list-style:none;}
@@ -634,8 +640,8 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .gan-modal .fin-page{padding:0;}
   .pago-aviso ul{margin:6px 0 0;padding-left:18px;}
   .pago-aviso li{margin:3px 0;}
-  .pago-ok{color:var(--ok);}
-  .pago-mal{color:var(--danger);}
+  .pago-ok{color:var(--ok-text);}
+  .pago-mal{color:var(--danger-text);}
   .pago-hist tr.sel td{background:color-mix(in oklab,var(--wine) 10%,transparent);}
   .pago-hist tr{cursor:pointer;}
   .fin-table td:last-child, .fin-table th:last-child{text-align:right;}
@@ -657,18 +663,18 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     text-transform:uppercase;font-family:var(--ui);
   }
   .stock-low{
-    background:color-mix(in oklab,var(--danger) 18%,transparent);color:var(--danger);font-weight:700;font-size:11px;
+    background:color-mix(in oklab,var(--danger) 18%,transparent);color:var(--danger-text);font-weight:700;font-size:11px;
     padding:4px 8px;border-radius:999px;white-space:nowrap;flex-shrink:0;
   }
   .fin-hero{background:color-mix(in oklab,var(--wine) 10%,var(--panel));border:1px solid var(--wine);border-radius:16px;padding:16px 14px;text-align:center;margin-bottom:14px;}
   .fin-hero .lbl{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;}
   .fin-hero .val{font-family:var(--head);font-size:44px;font-weight:700;color:var(--gold-soft);margin:2px 0 4px;}
-  .fin-hero.negativo .val{color:var(--danger);}
+  .fin-hero.negativo .val{color:var(--danger-text);}
   .fin-hero-sub{font-size:13.5px;color:var(--ink);}
   .fin-hero-comp{font-size:12.5px;color:var(--ink-soft);margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);}
   .fin-delta{font-weight:700;white-space:nowrap;}
-  .fin-delta.sube{color:var(--ok);}
-  .fin-delta.baja{color:var(--danger);}
+  .fin-delta.sube{color:var(--ok-text);}
+  .fin-delta.baja{color:var(--danger-text);}
   .fin-boleta{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:6px 14px 10px;}
   .fin-linea{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:13.5px;border-top:1px dashed var(--line);}
   .fin-linea span:last-child{white-space:nowrap;}
@@ -680,7 +686,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .gasto-fila{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px dashed var(--line);}
   .gasto-info{flex:1;min-width:0;text-align:left;background:none;border:none;color:var(--ink);font:inherit;font-size:13.5px;cursor:pointer;padding:0;}
   .gasto-info small{display:block;font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
-  .gasto-monto{font-weight:600;white-space:nowrap;color:var(--danger);}
+  .gasto-monto{font-weight:600;white-space:nowrap;color:var(--danger-text);}
   .chart-box{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 10px;margin-bottom:6px;overflow-x:auto;}
   @media (max-width:600px){
     .fin-cards{grid-template-columns:1fr;}
@@ -778,7 +784,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .svc-picker::-webkit-scrollbar-thumb:hover{background:var(--wine);}
   .svc-picker-row{
     display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;
-    border-left:3px solid transparent;border-bottom:1px solid rgba(255,255,255,.05);
+    border-left:3px solid transparent;border-bottom:1px solid var(--tenue);
     transition:background .12s, border-color .12s;
   }
   .svc-picker-row:last-child{border-bottom:none;}
@@ -790,7 +796,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .svc-picker-row.checked .svc-picker-name{color:var(--gold);font-weight:600;}
   .svc-picker-duration{font-size:11px;color:var(--ink-soft);}
   .svc-picker-price{
-    font-size:12px;color:var(--ink-soft);flex-shrink:0;background:rgba(255,255,255,.04);
+    font-size:12px;color:var(--ink-soft);flex-shrink:0;background:var(--tenue);
     padding:3px 9px;border-radius:20px;font-variant-numeric:tabular-nums;
   }
   .svc-picker-row.checked .svc-picker-price{color:var(--gold-soft);background:color-mix(in oklab,var(--wine) 14%,transparent);}
@@ -815,7 +821,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .svc-chip-tag:hover{background:color-mix(in oklab,var(--wine) 12%,transparent);}
   .svc-chip-tag .x{
     opacity:.65;font-size:11px;width:16px;height:16px;display:inline-flex;align-items:center;
-    justify-content:center;border-radius:50%;background:rgba(255,255,255,.06);
+    justify-content:center;border-radius:50%;background:var(--tenue);
   }
   .svc-chip-tag:hover .x{opacity:1;background:var(--wine);color:var(--on-accent);}
   .svc-summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:11.5px;color:var(--ink-soft);}
@@ -848,7 +854,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .spec-row input[type=text]{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;background:var(--panel-2);color:var(--ink);font-family:var(--ui);}
   .spec-row select{width:auto;flex-shrink:0;padding:7px 6px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--panel-2);color:var(--ink);font-family:var(--ui);}
   .spec-row input[type=color]{width:38px;height:34px;padding:2px;border:1px solid var(--line);border-radius:6px;background:var(--panel-2);cursor:pointer;flex-shrink:0;}
-  .iconbtn{background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px;padding:4px 6px;flex-shrink:0;}
+  .iconbtn{background:none;border:none;color:var(--danger-text);cursor:pointer;font-size:16px;padding:4px 6px;flex-shrink:0;}
   .addbtn{background:none;border:1px solid var(--line);color:var(--gold);cursor:pointer;font-size:16px;line-height:1;padding:4px 10px;border-radius:8px;flex-shrink:0;}
   .addbtn:hover{border-color:var(--wine);background:color-mix(in oklab,var(--wine) 10%,transparent);}
   .linklike{background:none;border:none;color:var(--ink-soft);cursor:pointer;text-decoration:underline;padding:0;flex-shrink:0;}
@@ -861,7 +867,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     color:var(--ink);border-radius:8px;padding:7px 8px;font-size:12.5px;font-weight:600;
     cursor:pointer;font-family:var(--ui);flex-shrink:0;
   }
-  .sched-day-row .daytoggle.closed{background:color-mix(in oklab,var(--danger) 15%,transparent);color:var(--danger);border-color:color-mix(in oklab,var(--danger) 40%,transparent);}
+  .sched-day-row .daytoggle.closed{background:color-mix(in oklab,var(--danger) 15%,transparent);color:var(--danger-text);border-color:color-mix(in oklab,var(--danger) 40%,transparent);}
   .sched-day-row select{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2);color:var(--ink);font-size:13px;font-family:var(--ui);}
   .sched-day-row .sched-dash{color:var(--ink-soft);}
   .sched-closed-label{color:var(--ink-soft);font-size:12.5px;font-style:italic;}
@@ -871,7 +877,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .ns-item:last-child{border-bottom:none;}
   .ns-name{font-weight:600;font-size:13.5px;}
   .ns-meta{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
-  .ns-count{background:color-mix(in oklab,var(--danger) 18%,transparent);color:var(--danger);font-weight:700;font-size:12.5px;padding:3px 10px;border-radius:999px;flex-shrink:0;}
+  .ns-count{background:color-mix(in oklab,var(--danger) 18%,transparent);color:var(--danger-text);font-weight:700;font-size:12.5px;padding:3px 10px;border-radius:999px;flex-shrink:0;}
 
   /* lista de clientes */
   .client-search-input{
@@ -898,7 +904,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     padding:5px 0 5px 12px;border-left:2px solid var(--line);
   }
   .client-delete-btn{
-    background:none;border:none;color:var(--danger);font-size:11px;cursor:pointer;
+    background:none;border:none;color:var(--danger-text);font-size:11px;cursor:pointer;
     padding:0 2px 8px 2px;font-family:var(--ui);
   }
 
@@ -928,18 +934,18 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .cert-row .cert-main{min-width:0;flex:1;}
   .cert-row .cr-name{font-weight:600;}
   .cert-row .cr-rut{font-size:12px;color:var(--ink-soft);}
-  .firma-mini{display:block;max-height:46px;max-width:180px;margin-top:6px;background:var(--firma-bg);border-radius:6px;padding:4px}
-  .cert-aviso{font-size:12.5px;line-height:1.45;color:var(--warn-ink);margin-top:5px}
+  .firma-mini{display:block;max-height:46px;max-width:180px;margin-top:6px;background:var(--firma-cert-bg);border-radius:6px;padding:4px}
+  .cert-aviso{font-size:12.5px;line-height:1.45;color:var(--warn-text);margin-top:5px}
   .cert-aviso:empty{display:none}
   .cert-revisar-fila{border:1px solid var(--line);border-radius:10px;padding:10px 12px 2px;margin-bottom:10px}
   .cert-chip{display:inline-block;margin-top:5px;font-size:11.5px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--ink-soft);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
   .cert-chip.ok{border-color:color-mix(in oklab,var(--wine) 55%,transparent);color:var(--gold);}
-  .cert-chip.no{border-color:color-mix(in oklab,var(--danger) 55%,transparent);color:var(--danger);}
+  .cert-chip.no{border-color:color-mix(in oklab,var(--danger) 55%,transparent);color:var(--danger-text);}
   .cert-actions{display:flex;flex-wrap:wrap;gap:6px;}
   .cert-actions:empty{display:none;}
   .cert-actions .btn, .cert-box .btn-sm{padding:6px 10px;font-size:12px;text-decoration:none;}
-  .cert-actions .cert-anular{color:var(--danger);}
-  .cert-box{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,0.03);}
+  .cert-actions .cert-anular{color:var(--danger-text);}
+  .cert-box{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--tenue);}
   .cert-box-title{font-weight:700;margin-bottom:8px;color:var(--gold);}
   .cert-dato{display:grid;grid-template-columns:86px 1fr;gap:8px;font-size:12.5px;color:var(--ink);padding:3px 0;}
   .cert-dato span{color:var(--ink-soft);}
@@ -987,10 +993,11 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     padding:24px;text-align:center;
   }
   .login-gate-logo{height:56px;margin-bottom:18px;}
+  :root[data-tema="claro"] .login-gate-logo{background:var(--top-bg);padding:10px 18px;border-radius:14px;box-sizing:content-box;}
   .login-gate h1{font-size:22px;margin:0 0 6px;}
   .login-gate .hint{margin-bottom:18px;}
   .login-gate-box{width:100%;max-width:320px;}
-  .login-gate-error{color:var(--danger);font-size:12.5px;min-height:16px;margin:-4px 0 8px;}
+  .login-gate-error{color:var(--danger-text);font-size:12.5px;min-height:16px;margin:-4px 0 8px;}
   /* Entrar / Crear cuenta / esperando acceso (cuentas propias, oct 2026) */
   .login-gate > *{animation:auth-in .45s ease both;}
   .login-gate > *:nth-child(2){animation-delay:.05s;}
@@ -1006,11 +1013,11 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .login-gate-box .pw-field .client-search-input{padding-right:44px;}
   .login-gate-box .client-search-input:focus{outline:none;border-color:var(--wine);}
   .login-gate-box .btn-primary{padding:12px;font-size:15px;border-radius:12px;}
-  .auth-link{background:none;border:none;padding:6px;color:var(--wine);cursor:pointer;font-size:13.5px;font-family:inherit;text-decoration:underline;text-underline-offset:3px;}
+  .auth-link{background:none;border:none;padding:6px;color:var(--gold);cursor:pointer;font-size:13.5px;font-family:inherit;text-decoration:underline;text-underline-offset:3px;}
   .auth-sep{display:flex;align-items:center;gap:10px;margin:20px 0 12px;color:var(--ink-soft);font-size:12px;}
   .auth-sep::before,.auth-sep::after{content:"";flex:1;height:1px;background:var(--line);}
-  .auth-outline{width:100%;padding:11px;border-radius:12px;border:1px solid var(--wine);background:transparent;color:var(--wine);font-size:14.5px;font-weight:600;font-family:inherit;cursor:pointer;}
-  .auth-icon{width:64px;height:64px;border-radius:50%;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;font-size:28px;border:2px solid var(--wine);color:var(--wine);}
+  .auth-outline{width:100%;padding:11px;border-radius:12px;border:1px solid var(--wine);background:transparent;color:var(--gold);font-size:14.5px;font-weight:600;font-family:inherit;cursor:pointer;}
+  .auth-icon{width:64px;height:64px;border-radius:50%;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;font-size:28px;border:2px solid var(--wine);color:var(--gold);}
   .auth-icon.ok{animation:auth-pop .5s cubic-bezier(.2,1.4,.4,1) both;}
   .auth-icon.wait{animation:loading-pulse 2.4s ease-in-out infinite;}
   @keyframes auth-pop{from{opacity:0;transform:scale(.4);}to{opacity:1;transform:scale(1);}}
@@ -1370,7 +1377,7 @@ const TEMA_BANDERA_ARGENTINA = {
       --metal:linear-gradient(100deg,#4f8fc4 0%,#8cc0ea 28%,#d6ebfa 46%,#74ACDF 64%,#3f7fb5 100%);
       --metal-ink:#0B2A47; --metal-borde:#a9d2f2; }
     /* Modo claro en Buenos Aires: celeste oscuro en vez del dorado */
-    :root[data-tema="claro"]{ --wine:#3f7fb5; --gold:#1f5f8f; --gold-soft:#1f5f8f; --line:rgba(31,95,143,.3); --warn:#c98a00; }
+    :root[data-tema="claro"]{ --wine:#3f7fb5; --gold:#1f5f8f; --gold-soft:#1f5f8f; --line:rgba(31,95,143,.3); --warn:#c98a00; --wine-dark:#020b14; --gold-fill:#9fcbee; }
     /* Franja celeste-blanca-celeste arriba, como la bandera */
     header.topbar{ background:linear-gradient(180deg,#74ACDF 0 6px,#FFFFFF 6px 12px,#74ACDF 12px 18px,#0A1826 18px 100%); padding-top:30px; }
     /* "Confirmada" sigue siendo amarilla (el sol de la bandera), para no confundirla con el celeste */
@@ -1846,7 +1853,7 @@ function renderConsentSearch(box, allDocs, initialQuery, close, apptId, linkedCo
     // borrar la anterior.
     const deleteBtn = ui.mode==='admin' ? `<button type="button" class="btn btn-ghost" data-consent-delete="${escapeHtml(e._id)}" style="font-size:11.5px;margin-top:8px;margin-left:6px;color:var(--danger);">Eliminar esta ficha</button>` : '';
     return `
-      <div style="border:1px solid rgba(255,255,255,.14);border-radius:4px;padding:12px;margin-bottom:10px;">
+      <div style="border:1px solid var(--line);border-radius:4px;padding:12px;margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;gap:8px;">
           <b style="font-size:13.5px;">${escapeHtml(e.nombre||'—')}</b>
           <span style="font-size:11.5px;color:var(--mute);white-space:nowrap;">${fmt(e.submittedAtClient)}</span>
@@ -2701,6 +2708,7 @@ function ajustarFichasDia(raiz){
 // Se vuelven a medir cuando termina de cargar la letra (antes de eso el
 // navegador usa otra más ancha) y al cambiar el tamaño de la pantalla.
 if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>ajustarFichasDia(document));
+if(document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', ()=>ajustarFichasDia(document));
 let ajusteFichasTimer = null;
 window.addEventListener('resize', ()=>{ clearTimeout(ajusteFichasTimer); ajusteFichasTimer = setTimeout(()=>ajustarFichasDia(document), 120); });
 // ---------------- Modo claro / oscuro (rediseño oct 2026) ----------------
@@ -2716,6 +2724,8 @@ function temaBotonHtml(){
 function cambiarTema(){
   if(temaActual()==='claro'){ delete document.documentElement.dataset.tema; safeRemoveLocal(TEMA_KEY); }
   else { document.documentElement.dataset.tema = 'claro'; safeSetLocal(TEMA_KEY, 'claro'); }
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta && !SEDE.tema) meta.setAttribute('content', temaActual()==='claro' ? '#0a0908' : '#100d09');
   render();
 }
 // Íconos de línea (rediseño oct 2026) para la barra de arriba, las pestañas y
@@ -5705,7 +5715,7 @@ function cursoModalHtml(){
       <h2 class="serif">📚 ${escapeHtml(c.nombre||'Curso')}</h2>
       <div class="hint">${courseDateLabel(c.date)} · ${c.start}–${c.end}${c.specialist?' · '+escapeHtml(c.specialist):''} · ${fmtCLP(c.price)} por persona</div>
       <div class="hint" style="margin-top:-6px;">${attendees.length} inscrito${attendees.length===1?'':'s'} · ingreso total ${fmtCLP(totalRevenue)}</div>
-      ${c.notas ? `<div style="white-space:pre-wrap;font-size:12.5px;color:var(--ink-soft);background:rgba(255,255,255,0.04);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:8px;">${escapeHtml(c.notas)}</div>` : ''}
+      ${c.notas ? `<div style="white-space:pre-wrap;font-size:12.5px;color:var(--ink-soft);background:var(--tenue);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:8px;">${escapeHtml(c.notas)}</div>` : ''}
       <div style="margin-top:10px;">${rows || `<div class="empty-msg">Todavía no hay nadie inscrito.</div>`}</div>
       ${isAdmin ? `<button type="button" class="btn btn-ghost" style="margin-top:10px;" data-act="curso-add-attendee" data-id="${escapeHtml(c.id)}">+ Agregar inscrito</button>` : ''}
       ${esDueno() ? `<button type="button" class="btn btn-ghost" style="margin-top:10px;" data-act="open-cert-curso" data-id="${escapeHtml(c.id)}">📜 Certificados del curso</button>` : ''}

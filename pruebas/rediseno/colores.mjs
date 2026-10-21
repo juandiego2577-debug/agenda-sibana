@@ -9,7 +9,8 @@ const html = fs.readFileSync(path.join(AGENDA_DIR, 'index.html'), 'utf8');
 const ini = html.indexOf('<style>'), fin = html.indexOf('</style>', ini);
 const css = html.slice(ini, fin);
 const COLOR = /#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)/g;
-const permitido = c => /^#(fff|ffffff|000|000000)$/i.test(c) || /^rgba?\(\s*0\s*,\s*0\s*,\s*0\s*,/.test(c) || /^rgba?\(\s*255\s*,\s*255\s*,\s*255\s*,/.test(c);
+// blanco/negro puros y sombras negras; un blanco TRANSPARENTE no (en modo claro desaparece: así se perdieron las rayas de las horas cerradas)
+const permitido = c => /^#(fff|ffffff|000|000000)$/i.test(c) || /^rgba?\(\s*0\s*,\s*0\s*,\s*0\s*,/.test(c);
 const malos = [];
 css.split('\n').forEach((l, i) => {
   // declaraciones de variables: --nombre: valor;

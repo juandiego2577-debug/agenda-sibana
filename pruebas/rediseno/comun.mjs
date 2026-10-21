@@ -89,6 +89,7 @@ export async function prepararEmulador(opts = {}) {
     const db = ctx.firestore();
     await db.doc('sibana-agenda/santiago').set(datos);
     await db.doc('sibana-agenda/buenosaires').set(datos);
+    if (!opts.sinVina) await db.doc('sibana-agenda/vina').set(datos);
     await db.doc('sibana-usuarios/' + uidSalome).set({ usuario: 'salome', nombre: 'Salomé', nombreCompleto: 'Salomé Prueba',
       email: CORREO_SALOME, sede: 'santiago', rol: 'especialista', activo: true });
   });
@@ -124,7 +125,7 @@ async function servidor() {
 const TIPOS = { '.woff2': 'font/woff2', '.png': 'image/png', '.webp': 'image/webp', '.css': 'text/css', '.js': 'text/javascript', '.html': 'text/html' };
 
 // Abre la agenda y entra. Devuelve {page, ctx, errores, cerrar}.
-export async function abrirAgenda({ html, rol = 'duenos', sede = 'santiago', ancho = 1517, tema = 'oscuro', movil = false }) {
+export async function abrirAgenda({ html, rol = 'duenos', sede = 'santiago', ancho = 1517, tema = 'oscuro', movil = false, esperar }) {
   const b = await navegador();
   const ctx = await b.newContext({ viewport: { width: ancho, height: ancho > 600 ? 900 : 844 },
     ...(movil ? { isMobile: true, hasTouch: true, userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36' } : {}) });
@@ -153,17 +154,20 @@ export async function abrirAgenda({ html, rol = 'duenos', sede = 'santiago', anc
   page.on('pageerror', e => errores.push(e.message));
   if (process.env.DEPURAR) page.on('console', m => console.log('[consola]', m.type(), m.text().slice(0, 300)));
   await page.goto(ORIGEN + '/');
-  await entrar(page, rol);
+  await entrar(page, rol, esperar);
   return { page, ctx, errores, cerrar: () => ctx.close() };
 }
 
-export async function entrar(page, rol) {
+// rol: 'duenos', 'especialista' (Salomé) o el correo de otra cuenta de prueba.
+// esperar: qué tiene que aparecer al entrar (por defecto, la agenda).
+export async function entrar(page, rol, esperar = '[data-act="new-block"]') {
   await page.waitForSelector('#team-login-input', { timeout: 30000 });
   await page.waitForTimeout(1500); // la entrada se vuelve a dibujar cuando termina la sesión anónima
   if (rol === 'especialista') await page.fill('#team-login-user', CORREO_SALOME);
+  else if (rol.includes('@')) await page.fill('#team-login-user', rol);
   await page.fill('#team-login-input', CLAVE);
   await page.click('#team-login-btn');
-  await page.waitForSelector('[data-act="new-block"]', { timeout: 30000 });
+  await page.waitForSelector(esperar, { timeout: 30000 });
   await esperarCalma(page);
 }
 

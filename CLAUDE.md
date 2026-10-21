@@ -347,6 +347,66 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
   decidido); link de reseñas de Google de BA; ficha de consentimiento con
   DNI (repo `sibana-consentimiento`).
 
+## Sede de Viña del Mar (en construcción, 21/10/2026, SIN publicar)
+Buenos Aires no tuvo ninguna cita en dos semanas; Juan Diego quiere probar en
+**Viña del Mar** (y quizás después Concepción y Antofagasta): al principio
+arrendando un box algunos días. Decidido con él: **la misma agenda** para todas
+las ciudades (una sede más en `SEDES`). Rama `claude/adoring-lamport-on2t14`,
+**construida encima del rediseño** (`claude/rediseno-visual`, PR #147): se
+publica DESPUÉS del rediseño.
+- **Estudio de mercado** (artifact "Sibana en Viña del Mar", fuera del repo
+  porque el repo es público): lo típico en Viña es ~$100.000 la
+  micropigmentación de cejas (mediana del precio más barato de cada estudio,
+  6 estudios en AgendaPro); labios ~$130.000 (pocos datos). Regla elegida:
+  apertura −20% de lo típico, definitivo −10%, terminado en .990. **Precios de
+  apertura** (los pone `crearAgendaSede`, `SEDE.preciosIniciales`):
+  microblading/sombreado/delineado $79.990, MixBrows/Full Lips $99.990;
+  definitivos $89.990 / $119.990 (los cambia él en Servicios y tarifario). Lo
+  demás (retoques, lifting, laminado...) = el precio de Santiago.
+- `SEDES.vina`: Chile (CLP, RUT, +56, `America/Santiago`). **Comisión igual
+  que Santiago** (confirmado por él: $10.000 por micropigmentación, 50/50, sin
+  `soloPrecioNuevo` porque todas las citas tienen precios nuevos); abono
+  perdido del negocio desde el primer día; abono sugerido $5.000 (`abonoEditable`:
+  lo cambia en Servicios y tarifario); crema incluida al crear. "Mi pago"
+  igual que en Santiago.
+- **Crear la agenda**: igual que BA (dueño → 📍 Sede → Viña → "Crear la agenda
+  de Viña del Mar"): copia los servicios de Santiago con precios y casillas
+  (micropigmentación, lleva retoque, lleva consentimiento), con los precios de
+  apertura en la micropigmentación.
+- **Cómo se distingue la sede** (él no quiso la franja con el nombre; vio 4
+  opciones en fotos y eligió A + D): solo para quien ve MÁS de una sede
+  (`veVariasSedes()`: dueños, o una especialista con otra sede), (A) el nombre
+  de la sede grande junto al logo (`.tagline-sede`, también en el teléfono;
+  ahí el botón 📍 queda solo con el ícono) y (D) al entrar a una sede distinta
+  de la última vista en ese aparato, "Estás en la agenda de …" 3 s
+  (`avisoSedeSiCambio`, `AVISO_SEDE_KEY`). **D es a prueba**: si se
+  acostumban y no se confunden, se quita. El equipo de una sola sede no ve
+  nada nuevo.
+- **Especialista en dos sedes** (por si Salomé apoya en Viña, no está
+  decidido): `sibana-usuarios/<uid>.otrasSedes` (lista; su `sede` sigue siendo
+  la principal, así el script de respaldo de Santiago no cambia). Más →
+  Equipo → "＋ También en Viña del Mar" (`cambiarOtraSedeUsuario`). Ella ve 📍
+  con solo sus sedes (`sedesDisponibles`, `SEDE_PERSONAL_KEY`). En la otra sede
+  tiene que estar en Especialistas con el MISMO nombre (lección 6). Su pago va
+  por separado en cada sede.
+- **Ficha de consentimiento** (repo sibana-consentimiento, misma rama): la
+  misma ficha con `?sede=vina` → `sibana-consentimientos-vina`, Ciudad puesta,
+  "· VIÑA DEL MAR" en el título (el QR de Viña lleva ese enlace). El Panel
+  Sibana lee cada sede por separado: los dueños ven las dos con su sede
+  marcada y un filtro; quien solo tiene una sede, solo esa. Cambios visuales
+  de esa página: pedidos para DESPUÉS.
+- **Reglas** (`firestore.rules`): sede `vina`, `otrasSedes` en `usuarioValido`
+  y `usuarioActivoDe`, colección de fichas de Viña. **Hay que pegarlas en
+  Firebase** antes de usar Viña (él lo deja para cuando se vaya a publicar).
+- **Pendiente** (como BA): respaldo a Hoja/Calendar de Viña (no hay Gmail ni
+  Calendar todavía: `backupWebhookUrl` en PEGA_AQUI), correo post-tratamiento,
+  link de reseñas.
+- Probado contra los emuladores: `pruebas/rediseno/reglas-vina.mjs` (32),
+  `vina.mjs` (43: crear, precios, comisión, datos separados, Equipo, Salomé
+  con dos sedes, especialistas de una sola sede sin cambios),
+  `ficha-vina.mjs` (ficha y Panel), más `medidas.mjs`/`paridad.mjs` del
+  rediseño.
+
 ## Posible extensión a Copiapó (en pausa, probablemente no se haga)
 **Actualización (oct 2026):** la sede de Copiapó al parecer prefiere seguir
 con AgendaPro (ya están acostumbrados), así que esto quizás nunca se

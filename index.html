@@ -134,6 +134,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   :root[data-tema="claro"] input[type=time]::-webkit-calendar-picker-indicator,
   :root[data-tema="claro"] input[type=month]::-webkit-calendar-picker-indicator{filter:none;}
   *{box-sizing:border-box;}
+  input[type=checkbox],input[type=radio]{accent-color:var(--wine);}
   html,body{margin:0;padding:0;}
   #sync-banner:empty{display:none;}
   #sync-banner{position:sticky;top:0;z-index:900;}
@@ -304,8 +305,8 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   /* ---------- Más menu ---------- */
   .morewrap{position:relative;}
   .moremenu{
-    position:absolute;top:110%;right:0;background:var(--panel-2);border:1px solid var(--line);
-    border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5);min-width:210px;z-index:40;
+    position:absolute;top:110%;right:0;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;box-shadow:0 14px 30px -10px rgba(0,0,0,.6);min-width:210px;z-index:40;
     max-height:min(480px, 70vh);overflow-y:auto;
   }
   .moremenu button{
@@ -315,9 +316,12 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .moremenu button:hover{background:var(--panel);}
   .moremenu hr{border:none;border-top:1px solid var(--line);margin:4px 0;}
   .moremenu-label{
-    padding:8px 14px 4px;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;
+    padding:8px 14px 4px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;
     color:var(--ink-soft);font-family:var(--ui);
   }
+
+  /* El menú Más se abre hacia la derecha cuando el botón no está a la derecha de la pantalla (antes, a 768 px, se salía por la izquierda) */
+  .moremenu{max-width:calc(100vw - 32px);}
 
   /* ---------- Main layout ---------- */
   main{flex:1;display:flex;overflow:hidden;}
@@ -381,7 +385,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .ghost-tag{background:var(--badge-bg);color:var(--badge-ink);font-size:11px;font-weight:700;padding:1px 6px;border-radius:999px;white-space:nowrap;}
   .day-banner .db-who{font-weight:700;font-size:13.5px;color:var(--ink);}
   .day-banner .db-when{font-size:12.5px;color:var(--ink-soft);}
-  .wd-block,.mc-block{font-size:10.5px;color:var(--bloq-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:3px;flex-wrap:wrap;}
+  .wd-block,.mc-block{font-size:11px;color:var(--bloq-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:3px;flex-wrap:wrap;}
   .bk-item{display:inline-flex;align-items:center;gap:3px;min-width:0;}
   .bk-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
   .bk-name{overflow:hidden;text-overflow:ellipsis;}
@@ -413,7 +417,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   @container (max-width:170px){ .firma-badge{display:none;} .firma-esquina{display:block;} .appt.con-firma .t-name,.appt.con-firma .t-service,.appt.con-firma .t-name-compact{padding-right:20px;} }
   .linea-ahora{position:absolute;left:0;right:0;height:0;border-top:2px solid var(--danger);z-index:5;pointer-events:none;}
   .linea-ahora::before{content:'';position:absolute;left:-5px;top:-6px;width:10px;height:10px;border-radius:50%;background:var(--danger);}
-  .linea-ahora-hora{position:absolute;right:6px;top:-9px;font-size:10px;font-weight:700;line-height:1;padding:2px 5px;border-radius:999px;background:var(--danger);color:#fff;}
+  .linea-ahora-hora{position:absolute;right:6px;top:-9px;font-size:11px;font-weight:700;line-height:1;padding:2px 5px;border-radius:999px;background:var(--danger);color:#fff;}
   .resumen-dia{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px;}
   .rd-titulo{font-weight:700;font-size:13px;color:var(--ink);margin-right:2px;}
   .rd-chip{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink-soft);white-space:nowrap;}
@@ -434,7 +438,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .appt.muy-angosta .no-abono-badge{position:absolute;top:3px;right:3px;z-index:1;}
   .cobrar-box{background:color-mix(in oklab,var(--wine) 12%,transparent);border:1px solid color-mix(in oklab,var(--wine) 35%,transparent);border-radius:10px;padding:10px 14px;margin:2px 0 16px;}
   .cobrar-box label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:2px;}
-  .cobrar-box .cobrar-amount{font-size:22px;font-weight:800;color:var(--wine);}
+  .cobrar-box .cobrar-amount{font-family:var(--head);font-size:34px;line-height:1.1;font-weight:700;color:var(--gold);}
   .cobrar-box .cobrar-hint{font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.35;}
   .appt.st-Pendiente{--st:var(--pending);}
   .appt.st-Confirmada{--st:var(--wine);}
@@ -465,7 +469,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .weekday:hover{border-color:var(--wine);transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,0.3);}
   .weekday.today{outline:2px solid var(--gold);}
   .weekday .wd-label{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.5px;}
-  .weekday .wd-num{font-family:var(--head);font-size:20px;font-weight:600;}
+  .weekday .wd-num{font-family:var(--head);font-size:24px;font-weight:600;}
   .weekday .wd-count{font-size:12px;color:var(--wine);font-weight:600;margin-top:auto;}
   .weekday .wd-rev{font-size:11.5px;color:var(--ink-soft);}
 
@@ -482,17 +486,17 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .month-cell:hover{border-color:var(--wine);transform:translateY(-1px);}
   .month-cell.other-month{opacity:.35;}
   .month-cell.today{outline:2px solid var(--gold);}
-  .month-cell .mc-num{font-family:var(--head);font-size:14px;font-weight:600;}
-  .month-cell .mc-count{display:none;font-size:10px;color:var(--wine);font-weight:600;}
+  .month-cell .mc-num{font-family:var(--head);font-size:17px;font-weight:600;}
+  .month-cell .mc-count{display:none;font-size:11px;color:var(--wine);font-weight:600;}
   .month-cell .mc-event{
-    font-size:10px;line-height:1.35;padding:2px 5px;border-radius:5px;
+    font-size:11px;line-height:1.35;padding:2px 5px;border-radius:5px;
     background:color-mix(in oklab,var(--wine) 16%,transparent);color:var(--ink);
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     display:flex;align-items:center;gap:4px;
   }
   .month-cell .mc-event .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
-  .month-cell .mc-more{font-size:10px;color:var(--ink-soft);padding-left:5px;}
-  .month-cell .mc-rev{font-size:9.5px;color:var(--wine);margin-top:auto;font-weight:600;}
+  .month-cell .mc-more{font-size:11px;color:var(--ink-soft);padding-left:5px;}
+  .month-cell .mc-rev{font-size:11px;color:var(--wine);margin-top:auto;font-weight:600;}
   @media (max-width:720px){
     .month-cell{min-height:52px;padding:4px 5px;}
     .month-cell .mc-event, .month-cell .mc-more, .month-cell .mc-rev{display:none;}
@@ -526,25 +530,27 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   }
   .fin-subtabs button.active{background:color-mix(in oklab,var(--wine) 16%,transparent);border-color:var(--wine);color:var(--gold);font-weight:600;}
   .fin-monthnav{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:18px;}
-  .fin-monthnav .curdate{font-family:var(--head);font-size:16px;min-width:160px;text-align:center;}
+  .fin-monthnav .curdate{font-family:var(--head);font-size:24px;font-weight:700;color:var(--ink);min-width:160px;text-align:center;}
+  .fin-monthnav button.arrow{background:var(--panel);border:1px solid var(--line);border-radius:10px;width:40px;height:40px;cursor:pointer;color:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .fin-monthnav button.arrow:disabled{opacity:.35;cursor:default;}
   .fin-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
-  .fin-card{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center;}
+  .fin-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 12px;text-align:center;}
   .fin-card.highlight{border-color:var(--wine);background:color-mix(in oklab,var(--wine) 10%,transparent);}
-  .fin-card .lbl{font-size:10.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;}
-  .fin-card .val{font-family:var(--head);font-size:17px;font-weight:600;color:var(--gold-soft);}
-  .fin-sub{font-size:13px;color:var(--gold);margin:18px 0 8px;text-transform:uppercase;letter-spacing:.4px;font-weight:600;}
+  .fin-card .lbl{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;}
+  .fin-card .val{font-family:var(--head);font-size:22px;font-weight:600;color:var(--gold-soft);}
+  .fin-sub{font-family:var(--ui);font-size:12px;color:var(--gold);margin:20px 0 8px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;}
   .fin-table{width:100%;border-collapse:collapse;font-size:13px;}
   .fin-table th,.fin-table td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;}
   .fin-table th{color:var(--ink-soft);font-size:11px;text-transform:uppercase;font-weight:600;}
   /* Finanzas → Pagos (pago semanal de las especialistas) */
-  .pago-card{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;margin-bottom:10px;}
+  .pago-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:10px;}
   .pago-card.pagado{border-color:var(--ok);}
   .pago-card.cambio{border-color:var(--danger);}
   .pago-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px;cursor:pointer;}
   .pago-head .quien{font-weight:600;font-size:15px;}
   .pago-head .hint{margin:2px 0 0;}
-  .pago-neto{font-family:var(--head);font-size:18px;font-weight:600;color:var(--gold-soft);white-space:nowrap;text-align:right;}
-  .pago-neto small{display:block;font-family:inherit;font-size:10.5px;font-weight:400;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;}
+  .pago-neto{font-family:var(--head);font-size:23px;font-weight:600;color:var(--gold-soft);white-space:nowrap;text-align:right;}
+  .pago-neto small{display:block;font-family:inherit;font-size:11px;font-weight:400;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;}
   .pago-estado{padding:0 12px 12px;font-size:12.5px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
   .pago-estado .btn{font-size:12.5px;padding:7px 14px;}
   .pago-detalle{border-top:1px solid var(--line);padding:4px 12px 12px;}
@@ -594,19 +600,20 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .gan-cerrar-top{font-size:14.5px;margin-bottom:4px;}
   .gan-preview{border-color:var(--gold);}
   .gan-disenos{margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-  .gs-card{background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;}
+  .gs-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:14px;}
   .gs-boleta{text-align:left;}
   .gs-hola{font-size:14px;color:var(--ink-soft);}
   .gs-sub{font-size:13px;color:var(--ink-soft);margin-top:10px;text-align:center;}
-  .gs-grande{font-family:var(--head);font-size:38px;font-weight:600;color:var(--gold-soft);text-align:center;margin:2px 0 12px;}
+  .gs-grande{font-family:var(--head);font-size:46px;font-weight:700;color:var(--gold-soft);text-align:center;margin:2px 0 12px;}
   .gs-linea{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:15px;border-top:1px dashed var(--line);}
   .gs-linea.total{font-weight:700;color:var(--gold);border-top:1px solid var(--line);}
   .gs-linea.chica{font-size:13.5px;}
   .gs-no-vino{color:var(--ink-soft);}
   .gs-pista{text-align:center;font-size:12.5px;color:var(--warn);margin-top:8px;}
   .gs-titulo{font-weight:600;font-size:15px;margin-bottom:6px;}
-  .gs-cerrar{display:flex;width:100%;justify-content:space-between;align-items:center;gap:10px;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px;color:var(--ink);font:inherit;cursor:pointer;}
-  .gs-cerrar.tarde{border-color:var(--danger);}
+  .gs-cerrar{display:flex;width:100%;justify-content:space-between;align-items:center;gap:10px;text-align:left;background:none;border:0;border-top:1px solid var(--line-soft);border-radius:0;padding:14px 2px;color:var(--ink);font:inherit;cursor:pointer;}
+  .gs-cerrar b{font-size:15.5px;}
+  .gs-cerrar.tarde small{color:var(--danger);}
   .gs-cerrar small,.gs-cita small,.gs-no-vino small{display:block;font-size:12px;color:var(--ink-soft);font-weight:400;margin-top:2px;}
   .gs-mas{font-weight:700;color:var(--warn);white-space:nowrap;}
   .gs-listo{font-size:14.5px;color:var(--ok);font-weight:600;}
@@ -646,16 +653,16 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   }
   .stock-row-name{font-size:13px;color:var(--ink);}
   .stock-row-head{
-    margin-bottom:4px;color:var(--ink-soft);font-size:10.5px;letter-spacing:.03em;
+    margin-bottom:4px;color:var(--ink-soft);font-size:11px;letter-spacing:.03em;
     text-transform:uppercase;font-family:var(--ui);
   }
   .stock-low{
     background:color-mix(in oklab,var(--danger) 18%,transparent);color:var(--danger);font-weight:700;font-size:11px;
     padding:4px 8px;border-radius:999px;white-space:nowrap;flex-shrink:0;
   }
-  .fin-hero{background:color-mix(in oklab,var(--wine) 10%,transparent);border:1px solid var(--wine);border-radius:12px;padding:16px 14px;text-align:center;margin-bottom:14px;}
+  .fin-hero{background:color-mix(in oklab,var(--wine) 10%,var(--panel));border:1px solid var(--wine);border-radius:16px;padding:16px 14px;text-align:center;margin-bottom:14px;}
   .fin-hero .lbl{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;}
-  .fin-hero .val{font-family:var(--head);font-size:36px;font-weight:600;color:var(--gold-soft);margin:2px 0 4px;}
+  .fin-hero .val{font-family:var(--head);font-size:44px;font-weight:700;color:var(--gold-soft);margin:2px 0 4px;}
   .fin-hero.negativo .val{color:var(--danger);}
   .fin-hero-sub{font-size:13.5px;color:var(--ink);}
   .fin-hero-comp{font-size:12.5px;color:var(--ink-soft);margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);}
@@ -689,7 +696,6 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     .svc-row > *{flex:1 1 45%;}
     .svc-row .iconbtn{flex:0 0 32px;}
     .svc-row-head > *{flex:1 1 45%;}
-    .moremenu{left:0;right:auto;}
   }
 
   /* ---------- Footer summary ---------- */
@@ -698,8 +704,8 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     padding:12px 24px;display:flex;gap:28px;flex-wrap:wrap;align-items:center;
   }
   footer.summary .stat{display:flex;flex-direction:column;}
-  footer.summary .stat .lbl{font-size:10.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;}
-  footer.summary .stat .val{font-family:var(--head);font-size:18px;font-weight:600;color:var(--gold-soft);}
+  footer.summary .stat .lbl{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;}
+  footer.summary .stat .val{font-family:var(--head);font-size:22px;font-weight:600;color:var(--gold-soft);}
 
   /* ---------- Modal ---------- */
   .overlay{
@@ -707,15 +713,15 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     display:flex;align-items:center;justify-content:center;z-index:50;padding:16px;
   }
   .modal{
-    background:var(--panel);border:1px solid color-mix(in oklab,var(--wine) 15%,transparent);border-radius:16px;width:100%;max-width:460px;
+    background:var(--panel);border:1px solid var(--line);border-radius:18px;width:100%;max-width:460px;
     max-height:90vh;overflow-y:auto;padding:22px 24px;box-shadow:0 24px 60px rgba(0,0,0,0.55);
   }
-  .modal h2{margin:0 0 14px 0;font-size:19px;color:var(--gold-soft);}
+  .modal h2{margin:0 0 16px 0;font-size:26px;line-height:1.15;color:var(--ink);padding-bottom:10px;border-bottom:1px solid var(--line);}
   .field{margin-bottom:12px;position:relative;}
-  .field label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:4px;}
+  .field label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;}
   .field input,.field select,.field textarea{
-    width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
-    font-size:13.5px;font-family:var(--ui);background:var(--panel-2);color:var(--ink);
+    width:100%;min-height:42px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;
+    font-size:14px;font-family:var(--ui);background:var(--panel-2);color:var(--ink);
   }
   .field input::placeholder,.field textarea::placeholder{color:var(--mute);}
   /* Iconos de calendario/reloj de los campos de fecha y hora: el navegador los
@@ -734,7 +740,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   /* Formulario de la cita: secciones con título chico (mismos campos, mismo
      orden). En pantallas anchas va en dos columnas para no tener que bajar. */
   .appt-sec{margin-bottom:6px;}
-  .appt-sec-t{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--gold-soft);margin-bottom:10px;}
+  .appt-sec-t{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:10px;}
   .label-hint{font-weight:400;opacity:.75;}
   /* Teléfono: las columnas no existen (display:contents) y las secciones
      siguen el orden de siempre, con Notas al final. */
@@ -782,7 +788,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .svc-picker-info{display:flex;flex-direction:column;flex:1;min-width:0;gap:1px;}
   .svc-picker-name{font-size:13.5px;color:var(--ink);line-height:1.3;}
   .svc-picker-row.checked .svc-picker-name{color:var(--gold);font-weight:600;}
-  .svc-picker-duration{font-size:10.5px;color:var(--ink-soft);}
+  .svc-picker-duration{font-size:11px;color:var(--ink-soft);}
   .svc-picker-price{
     font-size:12px;color:var(--ink-soft);flex-shrink:0;background:rgba(255,255,255,.04);
     padding:3px 9px;border-radius:20px;font-variant-numeric:tabular-nums;
@@ -790,7 +796,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .svc-picker-row.checked .svc-picker-price{color:var(--gold-soft);background:color-mix(in oklab,var(--wine) 14%,transparent);}
   .svc-qty{display:flex;align-items:center;gap:6px;flex-shrink:0;}
   .svc-qty-btn{
-    width:24px;height:24px;border-radius:50%;border:1px solid var(--line);background:var(--panel);
+    width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--panel);
     color:var(--ink);font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;
     cursor:pointer;padding:0;transition:background .12s, border-color .12s;
   }
@@ -808,7 +814,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   }
   .svc-chip-tag:hover{background:color-mix(in oklab,var(--wine) 12%,transparent);}
   .svc-chip-tag .x{
-    opacity:.65;font-size:10px;width:16px;height:16px;display:inline-flex;align-items:center;
+    opacity:.65;font-size:11px;width:16px;height:16px;display:inline-flex;align-items:center;
     justify-content:center;border-radius:50%;background:rgba(255,255,255,.06);
   }
   .svc-chip-tag:hover .x{opacity:1;background:var(--wine);color:var(--on-accent);}
@@ -825,7 +831,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   }
   .svc-row-head{
     display:grid;grid-template-columns:2fr 1fr .8fr auto;gap:8px;margin-bottom:6px;
-    color:var(--ink-soft);font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;
+    color:var(--ink-soft);font-size:11px;letter-spacing:.03em;text-transform:uppercase;
     font-family:var(--ui);
   }
   .spec-row{display:flex;gap:8px;align-items:center;margin-bottom:6px;}
@@ -914,8 +920,8 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     position:fixed;inset:0;background:rgba(0,0,0,0.72);display:flex;
     align-items:center;justify-content:center;z-index:90;padding:16px;
   }
-  .confirm-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:360px;width:100%;padding:20px;}
-  .confirm-box p{margin:0 0 18px 0;font-size:14px;line-height:1.45;color:var(--ink);white-space:pre-line;}
+  .confirm-box{background:var(--panel);border:1px solid var(--line);border-radius:16px;max-width:380px;width:100%;padding:22px;box-shadow:0 24px 60px -20px rgba(0,0,0,.6);}
+  .confirm-box p{margin:0 0 18px 0;font-size:14.5px;line-height:1.45;color:var(--ink);white-space:pre-line;}
   .cert-row{display:flex;flex-direction:column;gap:8px;padding:10px 8px;border-bottom:1px solid var(--line);}
   .cert-row:last-child{border-bottom:none;}
   .cert-row.anulado{opacity:.72;}
@@ -946,7 +952,8 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .empty-msg{text-align:center;color:var(--ink-soft);font-size:13px;padding:40px 0;}
   .loading{padding:60px;text-align:center;color:var(--ink-soft);font-family:var(--head);font-size:16px;}
   .loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;min-height:70vh;padding:40px 20px;text-align:center;}
-  .loading-screen img{width:76px;height:76px;object-fit:contain;border-radius:20px;box-shadow:0 10px 30px rgba(0,0,0,0.5);animation:loading-pulse 2.4s ease-in-out infinite;}
+  .loading-screen img{width:76px;height:76px;object-fit:contain;animation:loading-pulse 2.4s ease-in-out infinite;}
+  @media (prefers-reduced-motion:reduce){ .loading-screen img{animation:none;} }
   .loading-spinner{width:28px;height:28px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--wine);animation:loading-spin 1.1s linear infinite;}
   .loading-text{color:var(--ink-soft);font-family:var(--head);font-size:16px;letter-spacing:.02em;}
   @keyframes loading-spin{to{transform:rotate(360deg);}}
@@ -1041,7 +1048,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     .row2{grid-template-columns:1fr;}
     .appt-modal .row2{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
     footer.summary{gap:16px;padding:10px 14px;}
-    footer.summary .stat .val{font-size:16px;}
+    footer.summary .stat .val{font-size:19px;}
     .modal{padding:18px 16px;}
     .field input,.field select,.field textarea{font-size:16px;} /* evita zoom automático en iOS */
     .modal-actions{flex-direction:column-reverse;align-items:stretch;}
@@ -4202,6 +4209,12 @@ function render(){
   root.innerHTML = html;
   attachEvents();
   if(ui.view==='day') ajustarFichasDia(root);
+  // El menú Más se abre hacia el lado donde quepa (antes, a 768 px, se salía de la pantalla).
+  const mm = root.querySelector('.moremenu');
+  if(mm){
+    if(mm.getBoundingClientRect().left < 8){ mm.style.left = '0'; mm.style.right = 'auto'; }
+    if(mm.getBoundingClientRect().right > window.innerWidth - 8){ mm.style.left = 'auto'; mm.style.right = '0'; }
+  }
   // Si no caben todas las especialistas en su fila (5 o más), el borde
   // derecho se difumina para que se note que hay más deslizando de lado.
   const sf = root.querySelector('.toolbar .specfilter');
@@ -6807,9 +6820,9 @@ function misGananciasPageHtml(nombre, vistaPrevia){
         </div></div>` : '';
   const navHtml = `
       <div class="fin-monthnav">
-        <button class="arrow" data-act="gan-prev" ${ui.ganSemana>primera?'':'disabled'}>‹</button>
+        <button class="arrow" data-act="gan-prev" ${ui.ganSemana>primera?'':'disabled'} aria-label="Anterior">${iconoSvg('izq')}</button>
         <div class="curdate">${rangoSemanaTexto(w.start, w.end)}<div class="hint" style="margin:2px 0 0;font-family:inherit;font-size:11.5px;">${etiqueta}</div></div>
-        <button class="arrow" data-act="gan-next" ${ui.ganSemana<actual?'':'disabled'}>›</button>
+        <button class="arrow" data-act="gan-next" ${ui.ganSemana<actual?'':'disabled'} aria-label="Siguiente">${iconoSvg('der')}</button>
       </div>`;
   if(diseno==='simple') return gananciasSimpleHtml({identity, primerNombre, vistaPrevia, previaHtml, navHtml, comoSeCalcula, w, g, estado, porCerrar, proximas, montoProximas, hoy, historial});
   return `
@@ -7135,9 +7148,9 @@ function pagosPageHtml(){
 
   return `
     <div class="fin-monthnav">
-      <button class="arrow" data-act="pagos-prev" ${puedeAtras?'':'disabled'}>‹</button>
+      <button class="arrow" data-act="pagos-prev" ${puedeAtras?'':'disabled'} aria-label="Anterior">${iconoSvg('izq')}</button>
       <div class="curdate">${rangoSemanaTexto(w.start, w.end)}<div class="hint" style="margin:2px 0 0;font-family:inherit;font-size:11.5px;">${etiqueta}</div></div>
-      <button class="arrow" data-act="pagos-next" ${puedeAdelante?'':'disabled'}>›</button>
+      <button class="arrow" data-act="pagos-next" ${puedeAdelante?'':'disabled'} aria-label="Siguiente">${iconoSvg('der')}</button>
     </div>
     ${ui.pagoSemana!==actual ? `<div style="text-align:center;margin:-8px 0 14px;"><button type="button" class="linklike" data-act="pagos-hoy">Volver a la semana en curso</button></div>` : ''}
     ${avisos.join('')}
@@ -7742,9 +7755,9 @@ function finanzasPageHtml(){
   return `
     <div class="fin-page">
       <div class="fin-monthnav">
-        <button class="arrow" data-act="reports-prev-month">‹</button>
+        <button class="arrow" data-act="reports-prev-month" aria-label="Anterior">${iconoSvg('izq')}</button>
         <div class="curdate">${MONTHS[month][0].toUpperCase()}${MONTHS[month].slice(1)} ${year}</div>
-        <button class="arrow" data-act="reports-next-month">›</button>
+        <button class="arrow" data-act="reports-next-month" aria-label="Siguiente">${iconoSvg('der')}</button>
       </div>
       <div class="fin-subtabs">
         <button class="${ui.financeTab==='resumen'?'active':''}" data-act="finance-tab" data-tab="resumen">📊 Resumen</button>
@@ -8219,7 +8232,7 @@ function svgVBarChart(data, opts={}){
     const valTxt = opts.formatValue ? opts.formatValue(v) : v;
     return `
       <rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="5" style="fill:var(${v<0?'--danger':'--wine'})"></rect>
-      <text x="${x+barW/2}" y="${v>=0 ? y-6 : y+barH+13}" text-anchor="middle" font-size="10.5" style="fill:var(${v<0?'--danger':'--gold-soft'})" font-weight="600" font-family="Montserrat,sans-serif">${valTxt}</text>
+      <text x="${x+barW/2}" y="${v>=0 ? y-6 : y+barH+13}" text-anchor="middle" font-size="11" style="fill:var(${v<0?'--danger':'--gold-soft'})" font-weight="600" font-family="Montserrat,sans-serif">${valTxt}</text>
       <text x="${x+barW/2}" y="${h-8}" text-anchor="middle" font-size="11" style="fill:var(--ink-soft)" font-family="Montserrat,sans-serif">${escapeHtml(d.label)}</text>
     `;
   }).join('');

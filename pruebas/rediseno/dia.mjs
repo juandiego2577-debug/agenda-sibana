@@ -29,6 +29,18 @@ for (const largos of [false, true]) {
           if (tr.right > cr.right + 1) out.push('se sale a la derecha ' + c.dataset.id + ' ' + t.className);
         }
       }
+      // nada se encima con el ✍️ de la esquina
+      for (const c of document.querySelectorAll('.dayrow .appt')) {
+        const esq = c.querySelector('.firma-esquina'); if (!vis(esq)) continue;
+        const er = esq.getBoundingClientRect();
+        for (const t of c.querySelectorAll('.t-time > *, .t-name, .t-name-compact')) {
+          if (!vis(t) || t.classList.contains('firma-esquina')) continue;
+          // el texto que se VE: el rango del texto, recortado a la caja sin su relleno (un texto con "…" no pasa de ahí)
+          const rg = document.createRange(); rg.selectNodeContents(t); const rr = rg.getBoundingClientRect(), br = t.getBoundingClientRect(), cs = getComputedStyle(t);
+          const tr = { left: Math.max(rr.left, br.left), top: Math.max(rr.top, br.top), right: Math.min(rr.right, br.right - parseFloat(cs.paddingRight)), bottom: Math.min(rr.bottom, br.bottom) };
+          if (tr.right > er.left + 1 && tr.left < er.right - 1 && tr.bottom > er.top + 1 && tr.top < er.bottom - 1) out.push('tapado por ✍️ ' + c.dataset.id + ' ' + t.className);
+        }
+      }
       const ficha = id => document.querySelector(`.dayrow .appt[data-id="${id}"]`);
       const c3 = ficha('c3'), c7 = ficha('c7');
       const seVe = (c, sel) => !!c && [...c.querySelectorAll(sel)].some(vis);

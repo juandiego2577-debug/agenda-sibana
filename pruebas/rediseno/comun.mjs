@@ -136,7 +136,11 @@ export async function abrirAgenda({ html, rol = 'duenos', sede = 'santiago', anc
   await ctx.route(/^https:\/\/(?!cdnjs)/, route => route.abort());
   await ctx.addInitScript(({ tema, sede }) => {
     try {
-      if (tema === 'claro') localStorage.setItem('sibanaTema', 'claro'); else localStorage.removeItem('sibanaTema');
+      // solo la primera vez: después manda lo que la agenda haya guardado
+      if (!sessionStorage.getItem('pruebaTemaPuesto')) {
+        sessionStorage.setItem('pruebaTemaPuesto', '1');
+        if (tema === 'claro') localStorage.setItem('sibanaTema', 'claro'); else localStorage.removeItem('sibanaTema');
+      }
       localStorage.setItem('sibanaSedeDuenos', sede);
       localStorage.setItem('sibanaServiciosVistosHasta', '2099-01-01T00:00:00.000Z');
       localStorage.setItem('sibanaInstalarBannerOculto', String(Date.now()));

@@ -2009,18 +2009,21 @@ para servir también a **Copiapó**, de la siguiente forma:
   "Agenda Sibana" (antes "Sibana Santiago" aunque fuera de BA). Chrome la
   considera instalable (`Page.getInstallabilityErrors` vacío). Probado:
   e2e (Android, iPhone, Instagram, instalada, computador, Santiago y BA).
-  **Computador rehecho (22/10/2026, a Juan Diego no le gustaba la franja con
-  el paso a paso de todos los navegadores en una línea):** ahora es una
-  tarjeta abajo a la derecha (logo, "Instala la agenda en este computador /
-  Se abre en su propia ventana, con un clic", "Ahora no" · "Instalar"). Si el
-  navegador dio permiso (`beforeinstallprompt`), "Instalar" abre directo el
-  instalador; si no, la MISMA tarjeta muestra 2 pasos numerados solo del
-  navegador que se usa (`pasosComputador`: Edge ⋯ → Aplicaciones; Chrome ⋮ →
-  Transmitir, guardar y compartir → Instalar página como app; Safari Archivo
-  → Agregar al Dock; Firefox: "ábrela en Chrome o Edge"), "Si ya la
-  instalaste, ábrela desde su ícono" y "Entendido". El teléfono no cambió.
-  Probado (35, simulando el evento y los navegadores, 800–1517px, oscuro y
-  claro).
+  **Computador rehecho (22/10/2026, pedidos de Juan Diego):** primero la
+  franja larga con el paso a paso de todos los navegadores pasó a una tarjeta
+  chica; después pidió "más fastidioso, que casi tengan que instalarla":
+  ahora es una VENTANA AL CENTRO sobre la agenda oscurecida (`#instalar-fondo`
+  > `#instalar-banner`), igual de insistente que en el teléfono: "Instalar la
+  agenda" y debajo "Usar en el navegador por esta vez" (misma regla:
+  `SALTAR_KEY` en sessionStorage, esa pestaña y como mucho 30 min; vuelve en
+  cada pestaña nueva). Ya no existe el "Ahora no" de 24 h. Si el navegador dio
+  permiso (`beforeinstallprompt`) instala en un clic y dice "¡Lista!"; si no,
+  muestra 2 pasos solo del navegador que se usa (`pasosComputador`: Edge ⋯ →
+  Aplicaciones; Chrome ⋮ → Transmitir, guardar y compartir → Instalar página
+  como app; Safari Archivo → Agregar al Dock; Firefox: "ábrela en Chrome o
+  Edge") y "Si ya la instalaste, ábrela desde su ícono". Abierta desde el
+  ícono (app instalada) no sale nada. El teléfono no cambió. Probado (52:
+  cuatro navegadores, oscuro y claro, pestaña nueva, 30 min, 800–1517px).
 
 ## Rediseño visual (oct 2026, PUBLICADO el 21/10/2026 ~21:05 hora de Chile, PR #147 dentro de #148)
 Pedido por Juan Diego ("funciona perfectamente, pero se ve anticuada"). Solo

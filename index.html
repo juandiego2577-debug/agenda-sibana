@@ -1013,7 +1013,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
 
   /* Pantalla "Instala la agenda" (12/10/2026): en el TELÉFONO, abierta en el
      navegador (no en la app instalada). Va encima de todo (fuera de #root),
-     así la agenda carga igual por debajo. En el computador, solo una franja. */
+     así la agenda carga igual por debajo. En el computador, una ventana al centro. */
   #instalar-gate{position:fixed;inset:0;z-index:2000;background:var(--bg);overflow-y:auto;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     padding:32px 22px;text-align:center;}
@@ -1029,24 +1029,21 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .instalar-num{flex:0 0 26px;height:26px;border-radius:50%;background:var(--wine);color:var(--wine-dark);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:13px;}
   .instalar-ico{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 4px;border:1.5px solid var(--gold-soft);border-radius:6px;font-size:13px;margin:0 2px;vertical-align:middle;}
   .instalar-saltar{margin-top:26px;background:none;border:none;color:var(--ink-soft);text-decoration:underline;font-size:13px;font-family:var(--ui);cursor:pointer;padding:8px;}
-  /* Computador: tarjeta abajo a la derecha (no empuja la agenda). */
-  #instalar-banner{position:fixed;right:20px;bottom:20px;z-index:1500;width:min(360px,calc(100vw - 40px));box-sizing:border-box;
-    display:grid;grid-template-columns:44px 1fr;gap:4px 14px;align-items:center;padding:16px 18px;
-    background:var(--panel-2);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sombra);
-    font-family:var(--ui);color:var(--ink);animation:auth-in .25s ease both;}
-  #instalar-banner img{grid-row:1 / span 2;width:44px;height:44px;border-radius:10px;object-fit:contain;}
-  #instalar-banner .ib-tit{font-weight:600;font-size:14px;line-height:1.3;}
-  #instalar-banner .ib-sub{font-size:12.5px;line-height:1.4;color:var(--ink-soft);}
-  #instalar-banner .ib-acc{grid-column:1 / -1;display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:10px;}
-  #instalar-banner .btn{padding:7px 18px;font-size:13px;}
-  #instalar-banner .instalar-banner-no{background:none;border:none;color:var(--ink-soft);font-size:13px;cursor:pointer;font-family:var(--ui);padding:7px 10px;border-radius:8px;}
-  #instalar-banner .instalar-banner-no:hover{color:var(--ink);}
-  @media (prefers-reduced-motion: reduce){ #instalar-banner{animation:none;} }
-  #instalar-banner .instalar-pasos{grid-column:1 / -1;max-width:none;margin-top:12px;padding:2px 14px;background:var(--panel);}
-  #instalar-banner .instalar-paso{font-size:13px;padding:9px 0;}
-  #instalar-banner .instalar-num{flex-basis:22px;height:22px;font-size:12px;}
-  #instalar-banner .instalar-ico{min-width:22px;height:22px;font-size:12px;}
-  #instalar-banner .ib-nota{grid-column:1 / -1;margin-top:10px;font-size:12px;line-height:1.4;color:var(--ink-soft);}
+  /* Computador: ventana en el centro sobre la agenda oscurecida (22/10/2026,
+     Juan Diego: "más fastidioso, que casi tengan que instalarla"). */
+  #instalar-fondo{position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.72);backdrop-filter:blur(3px);
+    display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto;animation:auth-in .25s ease both;}
+  #instalar-banner{width:min(440px,100%);box-sizing:border-box;display:flex;flex-direction:column;align-items:center;text-align:center;
+    padding:30px 30px 18px;background:var(--panel-2);border:1px solid var(--line);border-radius:18px;box-shadow:var(--sombra);
+    font-family:var(--ui);color:var(--ink);}
+  #instalar-banner img{width:76px;height:76px;border-radius:16px;object-fit:contain;margin-bottom:14px;}
+  #instalar-banner .ib-tit{font-family:var(--head);font-weight:700;font-size:27px;line-height:1.15;margin-bottom:8px;}
+  #instalar-banner .ib-sub{font-size:14px;line-height:1.5;color:var(--ink-soft);max-width:330px;margin-bottom:20px;}
+  #instalar-banner .instalar-btn{max-width:none;}
+  #instalar-banner .instalar-pasos{max-width:none;background:var(--panel);}
+  #instalar-banner .ib-nota{margin-top:12px;font-size:12.5px;line-height:1.45;color:var(--ink-soft);}
+  #instalar-banner .instalar-saltar{margin-top:14px;font-size:12.5px;}
+  @media (prefers-reduced-motion: reduce){ #instalar-fondo{animation:none;} }
 
   .login-gate{
     min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -1147,21 +1144,20 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
 //   navegador por esta vez" (esa pestaña, máx. 30 min): nunca deja a nadie
 //   sin poder entrar (navegador raro, urgencia, teléfono prestado).
 // - Abierta desde el ÍCONO (app instalada, display-mode standalone): nada.
-// - COMPUTADOR: una tarjeta abajo a la derecha "Instalar" / "Ahora no" (24 h).
-//   Si el navegador deja instalar con un clic (beforeinstallprompt), instala;
-//   si no, la misma tarjeta muestra 2 pasos cortos SOLO del navegador que se
-//   está usando (pasosComputador). Rehecha el 22/10/2026 a pedido de Juan
-//   Diego (antes era una franja con todos los navegadores en una línea).
+// - COMPUTADOR (22/10/2026, pedido de Juan Diego: "más fastidioso"): una
+//   ventana en el centro, sobre la agenda oscurecida, con "Instalar". Si el
+//   navegador deja instalar con un clic (beforeinstallprompt), instala; si
+//   no, muestra 2 pasos SOLO del navegador que se está usando
+//   (pasosComputador). Se salta igual que en el teléfono: "Usar en el
+//   navegador por esta vez" (esa pestaña, máx. SALTAR_MIN).
 // Va encima de todo y fuera de #root: la agenda (sesión, datos) carga igual
 // por debajo, no toca nada de cómo arranca ni de lo que se guarda.
 (function(){
   var SALTAR_KEY = 'sibanaInstalarSaltado';      // sessionStorage: "por esta vez" (cuándo se tocó)
-  var BANNER_KEY = 'sibanaInstalarBannerOculto'; // localStorage: "Ahora no" en el computador (cuándo se tocó)
   // Pedido de Juan Diego ("quiero que de verdad se use la app, que moleste"):
-  // decir que no NUNCA es para siempre. En el teléfono "por esta vez" dura
-  // esa pestaña y como mucho SALTAR_MIN minutos; en el computador "Ahora no"
-  // dura BANNER_HORAS.
-  var SALTAR_MIN = 30, BANNER_HORAS = 24;
+  // decir que no NUNCA es para siempre. En el teléfono y en el computador
+  // "por esta vez" dura esa pestaña y como mucho SALTAR_MIN minutos.
+  var SALTAR_MIN = 30;
   // El botón "Instalar" sale SIEMPRE (Juan Diego quería solo un botón). Si el
   // navegador todavía no dio permiso de instalar con un toque
   // (beforeinstallprompt: Chrome no lo manda si ya está instalada, en
@@ -1192,9 +1188,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   });
   window.addEventListener('appinstalled', function(){
     promptGuardado = null; instaladaRecien = true;
-    var b = document.getElementById('instalar-banner'); if(b) b.remove();
-    guardar('localStorage', BANNER_KEY, String(Date.now())); // recién instalada: no volver a ofrecerla enseguida
-    pintar();
+    pintar(); // "¡Lista!" (teléfono y computador)
   });
 
   function logo(){ var l = document.querySelector('link[rel="icon"]'); return l ? l.href : ''; }
@@ -1205,7 +1199,7 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     try{ p.prompt(); }catch(e){ mostrarPasos = true; pintar(); return; } // si no lo deja: los pasos
     (p.userChoice || Promise.resolve({})).then(function(r){
       if(!(r && r.outcome==='accepted')) mostrarPasos = true; // la cerró sin instalar: quedan los pasos a la vista
-      if(r && r.outcome==='accepted'){ instaladaRecien = true; var b = document.getElementById('instalar-banner'); if(b) b.remove(); guardar('localStorage', BANNER_KEY, String(Date.now())); }
+      if(r && r.outcome==='accepted') instaladaRecien = true;
       pintar();
     }).catch(function(){ pintar(); });
   }
@@ -1266,36 +1260,36 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
       });
       return;
     }
-    // Computador: tarjeta abajo a la derecha (si no dijo "Ahora no" hace poco).
+    // Computador: ventana en el centro (si no la saltó en esta pestaña hace poco).
+    var f = document.getElementById('instalar-fondo');
+    if(vigente('sessionStorage', SALTAR_KEY, SALTAR_MIN*60000)){ if(f) f.remove(); return; }
+    if(!f){
+      f = document.createElement('div');
+      f.id = 'instalar-fondo';
+      f.innerHTML = '<div id="instalar-banner" role="dialog" aria-modal="true" aria-label="Instalar la agenda"></div>';
+      document.body.appendChild(f);
+    }
     var b = document.getElementById('instalar-banner');
-    if(vigente('localStorage', BANNER_KEY, BANNER_HORAS*3600000)){ if(b) b.remove(); return; }
-    if(!b){
-      b = document.createElement('div');
-      b.id = 'instalar-banner';
-      b.setAttribute('role', 'dialog');
-      b.setAttribute('aria-label', 'Instalar la agenda');
-      document.body.appendChild(b);
-    }
-    var cab = '<img src="'+logo()+'" alt="">';
+    var html = '<img src="'+logo()+'" alt="Sibana">';
     var pasos = (mostrarPasos && !promptGuardado) ? pasosComputador() : null;
-    if(pasos){
-      b.innerHTML = cab + '<div class="ib-tit">'+pasos.titulo+'</div><div class="ib-sub">'+pasos.sub+'</div>'
+    if(instaladaRecien){
+      html += '<div class="ib-tit">¡Lista!</div><div class="ib-sub">La agenda quedó instalada. Cierra esta pestaña y ábrela desde el ícono <b>Agenda Sibana</b>.</div>';
+    } else if(pasos){
+      html += '<div class="ib-tit">'+pasos.titulo+'</div><div class="ib-sub">'+pasos.sub+'</div>'
         + (pasos.lista.length ? pasosHtml(pasos.lista) : '')
-        + '<div class="ib-nota">Si ya la instalaste, ábrela desde su ícono <b>Agenda Sibana</b>.</div>'
-        + '<div class="ib-acc"><button type="button" class="btn btn-primary" id="instalar-banner-no">Entendido</button></div>';
+        + '<div class="ib-nota">Si ya la instalaste, ábrela desde su ícono <b>Agenda Sibana</b>.</div>';
     } else {
-      b.innerHTML = cab
-        + '<div class="ib-tit">Instala la agenda en este computador</div>'
-        + '<div class="ib-sub">Se abre en su propia ventana, con un clic.</div>'
-        + '<div class="ib-acc"><button type="button" class="instalar-banner-no" id="instalar-banner-no">Ahora no</button>'
-        + '<button type="button" class="btn btn-primary" id="instalar-banner-si">Instalar</button></div>';
+      html += '<div class="ib-tit">Instala la agenda en este computador</div>'
+        + '<div class="ib-sub">Ábrela con un clic desde tu escritorio, en su propia ventana.</div>'
+        + '<button type="button" class="btn btn-primary instalar-btn" id="instalar-banner-si">Instalar la agenda</button>';
     }
+    b.innerHTML = html + '<button type="button" class="instalar-saltar" id="instalar-banner-no">Usar en el navegador por esta vez</button>';
     var si = document.getElementById('instalar-banner-si');
     if(si) si.addEventListener('click', instalarConBoton);
     document.getElementById('instalar-banner-no').addEventListener('click', function(){
-      guardar('localStorage', BANNER_KEY, String(Date.now()));
+      guardar('sessionStorage', SALTAR_KEY, String(Date.now()));
       mostrarPasos = false;
-      b.remove();
+      f.remove();
     });
   }
   // Pasos del computador, solo los del navegador que se está usando.

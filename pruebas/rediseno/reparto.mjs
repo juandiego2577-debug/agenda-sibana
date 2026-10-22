@@ -38,19 +38,24 @@ const ops = await page.$$eval('#f-specialist option', o => o.map(x => x.textCont
 ok('la lista marca a Helen con "⚖️ le falta trabajo"', ops.some(t => t.startsWith('Helen') && t.includes('⚖️ le falta trabajo')), JSON.stringify(ops));
 ok('y a nadie más', ops.filter(t => t.includes('⚖️')).length === 1);
 ok('sin texto extra en el formulario', !(await page.textContent('.modal')).includes('le toca más trabajo'));
-const orden = async () => page.evaluate(() => { const h = opcionesEspecialistaHtml(['Microblading (MB)'], '', null, { date: '2026-10-28', start: '10:00', end: '12:00' }); const d = document.createElement('select'); d.innerHTML = h; return [...d.options].map(o => o.textContent); });
+const orden = async () => page.evaluate(() => { ui.modal = { type: 'appt', mode: 'new', data: {} }; const h = opcionesEspecialistaHtml(['Microblading (MB)'], '', null, { date: '2026-10-28', start: '10:00', end: '12:00' }); const d = document.createElement('select'); d.innerHTML = h; return [...d.options].map(o => o.textContent); });
 const conRep = await orden();
 await page.evaluate(() => { window.__rep = state.specialists.map(s => s.reparto); state.specialists.forEach(s => s.reparto = false); });
 const sinRep = await orden();
 await page.evaluate(() => state.specialists.forEach((s, i) => { s.reparto = window.__rep[i]; if (s.reparto === undefined) delete s.reparto; }));
 ok('el orden de la lista (medallas) es el mismo con o sin reparto', JSON.stringify(conRep.map(t => t.split(' ')[0])) === JSON.stringify(sinRep.map(t => t.split(' ')[0])), JSON.stringify(conRep) + ' / ' + JSON.stringify(sinRep));
-ok('Helen bloqueada a esa hora: no se le marca ⚖️', await page.evaluate(() => { state.blocks.push({ id: 'bx', date: '2026-10-28', start: '09:00', end: '13:00', specialist: 'Helen', motivo: 'x' }); const h = opcionesEspecialistaHtml([], '', null, { date: '2026-10-28', start: '10:00', end: '12:00' }); state.blocks.pop(); return !/Helen[^<]*⚖️/.test(h); }));
-await page.click('[data-act="close-modal"]').catch(() => page.keyboard.press('Escape'));
+ok('Helen bloqueada a esa hora: no se le marca ⚖️ (y sin bloqueo, sí)', await page.evaluate(() => { ui.modal = { type: 'appt', mode: 'new', data: {} }; const libre = opcionesEspecialistaHtml([], '', null, { date: '2026-10-28', start: '10:00', end: '12:00' }); if (!/Helen[^<]*⚖️/.test(libre)) return false; state.blocks.push({ id: 'bx', date: '2026-10-28', start: '09:00', end: '13:00', specialist: 'Helen', motivo: 'x' }); const h = opcionesEspecialistaHtml([], '', null, { date: '2026-10-28', start: '10:00', end: '12:00' }); state.blocks.pop(); return !/Helen[^<]*⚖️/.test(h); }));
+await page.evaluate(() => { ui.modal = null; render(); });
+// Al EDITAR una cita ya dada no sale el ⚖️
+await page.evaluate(() => { ui.modal = { type: 'appt', mode: 'edit', data: state.appointments.find(a => a.id === 'r3') }; render(); });
+await page.waitForSelector('#f-specialist');
+ok('al editar una cita ya agendada no sale el ⚖️', !(await page.$$eval('#f-specialist option', o => o.some(x => x.textContent.includes('⚖️')))));
+await page.evaluate(() => { ui.modal = null; render(); });
 // Parejas: sin aviso
 await page.evaluate(() => { state.appointments.push({ id: 'r8', date: '2026-10-29', start: '10:00', end: '11:00', client: 'x', services: [], specialist: 'Helen', estado: 'Confirmada', price: 129990 }, { id: 'r9', date: '2026-10-29', start: '12:00', end: '13:00', client: 'y', services: [], specialist: 'Lucy', estado: 'Confirmada', price: 39990 }); ui.modal = null; render(); });
 await irPagos();
 txt = await page.textContent('.reparto');
-ok('cuando están parejas: "✅ Están parejas" y sin ⚖️ en la lista', txt.includes('Están parejas') && await page.evaluate(() => !opcionesEspecialistaHtml([], '', null, null).includes('⚖️')), txt.replace(/\s+/g, ' ').slice(-120));
+ok('cuando están parejas: "✅ Están parejas" y sin ⚖️ en la lista', txt.includes('Están parejas') && await page.evaluate(() => { ui.modal = { type: 'appt', mode: 'new', data: {} }; const h = opcionesEspecialistaHtml([], '', null, null); ui.modal = null; return !h.includes('⚖️'); }), txt.replace(/\s+/g, ' ').slice(-120));
 // Especialistas: la casilla
 await page.click('[data-act="goto-section"][data-section="agenda"]'); await page.click('[data-act="toggle-menu"]'); await page.click('[data-act="open-specialists"]'); await page.waitForSelector('[data-spec-reparto]');
 const marcadas = await page.$$eval('[data-spec-reparto]', cs => cs.map(c => c.checked));
@@ -66,6 +71,14 @@ await page.evaluate(() => render());
 txt = await page.textContent('.reparto');
 ok('después de 4 semanas mira solo las últimas 4 semanas', txt.includes('en las últimas 4 semanas') && txt.includes('Todavía no hay citas'), txt.slice(0, 200));
 ok('sin errores', errores.length === 0, errores.join(' | '));
+// ?reparto28: solo para mirar los 28 días de atrás (sin el corte del 22/10)
+await page.clock.setFixedTime(new Date('2026-10-20T13:10:00-03:00'));
+await page.goto(page.url().split('?')[0] + '?reparto28'); await page.waitForSelector('[data-act="new-block"]', { timeout: 30000 }); await esperarCalma(page);
+await irPagos();
+txt = await page.textContent('.reparto');
+ok('?reparto28: cuenta los 28 días de atrás (citas de octubre que antes no contaban)', txt.includes('en los últimos 28 días') && txt.includes('solo para mirar') && !txt.includes('Todavía no hay citas'), txt.replace(/\s+/g, ' ').slice(0, 300));
+ok('?reparto28 no cambia el ⚖️ del formulario (sigue desde el 22/10)', await page.evaluate(() => { ui.modal = { type: 'appt', mode: 'new', data: {} }; const d = repartoDatos(); const v = repartoDatos(true); ui.modal = null; return d.desde === '2026-10-22' && v.desde < '2026-10-22'; }));
+ok('dos especialistas con el mismo nombre: una sola fila', await page.evaluate(() => { state.specialists.push({ id: 'dup', name: 'lucy ', color: '#123456' }); const n = repartoDatos().filas.filter(f => normalizeName(f.name) === 'lucy').length; state.specialists.pop(); return n === 1; }));
 await cerrar();
 // Especialista: no ve nada de esto
 const e = await abrirAgenda({ html, rol: 'especialista', ancho: 1517 });

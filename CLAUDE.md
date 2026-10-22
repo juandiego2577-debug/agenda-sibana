@@ -2099,8 +2099,13 @@ anterior" (pedido de él). Spec y plan: `docs/superpowers/`; sistema visual:
   largo). Quién entra: casilla "⚖️ Entra en el reparto de trabajo" en Más →
   Especialistas (`s.reparto`; si nunca se tocó, en Santiago
   `REPARTO_POR_DEFECTO` = Salomé, Lucy, Helen; en otra sede nadie). Sin
-  `APP_VERSION`. Probado: `reparto.mjs` (19) y `medidas.mjs` sin problemas
-  nuevos.
+  `APP_VERSION`. El ⚖️ sale solo en citas NUEVAS (no al editar). Para mirar
+  cómo habría quedado con los 28 días de atrás (sin el corte): `?reparto28`
+  al final de la dirección (solo cambia el recuadro de Pagos). Revisado por
+  un segundo lector (sin fallas reales; se arreglaron dos detalles: ese
+  `?reparto28` también movía el ⚖️, y dos especialistas con el mismo nombre
+  daban dos filas). Probado: `reparto.mjs` (23) y `medidas.mjs` sin
+  problemas nuevos.
 
 ## Cómo se trabaja en este proyecto
 - **Siempre probar antes de entregar.** Este proyecto se construyó

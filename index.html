@@ -5538,19 +5538,33 @@ function sesionInicialDelForm(servicios){
 const REPARTO_DESDE = '2026-10-22';
 const REPARTO_DIAS = 28;
 const REPARTO_POR_DEFECTO = ['salome','lucy','helen'];
+// Solo para mirar (pedido de Juan Diego, 21/10/2026): con "?reparto28" al final
+// de la dirección el recuadro de Pagos cuenta los 28 días de atrás sin el
+// corte de REPARTO_DESDE, para ver cómo habría quedado. No cambia nada más
+// (el ⚖️ al agendar sigue contando desde REPARTO_DESDE).
+const REPARTO_VER_28 = /[?&]reparto28(=|&|$)/.test(location.search);
 function entraEnReparto(s){
   if(!s) return false;
   if(s.reparto===true) return true;
   if(s.reparto===false) return false;
   return SEDE.id==='santiago' && REPARTO_POR_DEFECTO.includes(sinTildes(s.name));
 }
-function repartoDesdeKey(){
+function repartoDesdeKey(ver28){
   const ini = toKey(addDays(parseKey(sedeNow().date), -(REPARTO_DIAS-1)));
-  return ini > REPARTO_DESDE ? ini : REPARTO_DESDE;
+  return ver28 || ini > REPARTO_DESDE ? ini : REPARTO_DESDE;
 }
-function repartoDatos(){
-  const desde = repartoDesdeKey();
-  const filas = state.specialists.filter(entraEnReparto).map(s=>({name:s.name, color:s.color, monto:0, citas:0}));
+// ver28: solo el recuadro de Pagos con "?reparto28" (el ⚖️ del formulario
+// siempre usa el corte de REPARTO_DESDE).
+function repartoDatos(ver28){
+  const desde = repartoDesdeKey(ver28);
+  // Una fila por nombre (si hubiera dos especialistas con el mismo nombre, la
+  // segunda quedaría siempre en $0); sin nombre, no entra.
+  const vistos = new Set();
+  const filas = state.specialists.filter(s=>{
+    const k = normalizeName(s && s.name);
+    if(!k || vistos.has(k) || !entraEnReparto(s)) return false;
+    vistos.add(k); return true;
+  }).map(s=>({name:s.name, color:s.color, monto:0, citas:0}));
   if(filas.length < 2) return null;
   const fila = nombre=> filas.find(f=>normalizeName(f.name)===normalizeName(nombre));
   state.appointments.forEach(a=>{
@@ -5575,10 +5589,11 @@ function leFaltaTrabajo(rep, nombres){
   return prom > 0 && min < prom*0.85 ? cand.filter(f=>f.monto===min).map(f=>normalizeName(f.name)) : [];
 }
 function repartoPagosHtml(){
-  const rep = repartoDatos();
+  const rep = repartoDatos(REPARTO_VER_28);
   if(!rep) return '';
   const d = parseKey(rep.desde);
-  const desdeTxt = rep.desde===REPARTO_DESDE ? `desde el ${d.getDate()} de ${MONTHS[d.getMonth()]}` : 'en las últimas 4 semanas';
+  const desdeTxt = REPARTO_VER_28 ? `en los últimos 28 días (desde el ${d.getDate()} de ${MONTHS[d.getMonth()]}, solo para mirar)`
+    : rep.desde===REPARTO_DESDE ? `desde el ${d.getDate()} de ${MONTHS[d.getMonth()]}` : 'en las últimas 4 semanas';
   const parejo = 100/rep.filas.length;
   const falta = leFaltaTrabajo(rep, rep.filas.map(f=>f.name));
   const nombresFalta = rep.filas.filter(f=>falta.includes(normalizeName(f.name))).map(f=>`<b>${escapeHtml(f.name)}</b>`);
@@ -5620,7 +5635,9 @@ function opcionesEspecialistaHtml(servicios, actual, inicial, horario){
   // Las que bloquearon ese horario van al final.
   const bloqueada = nombre=> !!bloqueoDeEspecialista(nombre, horario);
   ordenada.sort((x,y)=> bloqueada(x.name) - bloqueada(y.name));
-  const falta = esDueno() ? leFaltaTrabajo(repartoDatos(), ordenada.filter(s=>!bloqueada(s.name)).map(s=>s.name)) : [];
+  // Solo al agendar una cita NUEVA (al editar una ya dada no hace falta).
+  const nueva = ui.modal && ui.modal.type==='appt' && ui.modal.mode==='new';
+  const falta = esDueno() && nueva ? leFaltaTrabajo(repartoDatos(), ordenada.filter(s=>!bloqueada(s.name)).map(s=>s.name)) : [];
   const balanza = nombre=> falta.includes(normalizeName(nombre)) ? ' · ⚖️ le falta trabajo' : '';
   return `<option value="">— Sin asignar —</option>${extra}` + ordenada.map(s=>{
     const noHaceS = aptas.length ? [] : noHaceDe(s.name, servicios);

@@ -1796,6 +1796,12 @@ const SLOT_PX = 56; // px per hour
 // (13+16+15+10 = 54). Si se cambia la letra o el relleno de .appt, volver a
 // medir con pruebas/rediseno/dia.mjs.
 const COMPACT_HEIGHT_PX = 50;
+// Alto mínimo de una ficha en la vista Día (una cita de 10 min se dibuja más
+// alta de lo que dura, para que se lea). layoutSideBySide usa este alto para
+// decidir qué se cruza: así dos citas cortas seguidas (17:00–17:10 y
+// 17:10–17:20) van lado a lado en vez de dibujarse una encima de otra.
+const FICHA_MIN_PX = 26;
+const FICHA_MIN_MIN = FICHA_MIN_PX/SLOT_PX*60;
 
 let state = {
   appointments: [], // {id,date:'YYYY-MM-DD',start:'HH:MM',end:'HH:MM',client,phone,services:[],price,specialist,estado,abono,metodoAbono,saldo,metodoSaldo,notas}
@@ -2575,7 +2581,9 @@ function layoutSideBySide(items){
     cluster = []; laneEnds = [];
   };
   order.forEach(i=>{
-    const st = minutesFromMidnight(items[i].start), en = minutesFromMidnight(items[i].end);
+    const st = minutesFromMidnight(items[i].start);
+    // hasta donde se DIBUJA (una cita muy corta se ve más alta de lo que dura)
+    const en = Math.max(minutesFromMidnight(items[i].end), st + FICHA_MIN_MIN);
     if(cluster.length && st >= clusterEnd) close();
     let c;
     if(pref[i]!=null){
@@ -4613,7 +4621,7 @@ function dayViewHtml(){
     const startMin = minutesFromMidnight(b.start) - rangeStart*60;
     const endMin = minutesFromMidnight(b.end) - rangeStart*60;
     const top = (startMin/60)*SLOT_PX;
-    const height = Math.max(((endMin-startMin)/60)*SLOT_PX, 26);
+    const height = Math.max(((endMin-startMin)/60)*SLOT_PX, FICHA_MIN_PX);
     const col = specialistColor(b.specialist);
     const n = blockCols[i].cols;
     const pos = sidePos(blockCols[i]);
@@ -4640,7 +4648,7 @@ function dayViewHtml(){
     const startMin = minutesFromMidnight(g.start) - rangeStart*60;
     const endMin = minutesFromMidnight(g.end) - rangeStart*60;
     const top = (startMin/60)*SLOT_PX;
-    const height = Math.max(((endMin-startMin)/60)*SLOT_PX, 26);
+    const height = Math.max(((endMin-startMin)/60)*SLOT_PX, FICHA_MIN_PX);
     const isCompact = height < COMPACT_HEIGHT_PX;
     const avisoDt = new Date(r.en);
     const aviso = isNaN(avisoDt) ? '' : ` · avisó el ${avisoDt.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'})}`;
@@ -4664,7 +4672,7 @@ function dayViewHtml(){
     const startMin = minutesFromMidnight(a.start) - rangeStart*60;
     const endMin = minutesFromMidnight(a.end) - rangeStart*60;
     const top = (startMin/60)*SLOT_PX;
-    const height = Math.max(((endMin-startMin)/60)*SLOT_PX, 26);
+    const height = Math.max(((endMin-startMin)/60)*SLOT_PX, FICHA_MIN_PX);
     const stClass = 'st-' + (a.estado||'Pendiente').replace(/\s/g,'');
     const dotColor = specialistColor(a.specialist);
     const specBorder = a.specialist ? `border-left-color:${dotColor};` : '';
@@ -4700,7 +4708,7 @@ function dayViewHtml(){
     const startMin = minutesFromMidnight(c.start) - rangeStart*60;
     const endMin = minutesFromMidnight(c.end) - rangeStart*60;
     const top = (startMin/60)*SLOT_PX;
-    const height = Math.max(((endMin-startMin)/60)*SLOT_PX, 26);
+    const height = Math.max(((endMin-startMin)/60)*SLOT_PX, FICHA_MIN_PX);
     const isCompact = height < COMPACT_HEIGHT_PX;
     const label = `📚 ${escapeHtml(c.nombre||'Curso')}`;
     const sub = `${count} inscrito${count===1?'':'s'}${c.specialist?' · '+escapeHtml(c.specialist):''}`;

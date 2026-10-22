@@ -1176,7 +1176,12 @@ para servir también a **Copiapó**, de la siguiente forma:
   a una columna extra a la derecha; lo que no tiene box (bloqueo de
   "Todas", sin especialista) va a la primera libre; las columnas vacías de
   un grupo se quitan, y una cita que no se cruza con nada sigue a todo el
-  ancho. El box se elige en Más → Especialistas (`s.box` = 1 | 2 |
+  ancho. **Citas muy cortas (22/10/2026, bug real visto por Juan Diego):**
+  una ficha nunca mide menos de `FICHA_MIN_PX` (26 px ≈ 28 min), así que una
+  cita de 10 min (17:00–17:10) se dibujaba encima de la siguiente (17:10).
+  `layoutSideBySide` ahora decide qué se cruza con el alto DIBUJADO
+  (`FICHA_MIN_MIN`), y esas citas van lado a lado. Prueba:
+  `pruebas/rediseno/cortas.mjs` (falla con la versión anterior). El box se elige en Más → Especialistas (`s.box` = 1 | 2 |
   'libre'); si nunca se eligió, en Santiago vale `BOX_POR_DEFECTO` (por
   nombre, sin tildes) y en otra sede ninguno — así funcionó sin escribir
   nada en la base. Solo cambia dónde se DIBUJA: ningún dato, precio ni el

@@ -2010,13 +2010,17 @@ para servir también a **Copiapó**, de la siguiente forma:
   considera instalable (`Page.getInstallabilityErrors` vacío). Probado:
   e2e (Android, iPhone, Instagram, instalada, computador, Santiago y BA).
   **Computador rehecho (22/10/2026, a Juan Diego no le gustaba la franja con
-  el paso a paso "haz clic en el ícono… en Edge… en Safari…"):** ahora es una
+  el paso a paso de todos los navegadores en una línea):** ahora es una
   tarjeta abajo a la derecha (logo, "Instala la agenda en este computador /
-  Se abre en su propia ventana, con un clic", "Ahora no" · "Instalar") y sale
-  SOLO cuando el navegador deja instalar con un clic (`beforeinstallprompt`):
-  "Instalar" abre directo el instalador. Sin ese permiso (ya instalada,
-  incógnito, Safari/Firefox) no sale nada; nunca hay paso a paso en el
-  computador. El teléfono no cambió. Probado (13, simulando el evento).
+  Se abre en su propia ventana, con un clic", "Ahora no" · "Instalar"). Si el
+  navegador dio permiso (`beforeinstallprompt`), "Instalar" abre directo el
+  instalador; si no, la MISMA tarjeta muestra 2 pasos numerados solo del
+  navegador que se usa (`pasosComputador`: Edge ⋯ → Aplicaciones; Chrome ⋮ →
+  Transmitir, guardar y compartir → Instalar página como app; Safari Archivo
+  → Agregar al Dock; Firefox: "ábrela en Chrome o Edge"), "Si ya la
+  instalaste, ábrela desde su ícono" y "Entendido". El teléfono no cambió.
+  Probado (35, simulando el evento y los navegadores, 800–1517px, oscuro y
+  claro).
 
 ## Rediseño visual (oct 2026, PUBLICADO el 21/10/2026 ~21:05 hora de Chile, PR #147 dentro de #148)
 Pedido por Juan Diego ("funciona perfectamente, pero se ve anticuada"). Solo

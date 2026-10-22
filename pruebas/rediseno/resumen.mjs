@@ -1,0 +1,53 @@
+// Resumen de dinero de abajo (vista Día / Semana / Mes, solo dueños) con datos
+// inventados (comun.mjs, "hoy" = mar 20/10/2026). Los montos esperados están
+// calculados a mano.
+// Uso: npx firebase emulators:exec --only firestore,auth --project sibana-santiago "node resumen.mjs"
+import { prepararEmulador, cerrarEmulador, abrirAgenda, htmlDe, cerrarNavegador, inicio } from './comun.mjs';
+let n = 0, fallas = 0;
+const ok = (t, c, x = '') => { n++; if (c) console.log('  ✓', t); else { fallas++; console.log('  ✗', t, x); } };
+await prepararEmulador();
+let { page, cerrar, errores } = await abrirAgenda({ html: htmlDe('trabajo'), rol: 'duenos', sede: 'santiago' });
+const texto = () => page.textContent('footer.summary');
+await inicio(page);
+console.log('Día (mar 20/10)');
+let t = await texto();
+ok('Entró $124.980 de $344.920', t.includes('Entró este día') && t.includes('$124.980') && t.includes('de $344.920'), t);
+ok('6 citas sin cerrar · faltan $219.940', t.includes('6 citas sin cerrar') && t.includes('faltan $219.940'));
+ok('ya no dice "Falta por cobrar" ni "Ingreso total"', !t.includes('Falta por cobrar') && !t.includes('Ingreso total'));
+ok('por método: solo lo que entró (transferencia $124.980)', t.includes('Transferencia') && t.includes('$124.980'));
+await page.click('[data-act="open-sin-cerrar"]'); await page.waitForTimeout(300);
+const filas = await page.$$eval('.modal [data-act="edit-appt"]', e => e.length);
+ok('"Ver cuáles" muestra las 6', filas === 6, filas);
+await page.click('.modal [data-act="edit-appt"]'); await page.waitForTimeout(400);
+ok('tocar una abre la cita', await page.evaluate(() => ui.modal && ui.modal.type === 'appt'));
+await inicio(page);
+console.log('Semana (19–25/10)');
+await page.evaluate(() => { ui.view = 'week'; render(); }); await page.waitForTimeout(300);
+t = await texto();
+ok('Entró $154.980 de $499.920 (+ no llegó $5.000 y abono del curso $25.000)', t.includes('Entró esta semana') && t.includes('$154.980') && t.includes('de $499.920'), t);
+ok('7 citas sin cerrar · faltan $344.940', t.includes('7 citas sin cerrar') && t.includes('faltan $344.940'));
+console.log('Mes (octubre)');
+await page.evaluate(() => { ui.view = 'month'; render(); }); await page.waitForTimeout(300);
+t = await texto();
+ok('Entró $324.960 de $669.900', t.includes('Entró este mes') && t.includes('$324.960') && t.includes('de $669.900'), t);
+console.log('Todo cerrado');
+await page.evaluate(() => { ui.view = 'day'; ui.currentDate = new Date(2026, 9, 20); state.appointments.forEach(a => { if (a.date === '2026-10-20' && (a.estado === 'Pendiente' || a.estado === 'Confirmada')) { a.estado = 'Realizada'; a.metodoSaldo = 'Efectivo'; } }); render(); });
+await page.waitForTimeout(300); t = await texto();
+ok('Entró $344.920 y "Todo cobrado" (sin "de …")', t.includes('$344.920') && t.includes('Todo cobrado') && !t.includes('de $344.920'), t);
+ok('por método: efectivo + transferencia', t.includes('Efectivo') && t.includes('$219.940') && t.includes('$124.980'));
+console.log('Un día que todavía no llega');
+await page.evaluate(() => { state.appointments.filter(a => a.date === '2026-10-20' && !a.cursoId).forEach((a, i) => state.appointments.push(Object.assign({}, a, { id: 'f' + i, date: '2026-10-27', estado: 'Confirmada' }))); ui.currentDate = new Date(2026, 9, 27); render(); });
+await page.waitForTimeout(300); t = await texto();
+ok('"Esperado este día", sin barrita ni "sin cerrar"', t.includes('Esperado este día') && !t.includes('sin cerrar') && !(await page.$('.r2-barra')), t);
+await page.evaluate(() => { ui.view = 'week'; render(); }); await page.waitForTimeout(300); t = await texto();
+ok('semana que no llega: "Esperado esta semana"', t.includes('Esperado esta semana'), t);
+ok('sin errores (dueños)', errores.length === 0, errores.join(' | '));
+await cerrar();
+console.log('Especialista');
+({ page, cerrar, errores } = await abrirAgenda({ html: htmlDe('trabajo'), rol: 'especialista', sede: 'santiago' }));
+await inicio(page); t = await texto();
+ok('solo ve citas (sin dinero)', t.includes('Citas') && !t.includes('$') && !t.includes('Entró'), t);
+ok('sin errores (especialista)', errores.length === 0, errores.join(' | '));
+await cerrar(); await cerrarNavegador(); await cerrarEmulador();
+console.log(`${n - fallas}/${n} pruebas del resumen bien`);
+process.exit(fallas ? 1 : 0);

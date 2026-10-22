@@ -347,6 +347,71 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
   decidido); link de reseñas de Google de BA; ficha de consentimiento con
   DNI (repo `sibana-consentimiento`).
 
+## Sede de Viña del Mar (en construcción, 21/10/2026, SIN publicar)
+Buenos Aires no tuvo ninguna cita en dos semanas; Juan Diego quiere probar en
+**Viña del Mar** (y quizás después Concepción y Antofagasta): al principio
+arrendando un box algunos días. Decidido con él: **la misma agenda** para todas
+las ciudades (una sede más en `SEDES`). Rama `claude/adoring-lamport-on2t14`,
+**construida encima del rediseño** (`claude/rediseno-visual`, PR #147): se
+publica DESPUÉS del rediseño.
+- **Estudio de mercado** (artifact "Sibana en Viña del Mar", fuera del repo
+  porque el repo es público): lo típico en Viña es ~$100.000 la
+  micropigmentación de cejas (mediana del precio más barato de cada estudio,
+  6 estudios en AgendaPro); labios ~$130.000 (pocos datos). Regla elegida:
+  apertura −20% de lo típico, definitivo −10%, terminado en .990. **Precios de
+  apertura** (los pone `crearAgendaSede`, `SEDE.preciosIniciales`):
+  microblading/sombreado/delineado $79.990, MixBrows/Full Lips $99.990;
+  definitivos $89.990 / $119.990 (los cambia él en Servicios y tarifario). Lo
+  demás (retoques, lifting, laminado...) = el precio de Santiago.
+- `SEDES.vina`: Chile (CLP, RUT, +56, `America/Santiago`). **Comisión igual
+  que Santiago** (confirmado por él: $10.000 por micropigmentación, 50/50, sin
+  `soloPrecioNuevo` porque todas las citas tienen precios nuevos); abono
+  perdido del negocio desde el primer día; abono sugerido $5.000 (`abonoEditable`:
+  lo cambia en Servicios y tarifario); crema incluida al crear. "Mi pago"
+  igual que en Santiago.
+- **Crear la agenda**: igual que BA (dueño → 📍 Sede → Viña → "Crear la agenda
+  de Viña del Mar"): copia los servicios de Santiago con precios y casillas
+  (micropigmentación, lleva retoque, lleva consentimiento), con los precios de
+  apertura en la micropigmentación.
+- **Cómo se distingue la sede** (él no quiso la franja con el nombre; vio 4
+  opciones en fotos y eligió A + D): solo para quien ve MÁS de una sede
+  (`veVariasSedes()`: dueños, o una especialista con otra sede), (A) el nombre
+  de la sede grande junto al logo (`.tagline-sede`, también en el teléfono;
+  ahí el botón 📍 queda solo con el ícono) y (D) al entrar a una sede distinta
+  de la última vista en ese aparato, "Estás en la agenda de …" 3 s
+  (`avisoSedeSiCambio`, `AVISO_SEDE_KEY`). **D es a prueba**: si se
+  acostumban y no se confunden, se quita. El equipo de una sola sede no ve
+  nada nuevo.
+- **Especialista en dos sedes** (por si Salomé apoya en Viña, no está
+  decidido): `sibana-usuarios/<uid>.otrasSedes` (lista; su `sede` sigue siendo
+  la principal, así el script de respaldo de Santiago no cambia). Más →
+  Equipo → "＋ También en Viña del Mar" (`cambiarOtraSedeUsuario`). Ella ve 📍
+  con solo sus sedes (`sedesDisponibles`, `SEDE_PERSONAL_KEY`). En la otra sede
+  tiene que estar en Especialistas con el MISMO nombre (lección 6). Su pago va
+  por separado en cada sede.
+- **Ficha de consentimiento** (repo sibana-consentimiento, misma rama): la
+  misma ficha con `?sede=vina` → `sibana-consentimientos-vina`, Ciudad puesta,
+  "· VIÑA DEL MAR" en el título (el QR de Viña lleva ese enlace). El Panel
+  Sibana lee cada sede por separado: los dueños ven las dos con su sede
+  marcada y un filtro; quien solo tiene una sede, solo esa. Cambios visuales
+  de esa página: pedidos para DESPUÉS.
+- **Reglas** (`firestore.rules`): sede `vina`, `otrasSedes` en `usuarioValido`
+  y `usuarioActivoDe`, colección de fichas de Viña. **Hay que pegarlas en
+  Firebase** antes de usar Viña (él lo deja para cuando se vaya a publicar).
+- **Pendiente** (como BA): respaldo a Hoja/Calendar de Viña (no hay Gmail ni
+  Calendar todavía: `backupWebhookUrl` en PEGA_AQUI), correo post-tratamiento,
+  link de reseñas.
+- Probado contra los emuladores: `pruebas/rediseno/reglas-vina.mjs` (32),
+  `vina.mjs` (43: crear, precios, comisión, datos separados, Equipo, Salomé
+  con dos sedes, especialistas de una sola sede sin cambios),
+  `ficha-vina.mjs` (14: ficha y Panel; con `REGLAS=<reglas viejas>` comprueba
+  que sin pegar las reglas el Panel sigue mostrando Santiago sin error, pero
+  el QR de Viña NO guarda fichas: no usarlo hasta pegar las reglas), más
+  `medidas.mjs` (0 problemas nuevos en Santiago; en Viña solo los mismos que
+  ya tiene Santiago) y `paridad.mjs` contra el rediseño `60c3ce0` (diferencias
+  solo en pantallas de dueños: el nombre de la sede junto al logo, Viña en la
+  lista de sedes y "＋ También en…" en Equipo; especialistas sin cambios).
+
 ## Posible extensión a Copiapó (en pausa, probablemente no se haga)
 **Actualización (oct 2026):** la sede de Copiapó al parecer prefiere seguir
 con AgendaPro (ya están acostumbrados), así que esto quizás nunca se
@@ -1944,6 +2009,103 @@ para servir también a **Copiapó**, de la siguiente forma:
   "Agenda Sibana" (antes "Sibana Santiago" aunque fuera de BA). Chrome la
   considera instalable (`Page.getInstallabilityErrors` vacío). Probado:
   e2e (Android, iPhone, Instagram, instalada, computador, Santiago y BA).
+
+## Rediseño visual (oct 2026, rama `claude/rediseno-visual`, SIN publicar)
+Pedido por Juan Diego ("funciona perfectamente, pero se ve anticuada"). Solo
+cambia cómo se ve: ningún botón cambia de lugar ni de orden, ninguna función ni
+dato cambia (no hubo que subir `APP_VERSION`). Se lanza **todo de una vez**, un
+día tranquilo después de la última cita; sin botón de "volver al diseño
+anterior" (pedido de él). Spec y plan: `docs/superpowers/`; sistema visual:
+`DESIGN.md`.
+- **Colores en variables** (`:root` oscuro, `:root[data-tema="claro"]` claro).
+  Un color nuevo va como variable, con su reemplazo en `TEMA_BANDERA_ARGENTINA`
+  (y su valor claro en el `extra` de BA). `pruebas/rediseno/colores.mjs` falla
+  si aparece un color suelto.
+- **Letras propias** en `fonts/` (Montserrat + Cormorant Garamond, números
+  rectos: el "9 raro" de los números antiguos fue rechazado). Letra mínima 11 px
+  (`letras.mjs`). Logo "Sibana" sin "Academia PMU" (`LOGO_SRC`, transparente) y
+  `LOGO_ICONO_SRC` (solo el rostro) para la pantalla de carga.
+- **Íconos** `iconoSvg()` solo en barra de arriba, pestañas y barra de
+  herramientas, con el color del emoji de antes (Bloquear rojo, Vale/Pagos
+  verde…). Botón principal dorado metálico (`--metal`; en BA celeste).
+- **Vista Día**: ficha teñida por estado; `ajustarFichasDia` (después de cada
+  `render()`, al cargar la letra y al cambiar el tamaño) deja solo líneas
+  enteras. `COMPACT_HEIGHT_PX` sigue en 50 (con 40 cambiaba el texto de las
+  citas de 45 min). "Sin abono" siempre visible (palabra o ícono); el ✍️ de
+  "Falta firmar" en fichas angostas va ABAJO a la derecha.
+- **Modo claro**: botón sol/luna (`toggle-tema`) primero a la derecha de la
+  barra de arriba, igual para todos; `localStorage.sibanaTema`, aplicado en el
+  `<head>` (sin destello). Por defecto oscuro. La barra del logo queda negra.
+- Encontrado y corregido de paso (ya pasaba en la versión publicada): con 6
+  especialistas a 1024 px "+ Nueva cita" bajaba a la 2da fila; el menú Más se
+  salía de la pantalla a 768 px (ahora se abre hacia donde quepa); en las citas
+  de 1 h el tratamiento quedaba cortado a la mitad.
+- **Pruebas** (`pruebas/rediseno/`, ver LEEME; datos inventados contra los
+  emuladores): `paridad.mjs` compara pantalla por pantalla con la versión
+  publicada `b5082a2` (mismos botones, orden y textos; ~154 pantallas),
+  `medidas.mjs` (nada cortado ni fuera de pantalla, 7 anchos × 2 modos × 2
+  sedes), `dia.mjs`, `barra.mjs`, `tema.mjs`, `menu.mjs`, `colores.mjs`,
+  `letras.mjs`, `capturas.mjs`. Un cambio futuro de diseño debe pasar
+  `paridad.mjs` (con la versión publicada del momento como `ANTES`).
+- **Resumen de abajo (día, semana y mes), 21/10/2026:** para dueños, "Entró $X
+  de $Y esperado" con barra, "⏳ N citas sin cerrar · faltan $X" (botón "Ver
+  cuáles", modal `sin-cerrar`) o "✅ Todo cobrado" (`resumenDinero`,
+  `citaCerrada`: una cita sin cerrar solo aporta su abono a "Entró"). Antes
+  "Falta por cobrar" nunca llegaba a cero. Especialistas: solo Citas/Personas,
+  como antes. Prueba: `resumen.mjs` (16).
+- **Ficha de consentimiento rediseñada (repo sibana-consentimiento, misma rama,
+  21/10/2026, SIN publicar):** la clienta ve papel claro con la barra negra del
+  logo (el logo real, letras de la agenda copiadas en su `fonts/`); el Panel
+  Sibana es oscuro como la agenda (o claro, si en ese navegador se eligió claro
+  en la agenda: comparten `localStorage.sibanaTema`). Pasos con nombre (sin
+  "PASO X DE 5"), Sí/No neutros de 44 px con lo que falta marcado en rojo
+  ("Falta responder", lleva a la primera), casillas grandes, firma más alta (230 px)
+  con línea y "Firma aquí" (sin el nombre: Juan Diego lo vio de más); pantalla final "Listo, <nombre>" con las fechas del
+  retoque (30–45 días, no si la técnica dice retoque/garantía). Fecha en hora
+  de Chile (antes UTC). La copia en PDF trae el texto que aceptó, la sede y la
+  hora de la firma, y bajo la firma solo el nombre (sin RUT). **Los textos legales y los campos que se guardan NO
+  cambiaron** (mismo `state`; lo que es solo de pantalla va aparte: `faltan`,
+  `firmadoEn`). Ya no hay botón "Panel Sibana" en la ficha (ni flotante ni al
+  pie, pedido de Juan Diego): se entra con `?panel` en la dirección, o desde la agenda: Más → "✍️
+  Fichas de consentimiento" (último botón, abre `../sibana-consentimiento/?panel`
+  con la misma sesión). Panel: alertas de salud en cada fila (Alergias,
+  Herpes…), técnica y fecha a la vista, las abiertas siguen abiertas al buscar,
+  Enter para entrar, Esc cierra, "Eliminar" en rojo. La sede va en su propia línea dorada arriba (Santiago o Viña del Mar,
+  nunca las dos) y la Ciudad de ejemplo es la de la sede. Probado:
+  `ficha-vina.mjs` (34: incluye llenar la ficha entera en un teléfono y firmar
+  con toques de dedo reales, y que la firma guardada sea un PNG con trazo).
+  Abierto desde la agenda, el botón de arriba del Panel dice "Volver a la
+  agenda" (cierra esa pestaña).
+- **Verificación de transferencias (21/10/2026): MANUAL, no construir nada.**
+  Se evaluó leer los correos de aviso de Santander Office Banking con un Apps
+  Script y una casilla "Revisé en el banco": Juan Diego decidió que no, porque
+  el correo de aviso no siempre llega (depende de que quien transfiere ponga
+  un correo). Las especialistas le mandan el comprobante y él lo revisa en el
+  banco. No volver a proponerlo salvo que él lo pida.
+- **⚖️ Reparto de trabajo entre especialistas (21/10/2026, SIN publicar):** una
+  especialista tenía mucho más trabajo y Helen (de reemplazo) quiere trabajar
+  más seguido: Juan Diego quiere equilibrar a Salomé, Lucy y Helen. Decidido
+  con él: se mide en DINERO (precio de las citas, sin canceladas/no llegó ni
+  cursos, contando también las ya agendadas), en los últimos 28 días pero
+  **arrancando de cero el 22/10/2026** (`REPARTO_DESDE`: así Helen no tiene que
+  "recuperar" de golpe lo de antes; él va a avisarles a las especialistas).
+  Solo muestra, nunca elige sola: (1) recuadro "⚖️ Reparto de trabajo" al
+  final de Pagos (barra por especialista, raya de lo parejo, "conviene darle
+  las próximas citas a X" o "✅ Están parejas"); (2) en Nueva cita (dueños),
+  "⚖️ le falta trabajo" al lado de la que menos tiene entre las que se pueden
+  elegir (no bloqueadas), solo si está bajo el 85% del promedio. **El orden
+  por medallas de Garantías NO cambia** (él no quería que perdieran el
+  sentido) y **sin textos explicativos en el formulario** (lo pidió: ya es
+  largo). Quién entra: casilla "⚖️ Entra en el reparto de trabajo" en Más →
+  Especialistas (`s.reparto`; si nunca se tocó, en Santiago
+  `REPARTO_POR_DEFECTO` = Salomé, Lucy, Helen; en otra sede nadie). Sin
+  `APP_VERSION`. El ⚖️ sale solo en citas NUEVAS (no al editar). Para mirar
+  cómo habría quedado con los 28 días de atrás (sin el corte): `?reparto28`
+  al final de la dirección (solo cambia el recuadro de Pagos). Revisado por
+  un segundo lector (sin fallas reales; se arreglaron dos detalles: ese
+  `?reparto28` también movía el ⚖️, y dos especialistas con el mismo nombre
+  daban dos filas). Probado: `reparto.mjs` (23) y `medidas.mjs` sin
+  problemas nuevos.
 
 ## Cómo se trabaja en este proyecto
 - **Siempre probar antes de entregar.** Este proyecto se construyó

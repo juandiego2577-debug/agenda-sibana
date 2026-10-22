@@ -2009,6 +2009,18 @@ para servir también a **Copiapó**, de la siguiente forma:
   "Agenda Sibana" (antes "Sibana Santiago" aunque fuera de BA). Chrome la
   considera instalable (`Page.getInstallabilityErrors` vacío). Probado:
   e2e (Android, iPhone, Instagram, instalada, computador, Santiago y BA).
+  **Computador rehecho (22/10/2026, a Juan Diego no le gustaba la franja con
+  el paso a paso de todos los navegadores en una línea):** ahora es una
+  tarjeta abajo a la derecha (logo, "Instala la agenda en este computador /
+  Se abre en su propia ventana, con un clic", "Ahora no" · "Instalar"). Si el
+  navegador dio permiso (`beforeinstallprompt`), "Instalar" abre directo el
+  instalador; si no, la MISMA tarjeta muestra 2 pasos numerados solo del
+  navegador que se usa (`pasosComputador`: Edge ⋯ → Aplicaciones; Chrome ⋮ →
+  Transmitir, guardar y compartir → Instalar página como app; Safari Archivo
+  → Agregar al Dock; Firefox: "ábrela en Chrome o Edge"), "Si ya la
+  instalaste, ábrela desde su ícono" y "Entendido". El teléfono no cambió.
+  Probado (35, simulando el evento y los navegadores, 800–1517px, oscuro y
+  claro).
 
 ## Rediseño visual (oct 2026, PUBLICADO el 21/10/2026 ~21:05 hora de Chile, PR #147 dentro de #148)
 Pedido por Juan Diego ("funciona perfectamente, pero se ve anticuada"). Solo
@@ -2103,12 +2115,10 @@ anterior" (pedido de él). Spec y plan: `docs/superpowers/`; sistema visual:
   largo). Quién entra: casilla "⚖️ Entra en el reparto de trabajo" en Más →
   Especialistas (`s.reparto`; si nunca se tocó, en Santiago
   `REPARTO_POR_DEFECTO` = Salomé, Lucy, Helen; en otra sede nadie). Sin
-  `APP_VERSION`. El ⚖️ sale solo en citas NUEVAS (no al editar). Para mirar
-  cómo habría quedado con los 28 días de atrás (sin el corte): `?reparto28`
-  al final de la dirección (solo cambia el recuadro de Pagos). Revisado por
-  un segundo lector (sin fallas reales; se arreglaron dos detalles: ese
-  `?reparto28` también movía el ⚖️, y dos especialistas con el mismo nombre
-  daban dos filas). Probado: `reparto.mjs` (23) y `medidas.mjs` sin
+  `APP_VERSION`. El ⚖️ sale solo en citas NUEVAS (no al editar). (Hubo un
+  `?reparto28` para mirar los 28 días de atrás sin el corte: se QUITÓ el
+  22/10/2026, a Juan Diego le pareció raro e inútil.) Revisado por un segundo
+  lector (dos especialistas con el mismo nombre daban dos filas: arreglado). Probado: `reparto.mjs` (23) y `medidas.mjs` sin
   problemas nuevos.
 - **Después de publicar (pendiente con Juan Diego):** firmar una ficha de
   prueba con su teléfono (la firma con el dedo solo se probó simulada) y

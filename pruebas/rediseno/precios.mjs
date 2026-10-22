@@ -16,11 +16,17 @@ for (const [ancho, tema] of [[1517, 'oscuro'], [390, 'oscuro'], [390, 'claro']])
     return { cambios: cambiosDePrecio(), texto: document.querySelector('.precios-card')?.textContent.replace(/\s+/g, ' ') };
   });
   await esperarCalma(page);
-  ok(`${ancho} ${tema}: la fecha del cambio sale de la primera cita con precios nuevos (7/10)`, r.cambios[0] === '2026-10-07' && /miércoles 7 de octubre/.test(r.texto), JSON.stringify(r));
-  ok(`${ancho} ${tema}: antes 4 semanas, ahora 1 (la del 5/10 es mixta, la del 19/10 en curso)`, /Antes · 4 semanas/.test(r.texto) && /Ahora · 1 semana\b/.test(r.texto), r.texto);
-  const fuera = await page.evaluate(() => { const c = document.querySelector('.precios-card').getBoundingClientRect(); return c.right > innerWidth || c.left < 0; });
-  ok(`${ancho} ${tema}: cabe en la pantalla`, !fuera);
-  await page.locator('.precios-card').screenshot({ path: `${process.env.OUT}/precios-${ancho}-${tema}.png` });
+  const g = await page.evaluate(() => {
+    const h = [...document.querySelectorAll('.fin-sub')].find(x => /semana a semana/.test(x.textContent));
+    const box = h && h.nextElementSibling; const svg = box && box.querySelector('svg');
+    const nota = document.querySelector('.semana-nota');
+    return { hay: !!svg, barras: svg ? svg.querySelectorAll('g').length : 0, raya: svg ? !!svg.querySelector('line[stroke-dasharray]') : false, curso: svg ? /en curso/.test(svg.textContent) : false, nota: nota ? nota.textContent.replace(/\s+/g, ' ') : '', fuera: box ? box.getBoundingClientRect().right > innerWidth : true };
+  });
+  ok(`${ancho} ${tema}: la fecha del cambio sale de la primera cita con precios nuevos (7/10)`, r.cambios[0] === '2026-10-07', JSON.stringify(r.cambios));
+  ok(`${ancho} ${tema}: gráfico "Lo que entró semana a semana" con raya de precios nuevos y semana en curso`, g.hay && g.raya && g.curso, JSON.stringify(g));
+  ok(`${ancho} ${tema}: con límite (12 semanas en computador, 8 en teléfono)`, g.barras <= (ancho < 600 ? 8 : 12) && g.barras >= 6, g.barras);
+  ok(`${ancho} ${tema}: promedio desde los precios nuevos (sin la semana mixta ni la en curso)`, /Desde los precios nuevos \(7\/10\)/.test(g.nota) && /\$279\.960/.test(g.nota) && /antes \$137\.475/.test(g.nota), g.nota);
+  ok(`${ancho} ${tema}: cabe en la pantalla`, !g.fuera);
   if (ancho === 1517) {
     // Un cambio de precio en Servicios y tarifario queda anotado
     const c2 = await page.evaluate(() => { ui.modal = { type: 'services' }; render(); const inp = document.querySelector('[data-svc-price]'); inp.value = Number(inp.value) + 1000; return true; });

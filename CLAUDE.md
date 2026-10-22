@@ -1037,16 +1037,22 @@ para servir también a **Copiapó**, de la siguiente forma:
   movió aquí. Gráficos: lo que quedó (barras negativas en rojo bajo la
   línea del cero), lo que entró, tratamientos que más dinero dejan (combo
   repartido por precio de lista), lo que deja cada especialista, citas
-  realizadas. **Antes y después de los precios nuevos (22/10/2026, Juan Diego,
-  lugar a mi criterio):** primera tarjeta de Gráficos
-  (`preciosAntesDespuesHtml`): promedio por semana de pago (lun–sáb, solo citas,
-  sin cursos, `cuentaEnFinanzas` + `apptRevenue`) antes vs ahora, diferencia ▲/▼
-  y barras por semana con raya punteada en el cambio. Fecha del cambio
-  (`cambiosDePrecio`): la primera cita con `cremaIncluidaPolitica` (la subida de
-  oct 2026) + `settings.cambiosPrecio` ([{desde}], se anota sola al cambiar un
-  precio en Servicios y tarifario); compara contra el ÚLTIMO cambio. La semana
-  del cambio (si no fue lunes) no entra en los promedios; la semana en curso
-  tampoco. Prueba: `precios.mjs` (14). Los gráficos ahora miden según la pantalla (`anchoGrafico`):
+  realizadas. **Lo que entró semana a semana (22/10/2026, Juan Diego):** primer
+  gráfico de Gráficos (`semanaASemanaHtml`; primero fue una tarjeta "antes y
+  después", él prefirió esto): últimas 12 semanas (8 en el teléfono), semanas
+  de pago lun–sáb, solo citas sin cursos (`semanaEnDinero`: `cuentaEnFinanzas`
+  + `apptRevenue`), la semana actual hueca con "en curso", y una raya
+  "Precios nuevos" en cada cambio de precios (`cambiosDePrecio`: la primera
+  cita con `cremaIncluidaPolitica` + `settings.cambiosPrecio` [{desde}], que se
+  anota sola al cambiar un precio en Servicios y tarifario). Debajo, "Desde los
+  precios nuevos: $X por semana en promedio · antes $Y ▲%" (último cambio; sin
+  la semana del cambio si fue a mitad de semana ni la en curso). **Gráficos
+  rehechos el mismo día** (impeccable + dataviz): ocupan todo el recuadro
+  (`anchoGrafico` hasta 800), barras con la punta redondeada y la base recta
+  (`barraPath`), números en color de texto, el mes/semana en curso hueco y
+  punteado ("en curso"), barras por especialista con SU color, sin barras de
+  $0, en el teléfono el nombre va arriba de la barra (nada cortado), hover con
+  `<title>`. Prueba: `precios.mjs` (20). Los gráficos ahora miden según la pantalla (`anchoGrafico`):
   antes en el teléfono quedaban diminutos. Sin `APP_VERSION` (solo cambia
   cómo se muestra; las devoluciones son gastos normales). Probado: e2e
   (comparación con la versión anterior, anotar/editar/borrar gasto,

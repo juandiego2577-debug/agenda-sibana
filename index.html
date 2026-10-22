@@ -717,20 +717,9 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .gasto-info small{display:block;font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
   .gasto-monto{font-weight:600;white-space:nowrap;color:var(--danger-text);}
   .chart-box{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 10px;margin-bottom:6px;overflow-x:auto;}
-  /* Antes y después de los precios nuevos (Finanzas → Gráficos) */
-  .precios-card{background:var(--panel-2);border:1px solid var(--line);border-radius:16px;padding:18px 18px 12px;margin:14px 0 6px;}
-  .precios-card h4{font-family:var(--head);font-size:23px;font-weight:700;margin:0 0 2px;color:var(--ink);}
-  .precios-card .pc-sub{font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;line-height:1.45;}
-  .precios-cmp{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .precios-box{background:var(--panel);border:1px solid var(--line-soft);border-radius:12px;padding:12px 14px;min-width:0;}
-  .precios-box.ahora{border-color:var(--wine);}
-  .precios-box .pb-lbl{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;}
-  .precios-box .pb-num{font-family:var(--head);font-size:28px;font-weight:700;color:var(--gold);line-height:1.15;font-variant-numeric:lining-nums tabular-nums;}
-  .precios-box .pb-det{font-size:12px;color:var(--ink-soft);}
-  .precios-dif{margin:12px 0 4px;font-size:14px;font-weight:600;}
-  .precios-dif.sube{color:var(--ok-text);} .precios-dif.baja{color:var(--danger-text);}
-  .precios-card .chart-box{background:transparent;border:none;padding:6px 0 0;}
-  @media (max-width:420px){ .precios-box .pb-num{font-size:23px;} }
+  .semana-nota{font-size:13px;color:var(--ink-soft);margin:8px 2px 2px;line-height:1.5;}
+  .semana-nota b{color:var(--gold);font-weight:700;}
+  .semana-nota .sube{color:var(--ok-text);font-weight:600;} .semana-nota .baja{color:var(--danger-text);font-weight:600;}
   @media (max-width:600px){
     .fin-cards{grid-template-columns:1fr;}
     .fin-main{padding:14px 12px 60px;}
@@ -8606,38 +8595,58 @@ function saveStockFromForm(){
 // teléfono se achicaban enteros (letras de ~6px y mucho espacio vacío).
 function anchoGrafico(){
   const w = (typeof window!=='undefined' && window.innerWidth) || 620;
-  return Math.max(300, Math.min(620, w - 52));
+  return Math.max(300, Math.min(800, w - 52)); // 800 ≈ el recuadro de Finanzas en el computador
 }
+// Rectángulo con solo las puntas de afuera redondeadas (la base queda recta,
+// apoyada en el eje): arriba en barras verticales, a la derecha en horizontales.
+function barraPath(x, y, w, h, r, horizontal){
+  r = Math.max(0, Math.min(r, horizontal ? w/2 : h/2, horizontal ? h/2 : w/2));
+  return horizontal
+    ? `M${x},${y}h${w-r}a${r},${r} 0 0 1 ${r},${r}v${h-2*r}a${r},${r} 0 0 1 -${r},${r}h-${w-r}z`
+    : `M${x},${y+h}v-${h-r}a${r},${r} 0 0 1 ${r},-${r}h${w-2*r}a${r},${r} 0 0 1 ${r},${r}v${h-r}z`;
+}
+const TXT_GRAF = 'font-family="Montserrat,sans-serif"';
+// Barras horizontales (rediseño 22/10/2026). d.color: color propio de la barra
+// (ej. el de cada especialista); si no, el dorado. En pantallas angostas el
+// nombre va ARRIBA de la barra (completo, sin "…"); los números van en color de
+// texto, nunca en el de la barra, y siempre caben (se reserva su lugar).
 function svgHBarChart(data, opts={}){
-  const w = opts.width || anchoGrafico(), barH = 24, gap = 10, padding = 8;
-  const labelW = opts.labelW || Math.round(Math.min(170, w*0.4));
+  const w = opts.width || anchoGrafico(), angosto = w < 520;
   const maxVal = Math.max(1, ...data.map(d=>d.value));
-  const chartW = w - labelW - 62;
-  const h = data.length*(barH+gap) - gap + padding*2;
+  const textos = data.map(d=>String(opts.formatValue ? opts.formatValue(d.value, d) : d.value));
+  const valW = Math.max(...textos.map(t=>t.length)) * 7.4 + 10;
+  const labelW = angosto ? 0 : (opts.labelW || Math.round(Math.min(200, w*0.32)));
+  const barH = angosto ? 16 : 22, fila = angosto ? 44 : 34, top = 4;
+  const chartW = w - labelW - valW;
+  const h = data.length*fila - (fila-barH) + top*2 + (angosto ? 16 : 0);
   const bars = data.map((d,i)=>{
-    const y = padding + i*(barH+gap);
-    const barW = Math.max(2, (Math.max(0, d.value)/maxVal)*chartW);
-    const valTxt = opts.formatValue ? opts.formatValue(d.value, d) : d.value;
-    // Un nombre largo se corta con "…" para que no se salga por la izquierda.
-    const maxLetras = Math.floor((labelW-10)/6.3);
-    const etiqueta = String(d.label).length > maxLetras ? String(d.label).slice(0, maxLetras-1)+'…' : String(d.label);
-    return `
-      <text x="${labelW-8}" y="${y+barH/2+4}" text-anchor="end" font-size="11.5" style="fill:var(--ink)" font-family="Montserrat,sans-serif"><title>${escapeHtml(d.label)}</title>${escapeHtml(etiqueta)}</text>
-      <rect x="${labelW}" y="${y}" width="${barW}" height="${barH}" rx="5" style="fill:var(--wine)"></rect>
-      <text x="${labelW+barW+8}" y="${y+barH/2+4}" font-size="11.5" style="fill:var(--gold-soft)" font-weight="600" font-family="Montserrat,sans-serif">${valTxt}</text>
-    `;
+    const y = top + i*fila + (angosto ? 16 : 0);
+    const bw = Math.max(3, (Math.max(0, d.value)/maxVal)*chartW);
+    const color = d.color ? colorSeguro(d.color) : '';
+    const fill = color ? `fill:${color}` : 'fill:var(--wine)';
+    const maxLetras = Math.floor((labelW-12)/6.6);
+    const etiqueta = angosto || String(d.label).length <= maxLetras ? String(d.label) : String(d.label).slice(0, maxLetras-1)+'…';
+    const nombre = angosto
+      ? `<text x="0" y="${y-5}" font-size="12" style="fill:var(--ink)" ${TXT_GRAF}>${escapeHtml(etiqueta)}</text>`
+      : `<text x="${labelW-10}" y="${y+barH/2+4}" text-anchor="end" font-size="12" style="fill:var(--ink)" ${TXT_GRAF}>${escapeHtml(etiqueta)}</text>`;
+    return `<g><title>${escapeHtml(d.label)}: ${escapeHtml(textos[i])}</title>${nombre}
+      <path d="${barraPath(labelW, y, bw, barH, 4, true)}" style="${fill}"></path>
+      <text x="${labelW+bw+8}" y="${y+barH/2+4}" font-size="12" style="fill:var(--ink-soft)" font-weight="600" ${TXT_GRAF}>${escapeHtml(textos[i])}</text></g>`;
   }).join('');
-  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="max-width:${w}px;display:block;">${bars}</svg>`;
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="display:block;height:auto;" role="img" aria-label="${escapeHtml(opts.titulo||'Gráfico')}">${bars}</svg>`;
 }
 // Barras verticales. Acepta números negativos (ej. un mes en que se perdió
 // dinero): bajan desde la línea del cero, en rojo.
+// d.enCurso: período que todavía no termina (se ve hueco, con "en curso").
+// opts.marcas = [{i, texto}]: raya punteada ANTES de la barra i (ej. precios nuevos).
 function svgVBarChart(data, opts={}){
-  const w = opts.width || anchoGrafico(), h = opts.height || 210, gap = 14;
-  const padding = 16, arriba = 20;
+  const w = opts.width || anchoGrafico(), h = opts.height || 220;
+  const gap = data.length>9 ? 8 : 14, padding = 4, arriba = (opts.marcas||[]).length ? 36 : 22;
   const vals = data.map(d=>Number(d.value)||0);
   const maxVal = Math.max(1, ...vals), minVal = Math.min(0, ...vals);
-  // Abajo va el mes; si hay negativos, también su número debajo de la barra.
-  const chartH = h - arriba - 26 - (minVal<0 ? 16 : 0);
+  const conCurso = data.some(d=>d.enCurso);
+  const abajo = 22 + (conCurso ? 14 : 0) + (minVal<0 ? 16 : 0);
+  const chartH = h - arriba - abajo;
   const escala = chartH / (maxVal - minVal);
   const y0 = arriba + maxVal*escala;
   const barW = (w - padding*2 - gap*(data.length-1)) / data.length;
@@ -8647,14 +8656,25 @@ function svgVBarChart(data, opts={}){
     const x = padding + i*(barW+gap);
     const y = v>=0 ? y0 - barH : y0;
     const valTxt = opts.formatValue ? opts.formatValue(v) : v;
-    return `
-      <rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="5" style="fill:var(${v<0?'--danger':'--wine'})"></rect>
-      <text x="${x+barW/2}" y="${v>=0 ? y-6 : y+barH+13}" text-anchor="middle" font-size="11" style="fill:var(${v<0?'--danger':'--gold-soft'})" font-weight="600" font-family="Montserrat,sans-serif">${valTxt}</text>
-      <text x="${x+barW/2}" y="${h-8}" text-anchor="middle" font-size="11" style="fill:var(--ink-soft)" font-family="Montserrat,sans-serif">${escapeHtml(d.label)}</text>
-    `;
+    const neg = v<0;
+    const forma = neg
+      ? `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" style="fill:var(--danger)"></rect>`
+      : d.enCurso
+        ? `<path d="${barraPath(x+1, y+1, barW-2, barH-1, 4)}" style="fill:color-mix(in oklab,var(--wine) 22%,transparent);stroke:var(--wine)" stroke-width="1.5" stroke-dasharray="4 3"></path>`
+        : `<path d="${barraPath(x, y, barW, barH, 4)}" style="fill:var(--wine)"></path>`;
+    return `<g><title>${escapeHtml(d.titulo||d.label)}: ${escapeHtml(String(valTxt))}${d.enCurso?' (en curso)':''}</title>${forma}
+      <text x="${x+barW/2}" y="${neg ? y+barH+13 : y-6}" text-anchor="middle" font-size="11" style="fill:var(${neg?'--danger-text':'--ink-soft'})" font-weight="600" ${TXT_GRAF}>${escapeHtml(String(valTxt))}</text>
+      <text x="${x+barW/2}" y="${h-abajo+18+(minVal<0?16:0)}" text-anchor="middle" font-size="11" style="fill:var(--ink-soft)" ${TXT_GRAF}>${escapeHtml(d.label)}</text>
+      ${d.enCurso ? `<text x="${x+barW/2+28 > w ? x+barW : x+barW/2}" y="${h-abajo+32+(minVal<0?16:0)}" text-anchor="${x+barW/2+28 > w ? 'end' : 'middle'}" font-size="11" style="fill:var(--gold)" ${TXT_GRAF}>en curso</text>` : ''}</g>`;
   }).join('');
-  const linea0 = minVal<0 ? `<line x1="${padding}" x2="${w-padding}" y1="${y0}" y2="${y0}" style="stroke:var(--line)" stroke-width="1"></line>` : '';
-  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="max-width:${w}px;display:block;">${linea0}${bars}</svg>`;
+  const marcas = (opts.marcas||[]).map(m=>{
+    const rx = padding + m.i*(barW+gap) - gap/2;
+    const fin = rx > w - 120;
+    return `<line x1="${rx}" x2="${rx}" y1="6" y2="${y0+2}" style="stroke:var(--gold)" stroke-width="1.5" stroke-dasharray="4 4"></line>
+      <text x="${fin ? rx-6 : rx+6}" y="16" text-anchor="${fin?'end':'start'}" font-size="11" font-weight="700" style="fill:var(--gold)" ${TXT_GRAF}>${escapeHtml(m.texto)}</text>`;
+  }).join('');
+  const linea0 = `<line x1="${padding}" x2="${w-padding}" y1="${y0}" y2="${y0}" style="stroke:var(--line)" stroke-width="1"></line>`;
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="display:block;height:auto;" role="img" aria-label="${escapeHtml(opts.titulo||'Gráfico')}">${linea0}${bars}${marcas}</svg>`;
 }
 
 // ¿Cuándo cambiaron los precios? (22/10/2026, Juan Diego: comparar cuánto
@@ -8676,61 +8696,46 @@ function semanaEnDinero(lunesKey){
   const citas = state.appointments.filter(a=>!a.cursoId && a.date>=lunesKey && a.date<=fin && cuentaEnFinanzas(a));
   return { dinero: citas.reduce((t,a)=>t+apptRevenue(a),0), citas: citas.filter(a=>a.estado!=='Cancelada' && a.estado!=='NoShow').length };
 }
-function preciosAntesDespuesHtml(){
-  const cambios = cambiosDePrecio();
-  if(!cambios.length) return '';
-  const ultimo = cambios[cambios.length-1], previo = cambios[cambios.length-2] || null;
-  const lunesCambio = toKey(startOfWeek(parseKey(ultimo)));
-  // La semana en que cambiaron (si no fue un lunes) tiene precios viejos y nuevos:
-  // se dibuja, pero no entra en ninguno de los dos promedios.
-  const semanaMixta = ultimo !== lunesCambio ? lunesCambio : null;
-  const lunesHoy = toKey(startOfWeek(parseKey(sedeNow().date)));
-  // Semanas completas antes (hasta 8, sin pasar del cambio anterior) y después (sin la semana en curso).
-  const semanas = [];
-  for(let k = toKey(addDays(parseKey(lunesCambio), -7*8)); k < lunesHoy; k = toKey(addDays(parseKey(k), 7))){
-    if(previo && k < toKey(startOfWeek(parseKey(previo)))) continue;
-    semanas.push({lunes:k, ...semanaEnDinero(k)});
-  }
-  while(semanas.length && semanas[0].dinero===0 && semanas[0].lunes < lunesCambio) semanas.shift(); // antes de que existiera la agenda
-  const antes = semanas.filter(w=>w.lunes < lunesCambio), ahora = semanas.filter(w=>w.lunes >= lunesCambio && w.lunes !== semanaMixta);
-  const prom = l=>l.length ? Math.round(l.reduce((t,w)=>t+w.dinero,0)/l.length) : 0;
-  const promC = l=>l.length ? Math.round(l.reduce((t,w)=>t+w.citas,0)/l.length) : 0;
-  const pa = prom(antes), pn = prom(ahora);
-  const d = parseKey(ultimo);
-  const caja = (cls, lbl, l, p)=>`<div class="precios-box ${cls}"><div class="pb-lbl">${lbl} · ${l.length} semana${l.length===1?'':'s'}</div><div class="pb-num">${l.length ? fmtCLP(p) : '—'}</div><div class="pb-det">${l.length ? `por semana · ${promC(l)} citas` : 'todavía sin una semana completa'}</div></div>`;
-  let dif = '';
-  if(antes.length && ahora.length && pa>0){
-    const x = pn - pa, pct = Math.round(x/pa*100);
-    dif = `<div class="precios-dif ${x>=0?'sube':'baja'}">${x>=0?'▲':'▼'} ${fmtCLP(Math.abs(x))} ${x>=0?'más':'menos'} por semana (${x>=0?'+':'−'}${Math.abs(pct)}%)</div>`;
-  }
-  // Gráfico: cada semana, las de antes apagadas y las de ahora doradas, con la raya del cambio.
+// Lo que entró semana a semana (22/10/2026, Juan Diego: más útil que un
+// "antes y después"): últimas 12 semanas (8 en el teléfono), la de ahora "en
+// curso", y una raya donde cambiaron los precios. Debajo, una línea con el
+// promedio por semana desde el último cambio y el de antes (sin la semana del
+// cambio si fue a mitad de semana, ni la semana en curso).
+function semanaASemanaHtml(){
   const n = anchoGrafico() < 520 ? 8 : 12;
-  const vis = semanas.slice(-n);
-  const w = anchoGrafico(), h = 210, pad = 10, gap = vis.length>9 ? 8 : 12, arriba = 32; // arriba: lugar para "Precios nuevos" sin tapar los números
-  const maxV = Math.max(1, ...vis.map(x=>x.dinero));
-  const barW = vis.length ? (w - pad*2 - gap*(vis.length-1)) / vis.length : 0;
-  const chartH = h - arriba - 24;
-  let raya = '';
-  const barras = vis.map((x,i)=>{
-    const bh = Math.max(2, x.dinero/maxV*chartH), bx = pad + i*(barW+gap), by = arriba + chartH - bh;
-    const nueva = x.lunes >= lunesCambio;
-    if(nueva && (i===0 || vis[i-1].lunes < lunesCambio) && i>0){
-      const rx = bx - gap/2;
-      raya = `<line x1="${rx}" x2="${rx}" y1="4" y2="${arriba+chartH+2}" style="stroke:var(--wine)" stroke-width="1.5" stroke-dasharray="4 4"></line><text x="${rx+5}" y="13" font-size="11" font-weight="600" style="fill:var(--gold)" font-family="Montserrat,sans-serif">Precios nuevos →</text>`;
+  const lunesHoy = toKey(startOfWeek(parseKey(sedeNow().date)));
+  const semanaDe = k=>({lunes:k, ...semanaEnDinero(k)});
+  const semanas = [];
+  for(let i=n-1; i>=0; i--) semanas.push(semanaDe(toKey(addDays(parseKey(lunesHoy), -7*i))));
+  while(semanas.length>1 && semanas[0].dinero===0) semanas.shift(); // antes de que existiera la agenda
+  const fecha = k=>{ const d = parseKey(k); return `${d.getDate()}/${d.getMonth()+1}`; };
+  const cambios = cambiosDePrecio();
+  const marcas = [];
+  cambios.forEach(c=>{ const i = semanas.findIndex(w=>w.lunes===toKey(startOfWeek(parseKey(c)))); if(i>0) marcas.push({i, texto:'Precios nuevos'}); });
+  const data = semanas.map(w=>({label: fecha(w.lunes), titulo: `Semana del ${fecha(w.lunes)}`, value: w.dinero, enCurso: w.lunes===lunesHoy}));
+  // Promedio desde el último cambio de precios, y el de antes.
+  let nota = '';
+  if(cambios.length){
+    const ultimo = cambios[cambios.length-1], previo = cambios[cambios.length-2] || null;
+    const lunesCambio = toKey(startOfWeek(parseKey(ultimo)));
+    const mixta = ultimo !== lunesCambio ? lunesCambio : null;
+    const antes = [], ahora = [];
+    for(let k = toKey(addDays(parseKey(lunesCambio), -7*8)); k < lunesHoy; k = toKey(addDays(parseKey(k), 7))){
+      if(previo && k < toKey(startOfWeek(parseKey(previo)))) continue;
+      if(k===mixta) continue;
+      (k < lunesCambio ? antes : ahora).push(semanaDe(k));
     }
-    const ld = parseKey(x.lunes);
-    return `<rect x="${bx}" y="${by}" width="${barW}" height="${bh}" rx="5" style="fill:var(${nueva?'--wine':'--line'})"></rect>
-      <text x="${bx+barW/2}" y="${by-5}" text-anchor="middle" font-size="11" style="fill:var(${nueva?'--gold':'--ink-soft'})" font-weight="600" font-family="Montserrat,sans-serif">${fmtCLPShort(x.dinero)}</text>
-      <text x="${bx+barW/2}" y="${h-6}" text-anchor="middle" font-size="11" style="fill:var(--ink-soft)" font-family="Montserrat,sans-serif">${ld.getDate()}/${ld.getMonth()+1}</text>`;
-  }).join('');
+    while(antes.length && antes[0].dinero===0) antes.shift();
+    const prom = l=>Math.round(l.reduce((t,w)=>t+w.dinero,0)/l.length);
+    if(antes.length && ahora.length){
+      const pa = prom(antes), pn = prom(ahora), x = pn - pa, pct = pa ? Math.round(x/pa*100) : 0;
+      nota = `<div class="semana-nota">Desde los precios nuevos (${fecha(ultimo)}): <b>${fmtCLP(pn)}</b> por semana en promedio · antes ${fmtCLP(pa)} <span class="${x>=0?'sube':'baja'}">${x>=0?'▲':'▼'} ${Math.abs(pct)}%</span></div>`;
+    }
+  }
   return `
-    <div class="precios-card">
-      <h4>Antes y después de los precios nuevos</h4>
-      <div class="pc-sub">Lo que entró por semana (lunes a sábado, solo citas, sin cursos). Precios nuevos desde el ${DAY_NAMES_FULL[d.getDay()]} ${d.getDate()} de ${MONTHS[d.getMonth()]}: la primera cita con los precios nuevos.</div>
-      <div class="precios-cmp">${caja('', 'Antes', antes, pa)}${caja('ahora', 'Ahora', ahora, pn)}</div>
-      ${dif}
-      ${vis.length ? `<div class="chart-box"><svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="max-width:${w}px;display:block;">${raya}${barras}</svg></div><div class="hint" style="margin:2px 0 4px;">Cada barra es una semana (dice el lunes). ${semanaMixta ? `La del ${parseKey(semanaMixta).getDate()}/${parseKey(semanaMixta).getMonth()+1} no entra en los promedios: tuvo precios viejos y nuevos. ` : ''}La semana en curso se cuenta cuando termine.</div>` : ''}
-    </div>`;
+    <h3 class="fin-sub">Lo que entró semana a semana</h3>
+    <div class="chart-box">${svgVBarChart(data, {formatValue: v=>fmtCLPShort(v), marcas, titulo:'Lo que entró semana a semana'})}</div>
+    ${nota}<div class="hint">Cada barra es una semana de lunes a sábado (dice el lunes), solo citas, sin cursos.${marcas.length ? ' La raya marca cuándo cambiaron los precios.' : ''}</div>`;
 }
 function finanzasGraficosHtml(year, month){
   const meses = [];
@@ -8739,8 +8744,10 @@ function finanzasGraficosHtml(year, month){
     meses.push({d, fin: monthFinancials(d.getFullYear(), d.getMonth())});
   }
   const etiqueta = d=>MONTHS[d.getMonth()].slice(0,3);
-  const quedo = meses.map(x=>({label: etiqueta(x.d), value: x.fin.beneficio}));
-  const entro = meses.map(x=>({label: etiqueta(x.d), value: x.fin.ingresos}));
+  const hoy = parseKey(sedeNow().date);
+  const enCurso = d=>d.getFullYear()===hoy.getFullYear() && d.getMonth()===hoy.getMonth(); // el mes todavía no termina
+  const quedo = meses.map(x=>({label: etiqueta(x.d), titulo: MONTHS[x.d.getMonth()], value: x.fin.beneficio, enCurso: enCurso(x.d)}));
+  const entro = meses.map(x=>({label: etiqueta(x.d), titulo: MONTHS[x.d.getMonth()], value: x.fin.ingresos, enCurso: enCurso(x.d)}));
 
   const f = monthFinancials(year, month);
   // Lo que deja cada tratamiento: en un combo el precio se reparte según el
@@ -8758,13 +8765,13 @@ function finanzasGraficosHtml(year, month){
       porTrat[x].n += 1;
     });
   });
-  const topTrat = Object.keys(porTrat).map(k=>({label:k, n:porTrat[k].n, value:Math.round(porTrat[k].dinero)})).sort((a,b)=>b.value-a.value).slice(0,8);
+  const topTrat = Object.keys(porTrat).map(k=>({label:k, n:porTrat[k].n, value:Math.round(porTrat[k].dinero)})).filter(x=>x.value>0).sort((a,b)=>b.value-a.value).slice(0,8);
 
-  const espDeja = Object.keys(f.porEspecialista).map(k=>({label:k, value:f.porEspecialista[k].ingresos - f.porEspecialista[k].comision})).sort((a,b)=>b.value-a.value);
-  const espCitas = Object.keys(f.porEspecialista).map(k=>({label:k, value:f.porEspecialista[k].hechas})).sort((a,b)=>b.value-a.value);
+  const espDeja = Object.keys(f.porEspecialista).map(k=>({label:k, color: specialistColor(k), value:f.porEspecialista[k].ingresos - f.porEspecialista[k].comision})).sort((a,b)=>b.value-a.value);
+  const espCitas = Object.keys(f.porEspecialista).map(k=>({label:k, color: specialistColor(k), value:f.porEspecialista[k].hechas})).sort((a,b)=>b.value-a.value);
 
   return `
-    ${preciosAntesDespuesHtml()}
+    ${semanaASemanaHtml()}
     <h3 class="fin-sub">Lo que te quedó — últimos 6 meses</h3>
     <div class="chart-box">${svgVBarChart(quedo, {formatValue: v=>(v<0?'−':'')+fmtCLPShort(Math.abs(v))})}</div>
 

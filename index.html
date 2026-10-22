@@ -370,8 +370,11 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
     position:absolute;left:6px;right:6px;border-radius:10px;
     padding:4px 8px 4px 10px;overflow:hidden;cursor:pointer;
     --st:var(--wine);
-    background:linear-gradient(0deg,color-mix(in oklab,var(--st) 24%,transparent),color-mix(in oklab,var(--st) 24%,transparent)),var(--panel-2);
-    border:1px solid color-mix(in oklab,var(--st) 60%,transparent);
+    /* Intensidad del color del estado (22/10/2026, Juan Diego: con 24% quedaba
+       muy apagado y se podían confundir los estados; eligió la intermedia). */
+    --st-pct:50%;
+    background:linear-gradient(0deg,color-mix(in oklab,var(--st) var(--st-pct),transparent),color-mix(in oklab,var(--st) var(--st-pct),transparent)),var(--panel-2);
+    border:1px solid color-mix(in oklab,var(--st) 85%,transparent);
     border-left:4px solid var(--wine);
     transition:filter .12s ease;
     color:var(--ink);
@@ -457,19 +460,23 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .cobrar-box label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:2px;}
   .cobrar-box .cobrar-amount{font-family:var(--head);font-size:34px;line-height:1.1;font-weight:700;color:var(--gold);}
   .cobrar-box .cobrar-hint{font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.35;}
-  .appt.st-Pendiente{--st:var(--pending);}
+  .appt.st-Pendiente{--st:var(--pending);--st-pct:62%;} /* más vivo: si no, se parece al gris de Cancelada */
   .appt.st-Confirmada{--st:var(--wine);}
   .appt.st-Realizada{--st:var(--ok);}
   .appt.st-Cancelada{--st:var(--canc);} .appt.st-Cancelada:not(.block-appt) .t-name,.appt.st-Cancelada:not(.block-appt) .t-name-compact{text-decoration:line-through;text-decoration-color:color-mix(in oklab,var(--ink) 45%,transparent);color:var(--ink-soft);}
   .appt.st-NoShow{--st:var(--danger);}
   .status-legend{display:flex;flex-wrap:wrap;gap:6px 16px;padding:8px 24px 12px;font-size:12px;color:var(--mute);}
   .legend-item{display:inline-flex;align-items:center;gap:6px;}
-  .legend-dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
-  .legend-dot.st-Pendiente{background:var(--pending);}
-  .legend-dot.st-Confirmada{background:var(--wine);}
-  .legend-dot.st-Realizada{background:var(--ok);}
-  .legend-dot.st-Cancelada{background:var(--canc);}
-  .legend-dot.st-NoShow{background:var(--danger);}
+  /* El circulito de la leyenda se pinta IGUAL que la cita (mismo tinte sobre el
+     mismo fondo y mismo borde), para que se reconozca de un vistazo. */
+  .legend-dot{width:11px;height:11px;border-radius:50%;display:inline-block;--st-pct:50%;
+    background:linear-gradient(0deg,color-mix(in oklab,var(--st) var(--st-pct),transparent),color-mix(in oklab,var(--st) var(--st-pct),transparent)),var(--panel-2);
+    border:1px solid color-mix(in oklab,var(--st) 85%,transparent);}
+  .legend-dot.st-Pendiente{--st:var(--pending);--st-pct:62%;}
+  .legend-dot.st-Confirmada{--st:var(--wine);}
+  .legend-dot.st-Realizada{--st:var(--ok);}
+  .legend-dot.st-Cancelada{--st:var(--canc);}
+  .legend-dot.st-NoShow{--st:var(--danger);}
   .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
   .reminders-table{width:100%;border-collapse:collapse;margin:10px 0;}
   .reminders-table th,.reminders-table td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left;font-size:14px;}
@@ -1428,7 +1435,7 @@ const TEMA_BANDERA_ARGENTINA = {
     header.topbar{ background:linear-gradient(180deg,#74ACDF 0 6px,#FFFFFF 6px 12px,#74ACDF 12px 18px,#0A1826 18px 100%); padding-top:30px; }
     /* "Confirmada" sigue siendo amarilla (el sol de la bandera), para no confundirla con el celeste */
     .appt.st-Confirmada{ --st:#F6B40E; }
-    .legend-dot.st-Confirmada{ background:#F6B40E; }
+    .legend-dot.st-Confirmada{ --st:#F6B40E; }
   `,
   themeColor: '#0A1826',
 };

@@ -2028,7 +2028,11 @@ anterior" (pedido de él). Spec y plan: `docs/superpowers/`; sistema visual:
 - **Íconos** `iconoSvg()` solo en barra de arriba, pestañas y barra de
   herramientas, con el color del emoji de antes (Bloquear rojo, Vale/Pagos
   verde…). Botón principal dorado metálico (`--metal`; en BA celeste).
-- **Vista Día**: ficha teñida por estado; `ajustarFichasDia` (después de cada
+- **Vista Día**: ficha teñida por estado (**22/10/2026:** el tinte pasó de 24%
+  a 50% — `--st-pct`, Pendiente 62% para que no se parezca a Cancelada —
+  porque Juan Diego lo vio muy apagado y podían confundirse los estados; vio
+  4 opciones en fotos y eligió la intermedia, la de color lleno le pareció
+  fea. Los circulitos de la leyenda se pintan igual que la cita); `ajustarFichasDia` (después de cada
   `render()`, al cargar la letra y al cambiar el tamaño) deja solo líneas
   enteras. `COMPACT_HEIGHT_PX` sigue en 50 (con 40 cambiaba el texto de las
   citas de 45 min). "Sin abono" siempre visible (palabra o ícono); el ✍️ de

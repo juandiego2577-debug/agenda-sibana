@@ -347,7 +347,7 @@ lo antes posible. Decidido con él (no cambiar sin preguntar):
   decidido); link de reseñas de Google de BA; ficha de consentimiento con
   DNI (repo `sibana-consentimiento`).
 
-## Sede de Viña del Mar (en construcción, 21/10/2026, SIN publicar)
+## Sede de Viña del Mar (PUBLICADA el 21/10/2026 ~21:05 hora de Chile, PR #148)
 Buenos Aires no tuvo ninguna cita en dos semanas; Juan Diego quiere probar en
 **Viña del Mar** (y quizás después Concepción y Antofagasta): al principio
 arrendando un box algunos días. Decidido con él: **la misma agenda** para todas
@@ -2010,7 +2010,7 @@ para servir también a **Copiapó**, de la siguiente forma:
   considera instalable (`Page.getInstallabilityErrors` vacío). Probado:
   e2e (Android, iPhone, Instagram, instalada, computador, Santiago y BA).
 
-## Rediseño visual (oct 2026, rama `claude/rediseno-visual`, SIN publicar)
+## Rediseño visual (oct 2026, PUBLICADO el 21/10/2026 ~21:05 hora de Chile, PR #147 dentro de #148)
 Pedido por Juan Diego ("funciona perfectamente, pero se ve anticuada"). Solo
 cambia cómo se ve: ningún botón cambia de lugar ni de orden, ninguna función ni
 dato cambia (no hubo que subir `APP_VERSION`). Se lanza **todo de una vez**, un
@@ -2053,8 +2053,8 @@ anterior" (pedido de él). Spec y plan: `docs/superpowers/`; sistema visual:
   `citaCerrada`: una cita sin cerrar solo aporta su abono a "Entró"). Antes
   "Falta por cobrar" nunca llegaba a cero. Especialistas: solo Citas/Personas,
   como antes. Prueba: `resumen.mjs` (16).
-- **Ficha de consentimiento rediseñada (repo sibana-consentimiento, misma rama,
-  21/10/2026, SIN publicar):** la clienta ve papel claro con la barra negra del
+- **Ficha de consentimiento rediseñada (repo sibana-consentimiento,
+  PUBLICADA el 21/10/2026, sibana-consentimiento#11):** la clienta ve papel claro con la barra negra del
   logo (el logo real, letras de la agenda copiadas en su `fonts/`); el Panel
   Sibana es oscuro como la agenda (o claro, si en ese navegador se eligió claro
   en la agenda: comparten `localStorage.sibanaTema`). Pasos con nombre (sin
@@ -2082,7 +2082,7 @@ anterior" (pedido de él). Spec y plan: `docs/superpowers/`; sistema visual:
   el correo de aviso no siempre llega (depende de que quien transfiere ponga
   un correo). Las especialistas le mandan el comprobante y él lo revisa en el
   banco. No volver a proponerlo salvo que él lo pida.
-- **⚖️ Reparto de trabajo entre especialistas (21/10/2026, SIN publicar):** una
+- **⚖️ Reparto de trabajo entre especialistas (PUBLICADO el 21/10/2026, empieza a contar el 22/10):** una
   especialista tenía mucho más trabajo y Helen (de reemplazo) quiere trabajar
   más seguido: Juan Diego quiere equilibrar a Salomé, Lucy y Helen. Decidido
   con él: se mide en DINERO (precio de las citas, sin canceladas/no llegó ni
@@ -2106,6 +2106,11 @@ anterior" (pedido de él). Spec y plan: `docs/superpowers/`; sistema visual:
   `?reparto28` también movía el ⚖️, y dos especialistas con el mismo nombre
   daban dos filas). Probado: `reparto.mjs` (23) y `medidas.mjs` sin
   problemas nuevos.
+- **Después de publicar (pendiente con Juan Diego):** firmar una ficha de
+  prueba con su teléfono (la firma con el dedo solo se probó simulada) y
+  borrar en el Panel (filtro Viña) "PRUEBA DE REGLAS (borrar)" y esa ficha de
+  prueba. Va a probar el reparto 1–2 semanas; si el ⚖️ sale demasiado o casi
+  nunca, se ajusta el 85% de `leFaltaTrabajo`.
 
 ## Cómo se trabaja en este proyecto
 - **Siempre probar antes de entregar.** Este proyecto se construyó

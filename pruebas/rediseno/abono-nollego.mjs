@@ -56,6 +56,7 @@ const html = htmlDe(process.env.VER || 'trabajo');
   const vista = await page.textContent('.modal');
   ok('en la cita dice quién lo marcó y ya no hay botón de pago', /"No llegó" marcado por Salomé/.test(vista) && !await page.$('[data-act="staff-mark-realizada"]'));
   ok('botón "↩️ Me equivoqué: sí llegó"', !!await page.$('[data-act="staff-deshacer-nollego"]'));
+  if (process.env.OUT) { await page.locator('[data-act="staff-deshacer-nollego"]').scrollIntoViewIfNeeded(); await page.screenshot({ path: process.env.OUT + '/nollego-deshacer.png' }); }
   await page.click('[data-act="staff-deshacer-nollego"]'); await page.waitForTimeout(200);
   await page.evaluate(() => { const b = [...document.querySelectorAll('#custom-dialog button')].find(x => /Sí|Aceptar|Confirmar/i.test(x.textContent)) || [...document.querySelectorAll('#custom-dialog button')].pop(); b.click(); });
   await page.waitForTimeout(1500);

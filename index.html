@@ -5311,9 +5311,9 @@ function noLlegoMarcadoHtml(d){
   if(!m || !m.en || d.estado!=='NoShow') return '';
   const dt = new Date(m.en);
   if(isNaN(dt)) return '';
-  const cuando = dt.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'}) + ' a las ' + dt.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+  const cuando = dt.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'}) + ' a las ' + dt.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
   const quien = m.nombre ? `por ${escapeHtml(m.nombre)}` : 'en modo Especialista';
-  return `<div class="hint" style="margin:-4px 0 14px;">🚫 "No llegó" marcado ${quien} el ${cuando}.</div>`;
+  return `<div class="hint" style="margin:-4px 0 14px;white-space:normal;">🚫 "No llegó" marcado ${quien} el ${cuando}.</div>`;
 }
 function pagoMarcadoHtml(d){
   const m = d.pagoMarcadoPor;
@@ -5500,7 +5500,6 @@ function apptViewOnlyHtml(d){
         : `<div class="hint" style="margin:0 0 14px;text-align:center;">⏳ Vas a poder marcarla como realizada cuando empiece la cita (${diaCorto(d.date)} a las ${escapeHtml(d.start||'')}).</div>`}
       ${d.estado!=='Realizada' && !d.cursoId && citaYaEmpezo(d) ? `<button type="button" class="btn btn-ghost" style="width:100%;margin:-4px 0 14px;" data-act="staff-mark-nollego" data-id="${escapeHtml(d.id)}">🚫 La clienta no llegó</button>` : ''}` : ''}
       ${d.estado==='NoShow' && d.noLlegoMarcadoPor ? `<button type="button" class="btn btn-ghost" style="width:100%;margin:0 0 14px;" data-act="staff-deshacer-nollego" data-id="${escapeHtml(d.id)}">↩️ Me equivoqué: sí llegó</button>` : ''}
-      ${noLlegoMarcadoHtml(d)}
       ${noLlegoMarcadoHtml(d)}
       ${pagoMarcadoHtml(d)}
       ${d.notas ? `<div class="field"><label>Notas</label><div>${escapeHtml(d.notas)}</div></div>` : ''}
@@ -5862,6 +5861,7 @@ function apptModalHtml(){
           <select id="f-estado">${estados.map(e=>`<option value="${e}" ${d.estado===e?'selected':''}>${estadoLabels[e]}</option>`).join('')}</select>
         </div>
       </div>
+      ${noLlegoMarcadoHtml(d)}
       ${pagoMarcadoHtml(d)}
       <div class="row2">
         <div class="field"><label>Hora inicio</label><input type="time" id="f-start" value="${d.start}"></div>

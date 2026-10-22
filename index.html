@@ -1029,10 +1029,19 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .instalar-num{flex:0 0 26px;height:26px;border-radius:50%;background:var(--wine);color:var(--wine-dark);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:13px;}
   .instalar-ico{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 4px;border:1.5px solid var(--gold-soft);border-radius:6px;font-size:13px;margin:0 2px;vertical-align:middle;}
   .instalar-saltar{margin-top:26px;background:none;border:none;color:var(--ink-soft);text-decoration:underline;font-size:13px;font-family:var(--ui);cursor:pointer;padding:8px;}
-  #instalar-banner{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px 14px;padding:9px 16px;
-    background:var(--panel-2);border-bottom:1px solid var(--line);font-size:13.5px;color:var(--ink);font-family:var(--ui);}
-  #instalar-banner .btn{padding:6px 14px;font-size:13px;}
-  #instalar-banner .instalar-banner-no{background:none;border:none;color:var(--ink-soft);font-size:13px;text-decoration:underline;cursor:pointer;font-family:var(--ui);}
+  /* Computador: tarjeta abajo a la derecha (no empuja la agenda). */
+  #instalar-banner{position:fixed;right:20px;bottom:20px;z-index:1500;width:min(360px,calc(100vw - 40px));box-sizing:border-box;
+    display:grid;grid-template-columns:44px 1fr;gap:4px 14px;align-items:center;padding:16px 18px;
+    background:var(--panel-2);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sombra);
+    font-family:var(--ui);color:var(--ink);animation:auth-in .25s ease both;}
+  #instalar-banner img{grid-row:1 / span 2;width:44px;height:44px;border-radius:10px;object-fit:contain;}
+  #instalar-banner .ib-tit{font-weight:600;font-size:14px;line-height:1.3;}
+  #instalar-banner .ib-sub{font-size:12.5px;line-height:1.4;color:var(--ink-soft);}
+  #instalar-banner .ib-acc{grid-column:1 / -1;display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:10px;}
+  #instalar-banner .btn{padding:7px 18px;font-size:13px;}
+  #instalar-banner .instalar-banner-no{background:none;border:none;color:var(--ink-soft);font-size:13px;cursor:pointer;font-family:var(--ui);padding:7px 10px;border-radius:8px;}
+  #instalar-banner .instalar-banner-no:hover{color:var(--ink);}
+  @media (prefers-reduced-motion: reduce){ #instalar-banner{animation:none;} }
 
   .login-gate{
     min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -1133,7 +1142,10 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
 //   navegador por esta vez" (esa pestaña, máx. 30 min): nunca deja a nadie
 //   sin poder entrar (navegador raro, urgencia, teléfono prestado).
 // - Abierta desde el ÍCONO (app instalada, display-mode standalone): nada.
-// - COMPUTADOR: solo una franja arriba con "Instalar" / "Ahora no" (24 h).
+// - COMPUTADOR: una tarjeta abajo a la derecha "Instalar" / "Ahora no" (24 h),
+//   SOLO si el navegador deja instalar con un clic (beforeinstallprompt). Si no
+//   (ya instalada, incógnito, Safari/Firefox) no sale nada: nunca un paso a paso
+//   (pedido de Juan Diego, 22/10/2026).
 // Va encima de todo y fuera de #root: la agenda (sesión, datos) carga igual
 // por debajo, no toca nada de cómo arranca ni de lo que se guarda.
 (function(){
@@ -1248,25 +1260,23 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
       });
       return;
     }
-    // Computador: franja arriba (si no dijo "Ahora no" hace poco).
-    if(vigente('localStorage', BANNER_KEY, BANNER_HORAS*3600000)) return;
+    // Computador: tarjeta solo si se puede instalar con un clic (y no dijo "Ahora no" hace poco).
     var b = document.getElementById('instalar-banner');
-    if(!b){
-      b = document.createElement('div');
-      b.id = 'instalar-banner';
-      document.body.insertBefore(b, document.body.firstChild);
-    }
-    b.innerHTML = (mostrarPasos && !promptGuardado)
-      ? '<span>💻 Para instalarla: haz clic en el ícono de instalar a la derecha de la barra de direcciones, o en el menú (⋮ o ⋯) → <b>“Instalar Agenda Sibana”</b> (en Edge: Aplicaciones → Instalar este sitio como una aplicación; en Safari: Archivo → Agregar al Dock).</span>'
-        + '<button type="button" class="instalar-banner-no" id="instalar-banner-no">Ahora no</button>'
-      : '<span>💻 Puedes instalar la agenda en este computador y abrirla en su propia ventana.</span>'
-        + '<button type="button" class="btn btn-primary" id="instalar-banner-si">Instalar</button>'
-        + '<button type="button" class="instalar-banner-no" id="instalar-banner-no">Ahora no</button>';
-    var si = document.getElementById('instalar-banner-si');
-    if(si) si.addEventListener('click', instalarConBoton);
+    if(!promptGuardado || vigente('localStorage', BANNER_KEY, BANNER_HORAS*3600000)){ if(b) b.remove(); return; }
+    if(b) return;
+    b = document.createElement('div');
+    b.id = 'instalar-banner';
+    b.setAttribute('role', 'dialog');
+    b.setAttribute('aria-label', 'Instalar la agenda');
+    b.innerHTML = '<img src="'+logo()+'" alt="">'
+      + '<div class="ib-tit">Instala la agenda en este computador</div>'
+      + '<div class="ib-sub">Se abre en su propia ventana, con un clic.</div>'
+      + '<div class="ib-acc"><button type="button" class="instalar-banner-no" id="instalar-banner-no">Ahora no</button>'
+      + '<button type="button" class="btn btn-primary" id="instalar-banner-si">Instalar</button></div>';
+    document.body.appendChild(b);
+    document.getElementById('instalar-banner-si').addEventListener('click', instalarConBoton);
     document.getElementById('instalar-banner-no').addEventListener('click', function(){
       guardar('localStorage', BANNER_KEY, String(Date.now()));
-      mostrarPasos = false;
       b.remove();
     });
   }
@@ -5545,25 +5555,18 @@ function sesionInicialDelForm(servicios){
 const REPARTO_DESDE = '2026-10-22';
 const REPARTO_DIAS = 28;
 const REPARTO_POR_DEFECTO = ['salome','lucy','helen'];
-// Solo para mirar (pedido de Juan Diego, 21/10/2026): con "?reparto28" al final
-// de la dirección el recuadro de Pagos cuenta los 28 días de atrás sin el
-// corte de REPARTO_DESDE, para ver cómo habría quedado. No cambia nada más
-// (el ⚖️ al agendar sigue contando desde REPARTO_DESDE).
-const REPARTO_VER_28 = /[?&]reparto28(=|&|$)/.test(location.search);
 function entraEnReparto(s){
   if(!s) return false;
   if(s.reparto===true) return true;
   if(s.reparto===false) return false;
   return SEDE.id==='santiago' && REPARTO_POR_DEFECTO.includes(sinTildes(s.name));
 }
-function repartoDesdeKey(ver28){
+function repartoDesdeKey(){
   const ini = toKey(addDays(parseKey(sedeNow().date), -(REPARTO_DIAS-1)));
-  return ver28 || ini > REPARTO_DESDE ? ini : REPARTO_DESDE;
+  return ini > REPARTO_DESDE ? ini : REPARTO_DESDE;
 }
-// ver28: solo el recuadro de Pagos con "?reparto28" (el ⚖️ del formulario
-// siempre usa el corte de REPARTO_DESDE).
-function repartoDatos(ver28){
-  const desde = repartoDesdeKey(ver28);
+function repartoDatos(){
+  const desde = repartoDesdeKey();
   // Una fila por nombre (si hubiera dos especialistas con el mismo nombre, la
   // segunda quedaría siempre en $0); sin nombre, no entra.
   const vistos = new Set();
@@ -5596,11 +5599,10 @@ function leFaltaTrabajo(rep, nombres){
   return prom > 0 && min < prom*0.85 ? cand.filter(f=>f.monto===min).map(f=>normalizeName(f.name)) : [];
 }
 function repartoPagosHtml(){
-  const rep = repartoDatos(REPARTO_VER_28);
+  const rep = repartoDatos();
   if(!rep) return '';
   const d = parseKey(rep.desde);
-  const desdeTxt = REPARTO_VER_28 ? `en los últimos 28 días (desde el ${d.getDate()} de ${MONTHS[d.getMonth()]}, solo para mirar)`
-    : rep.desde===REPARTO_DESDE ? `desde el ${d.getDate()} de ${MONTHS[d.getMonth()]}` : 'en las últimas 4 semanas';
+  const desdeTxt = rep.desde===REPARTO_DESDE ? `desde el ${d.getDate()} de ${MONTHS[d.getMonth()]}` : 'en las últimas 4 semanas';
   const parejo = 100/rep.filas.length;
   const falta = leFaltaTrabajo(rep, rep.filas.map(f=>f.name));
   const nombresFalta = rep.filas.filter(f=>falta.includes(normalizeName(f.name))).map(f=>`<b>${escapeHtml(f.name)}</b>`);

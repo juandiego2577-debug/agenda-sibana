@@ -71,13 +71,12 @@ await page.evaluate(() => render());
 txt = await page.textContent('.reparto');
 ok('después de 4 semanas mira solo las últimas 4 semanas', txt.includes('en las últimas 4 semanas') && txt.includes('Todavía no hay citas'), txt.slice(0, 200));
 ok('sin errores', errores.length === 0, errores.join(' | '));
-// ?reparto28: solo para mirar los 28 días de atrás (sin el corte del 22/10)
+// ?reparto28 se quitó (22/10/2026, a Juan Diego le pareció raro): ya no cambia nada
 await page.clock.setFixedTime(new Date('2026-10-20T13:10:00-03:00'));
 await page.goto(page.url().split('?')[0] + '?reparto28'); await page.waitForSelector('[data-act="new-block"]', { timeout: 30000 }); await esperarCalma(page);
 await irPagos();
 txt = await page.textContent('.reparto');
-ok('?reparto28: cuenta los 28 días de atrás (citas de octubre que antes no contaban)', txt.includes('en los últimos 28 días') && txt.includes('solo para mirar') && !txt.includes('Todavía no hay citas'), txt.replace(/\s+/g, ' ').slice(0, 300));
-ok('?reparto28 no cambia el ⚖️ del formulario (sigue desde el 22/10)', await page.evaluate(() => { ui.modal = { type: 'appt', mode: 'new', data: {} }; const d = repartoDatos(); const v = repartoDatos(true); ui.modal = null; return d.desde === '2026-10-22' && v.desde < '2026-10-22'; }));
+ok('?reparto28 ya no existe: sigue contando desde el 22/10', !txt.includes('solo para mirar') && !txt.includes('últimos 28 días') && await page.evaluate(() => repartoDatos().desde === '2026-10-22'), txt.replace(/\s+/g, ' ').slice(0, 300));
 ok('dos especialistas con el mismo nombre: una sola fila', await page.evaluate(() => { state.specialists.push({ id: 'dup', name: 'lucy ', color: '#123456' }); const n = repartoDatos().filas.filter(f => normalizeName(f.name) === 'lucy').length; state.specialists.pop(); return n === 1; }));
 await cerrar();
 // Especialista: no ve nada de esto

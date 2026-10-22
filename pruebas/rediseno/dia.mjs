@@ -10,6 +10,10 @@ for (const largos of [false, true]) {
   await prepararEmulador({ nombresLargos: largos });
   for (const rol of ['duenos', 'especialista']) for (const ancho of [320, 360, 390, 430, 768, 1024, 1517]) for (const zoom of [100, 130]) {
     const { page, cerrar } = await abrirAgenda({ html: htmlDe(VERSION), rol, ancho });
+    // Valentina (perfilado, sin abono) es el ejemplo de "Sin abono" en una ficha
+    // de 30 min: desde el 22/10/2026 el perfilado no pide abono por defecto, así
+    // que aquí se marca "💵 Pide abono" para seguir revisando cómo se ve.
+    await page.evaluate(() => { const s = state.services.find(x => /perfilado/i.test(x.name)); if (s) { s.pideAbono = true; render(); } });
     // Letra grande del teléfono: se agranda solo el texto de las fichas (como
     // la escala de texto de Android) y la agenda tiene que volver a acomodarlas.
     if (zoom !== 100) { await page.evaluate(z => {

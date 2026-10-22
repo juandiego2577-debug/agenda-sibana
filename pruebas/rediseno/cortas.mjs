@@ -33,6 +33,13 @@ for (const ancho of [390, 1517]) {
   });
   ok(`${ancho}px: se ven las 7 citas`, r.n === 7, r.n);
   ok(`${ancho}px: ninguna cita tapa a otra`, r.choques.length === 0, r.choques.join(' | '));
+  const pos = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('.appt')].map(e => { const m = e.textContent.match(/Clienta (c\d)/); const b = e.getBoundingClientRect(); return [m && m[1], { l: Math.round(b.left), w: Math.round(b.width), h: b.height, top: b.top }]; })));
+  ok(`${ancho}px: las 3 cortas seguidas de Lucy van en la misma columna, una debajo de otra`, pos.c3.l === pos.c4.l && pos.c4.l === pos.c5.l && pos.c3.w === pos.c4.w && pos.c3.top < pos.c4.top && pos.c4.top < pos.c5.top, JSON.stringify([pos.c3, pos.c4, pos.c5]));
+  ok(`${ancho}px: cada cita de 10 min mide lo mismo (lo que dura)`, Math.abs(pos.c3.h - pos.c4.h) < 1 && pos.c3.h >= 25, JSON.stringify([pos.c3.h, pos.c4.h]));
+  ok(`${ancho}px: Salomé 11:00–12:00 y Lucy 11:00–11:10 (se cruzan de verdad) siguen lado a lado`, pos.c6.l < pos.c7.l);
+  const filas = await page.evaluate(() => [...document.querySelectorAll('.timecol .slot')].map(e => [e.textContent.trim(), Math.round(e.getBoundingClientRect().height)]));
+  const alto = Object.fromEntries(filas);
+  ok(`${ancho}px: solo se agranda la hora de 17:00 (y la de 11:00 no)`, alto['17:00'] > 56 && alto['11:00'] === 56 && alto['14:00'] === 56 && alto['16:00'] === 56, JSON.stringify(filas));
   ok(`${ancho}px: una cita sola (15:00–17:00) sigue a todo el ancho`, await page.evaluate(() => { const e = [...document.querySelectorAll('.appt')].find(x => x.textContent.includes('Clienta c2')); return e && !e.style.width; }));
   if (OUT) await page.screenshot({ path: `${OUT}/cortas-${ancho}.png`, fullPage: true });
   ok(`${ancho}px: sin errores`, errores.length === 0, errores.join(' | '));

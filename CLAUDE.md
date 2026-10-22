@@ -1179,9 +1179,13 @@ para servir también a **Copiapó**, de la siguiente forma:
   ancho. **Citas muy cortas (22/10/2026, bug real visto por Juan Diego):**
   una ficha nunca mide menos de `FICHA_MIN_PX` (26 px ≈ 28 min), así que una
   cita de 10 min (17:00–17:10) se dibujaba encima de la siguiente (17:10).
-  `layoutSideBySide` ahora decide qué se cruza con el alto DIBUJADO
-  (`FICHA_MIN_MIN`), y esas citas van lado a lado. Prueba:
-  `pruebas/rediseno/cortas.mjs` (falla con la versión anterior). El box se elige en Más → Especialistas (`s.box` = 1 | 2 |
+  Primero se pusieron lado a lado (PR #153): no le gustó, la de Lucy se metía
+  en el lado de Salomé. Ahora `horasDelDia` AGRANDA esa hora en la vista Día
+  (solo si una ficha corta toparía con la siguiente que empieza después;
+  máximo `HORA_MAX_PX`): cada cita mide lo que dura, en su columna, una debajo
+  de otra. `layoutSideBySide(items, yDe)` y todas las fichas usan esa escala
+  (`posY`). La línea de "ahora" (en pausa) todavía usa `SLOT_PX` fijo. Prueba:
+  `pruebas/rediseno/cortas.mjs` (16). El box se elige en Más → Especialistas (`s.box` = 1 | 2 |
   'libre'); si nunca se eligió, en Santiago vale `BOX_POR_DEFECTO` (por
   nombre, sin tildes) y en otra sede ninguno — así funcionó sin escribir
   nada en la base. Solo cambia dónde se DIBUJA: ningún dato, precio ni el
@@ -1540,6 +1544,13 @@ para servir también a **Copiapó**, de la siguiente forma:
   Especialista), aparece un aviso visual cuando la cita no tiene abono
   cobrado (`abono <= 0`) y no está Cancelada/NoShow — para que la
   especialista lo sepa sin tener que abrir el detalle de la cita.
+  **Solo en tratamientos que piden abono (22/10/2026, pedido de Juan Diego):**
+  casilla "💵 Pide abono" por servicio en Servicios y tarifario
+  (`s.pideAbono`, `servicioPideAbono`/`citaPideAbono`); si nunca se marcó,
+  todo menos el perfilado; evaluación y garantía nunca (sin casilla). Decide
+  la etiqueta "Sin abono" y el abono que se sugiere en una cita NUEVA (un
+  combo perfilado + lifting sí pide). No toca ningún cálculo de dinero. Campo
+  dentro del servicio: sin `APP_VERSION`. Prueba: `abono-nollego.mjs`.
 - **Código QR y checkbox/validaciones del consentimiento** (RUT chileno,
   detalle obligatorio si hay alergias, borrar fichas desde el Panel
   Sibana): todo vive en el repo aparte `sibana-consentimiento` (ver
@@ -1619,6 +1630,13 @@ para servir también a **Copiapó**, de la siguiente forma:
   avisarle a Juan Diego a mano (cuaderno/WhatsApp) para que él lo tipee.
   No pueden tocar precio, abono ni ningún otro campo — solo método de
   pago del saldo, la crema, y el estado a "Realizada".
+  **"🚫 La clienta no llegó" (22/10/2026, pedido de Juan Diego):** botón
+  debajo de "Marcar como realizada", solo cuando la cita ya empezó
+  (`citaYaEmpezo`) y no está Realizada (ni cursos). Pide confirmar ("su abono
+  queda para el negocio"), pone `estado:'NoShow'` y guarda
+  `a.noLlegoMarcadoPor` ({nombre, en, usuario}); se ve "🚫 'No llegó' marcado
+  por X el …" en su vista y en el formulario de Admin. Si se equivocó: "↩️ Me
+  equivoqué: sí llegó" (vuelve a Pendiente). Prueba: `abono-nollego.mjs` (16).
   **Cantidad de cremas** (`a.cremaCantidad`, ver `apptCremas`): tanto Admin
   como la especialista eligen cuántas cremas compró (selector − N +), no
   solo sí/no. Cada crema suma $5.000 al precio y se descuenta completa de

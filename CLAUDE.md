@@ -1037,7 +1037,16 @@ para servir también a **Copiapó**, de la siguiente forma:
   movió aquí. Gráficos: lo que quedó (barras negativas en rojo bajo la
   línea del cero), lo que entró, tratamientos que más dinero dejan (combo
   repartido por precio de lista), lo que deja cada especialista, citas
-  realizadas. Los gráficos ahora miden según la pantalla (`anchoGrafico`):
+  realizadas. **Antes y después de los precios nuevos (22/10/2026, Juan Diego,
+  lugar a mi criterio):** primera tarjeta de Gráficos
+  (`preciosAntesDespuesHtml`): promedio por semana de pago (lun–sáb, solo citas,
+  sin cursos, `cuentaEnFinanzas` + `apptRevenue`) antes vs ahora, diferencia ▲/▼
+  y barras por semana con raya punteada en el cambio. Fecha del cambio
+  (`cambiosDePrecio`): la primera cita con `cremaIncluidaPolitica` (la subida de
+  oct 2026) + `settings.cambiosPrecio` ([{desde}], se anota sola al cambiar un
+  precio en Servicios y tarifario); compara contra el ÚLTIMO cambio. La semana
+  del cambio (si no fue lunes) no entra en los promedios; la semana en curso
+  tampoco. Prueba: `precios.mjs` (14). Los gráficos ahora miden según la pantalla (`anchoGrafico`):
   antes en el teléfono quedaban diminutos. Sin `APP_VERSION` (solo cambia
   cómo se muestra; las devoluciones son gastos normales). Probado: e2e
   (comparación con la versión anterior, anotar/editar/borrar gasto,

@@ -717,6 +717,20 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .gasto-info small{display:block;font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
   .gasto-monto{font-weight:600;white-space:nowrap;color:var(--danger-text);}
   .chart-box{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 10px;margin-bottom:6px;overflow-x:auto;}
+  /* Antes y después de los precios nuevos (Finanzas → Gráficos) */
+  .precios-card{background:var(--panel-2);border:1px solid var(--line);border-radius:16px;padding:18px 18px 12px;margin:14px 0 6px;}
+  .precios-card h4{font-family:var(--head);font-size:23px;font-weight:700;margin:0 0 2px;color:var(--ink);}
+  .precios-card .pc-sub{font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;line-height:1.45;}
+  .precios-cmp{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .precios-box{background:var(--panel);border:1px solid var(--line-soft);border-radius:12px;padding:12px 14px;min-width:0;}
+  .precios-box.ahora{border-color:var(--wine);}
+  .precios-box .pb-lbl{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;}
+  .precios-box .pb-num{font-family:var(--head);font-size:28px;font-weight:700;color:var(--gold);line-height:1.15;font-variant-numeric:lining-nums tabular-nums;}
+  .precios-box .pb-det{font-size:12px;color:var(--ink-soft);}
+  .precios-dif{margin:12px 0 4px;font-size:14px;font-weight:600;}
+  .precios-dif.sube{color:var(--ok-text);} .precios-dif.baja{color:var(--danger-text);}
+  .precios-card .chart-box{background:transparent;border:none;padding:6px 0 0;}
+  @media (max-width:420px){ .precios-box .pb-num{font-size:23px;} }
   @media (max-width:600px){
     .fin-cards{grid-template-columns:1fr;}
     .fin-main{padding:14px 12px 60px;}
@@ -8643,6 +8657,81 @@ function svgVBarChart(data, opts={}){
   return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="max-width:${w}px;display:block;">${linea0}${bars}</svg>`;
 }
 
+// ¿Cuándo cambiaron los precios? (22/10/2026, Juan Diego: comparar cuánto
+// entraba por semana antes y después de subir los precios.) El primero sale de
+// los datos: la primera cita con los precios nuevos (crema incluida, la subida
+// de oct 2026). Los siguientes se anotan solos al cambiar un precio en
+// Servicios y tarifario (settings.cambiosPrecio = [{desde:'YYYY-MM-DD'}]).
+function cambiosDePrecio(){
+  const fechas = new Set();
+  const nuevas = state.appointments.filter(a=>a.cremaIncluidaPolitica===true && !a.cursoId && a.date).map(a=>a.date).sort();
+  if(nuevas.length) fechas.add(nuevas[0]);
+  ((state.settings && state.settings.cambiosPrecio)||[]).forEach(c=>{ if(c && /^\d{4}-\d{2}-\d{2}$/.test(c.desde||'')) fechas.add(c.desde); });
+  return [...fechas].sort();
+}
+// Lo que entró por semana de pago (lun–sáb), solo citas (sin cursos), con la
+// misma regla que Finanzas (cuentaEnFinanzas + apptRevenue).
+function semanaEnDinero(lunesKey){
+  const fin = toKey(addDays(parseKey(lunesKey), 5));
+  const citas = state.appointments.filter(a=>!a.cursoId && a.date>=lunesKey && a.date<=fin && cuentaEnFinanzas(a));
+  return { dinero: citas.reduce((t,a)=>t+apptRevenue(a),0), citas: citas.filter(a=>a.estado!=='Cancelada' && a.estado!=='NoShow').length };
+}
+function preciosAntesDespuesHtml(){
+  const cambios = cambiosDePrecio();
+  if(!cambios.length) return '';
+  const ultimo = cambios[cambios.length-1], previo = cambios[cambios.length-2] || null;
+  const lunesCambio = toKey(startOfWeek(parseKey(ultimo)));
+  // La semana en que cambiaron (si no fue un lunes) tiene precios viejos y nuevos:
+  // se dibuja, pero no entra en ninguno de los dos promedios.
+  const semanaMixta = ultimo !== lunesCambio ? lunesCambio : null;
+  const lunesHoy = toKey(startOfWeek(parseKey(sedeNow().date)));
+  // Semanas completas antes (hasta 8, sin pasar del cambio anterior) y después (sin la semana en curso).
+  const semanas = [];
+  for(let k = toKey(addDays(parseKey(lunesCambio), -7*8)); k < lunesHoy; k = toKey(addDays(parseKey(k), 7))){
+    if(previo && k < toKey(startOfWeek(parseKey(previo)))) continue;
+    semanas.push({lunes:k, ...semanaEnDinero(k)});
+  }
+  while(semanas.length && semanas[0].dinero===0 && semanas[0].lunes < lunesCambio) semanas.shift(); // antes de que existiera la agenda
+  const antes = semanas.filter(w=>w.lunes < lunesCambio), ahora = semanas.filter(w=>w.lunes >= lunesCambio && w.lunes !== semanaMixta);
+  const prom = l=>l.length ? Math.round(l.reduce((t,w)=>t+w.dinero,0)/l.length) : 0;
+  const promC = l=>l.length ? Math.round(l.reduce((t,w)=>t+w.citas,0)/l.length) : 0;
+  const pa = prom(antes), pn = prom(ahora);
+  const d = parseKey(ultimo);
+  const caja = (cls, lbl, l, p)=>`<div class="precios-box ${cls}"><div class="pb-lbl">${lbl} · ${l.length} semana${l.length===1?'':'s'}</div><div class="pb-num">${l.length ? fmtCLP(p) : '—'}</div><div class="pb-det">${l.length ? `por semana · ${promC(l)} citas` : 'todavía sin una semana completa'}</div></div>`;
+  let dif = '';
+  if(antes.length && ahora.length && pa>0){
+    const x = pn - pa, pct = Math.round(x/pa*100);
+    dif = `<div class="precios-dif ${x>=0?'sube':'baja'}">${x>=0?'▲':'▼'} ${fmtCLP(Math.abs(x))} ${x>=0?'más':'menos'} por semana (${x>=0?'+':'−'}${Math.abs(pct)}%)</div>`;
+  }
+  // Gráfico: cada semana, las de antes apagadas y las de ahora doradas, con la raya del cambio.
+  const n = anchoGrafico() < 520 ? 8 : 12;
+  const vis = semanas.slice(-n);
+  const w = anchoGrafico(), h = 210, pad = 10, gap = vis.length>9 ? 8 : 12, arriba = 32; // arriba: lugar para "Precios nuevos" sin tapar los números
+  const maxV = Math.max(1, ...vis.map(x=>x.dinero));
+  const barW = vis.length ? (w - pad*2 - gap*(vis.length-1)) / vis.length : 0;
+  const chartH = h - arriba - 24;
+  let raya = '';
+  const barras = vis.map((x,i)=>{
+    const bh = Math.max(2, x.dinero/maxV*chartH), bx = pad + i*(barW+gap), by = arriba + chartH - bh;
+    const nueva = x.lunes >= lunesCambio;
+    if(nueva && (i===0 || vis[i-1].lunes < lunesCambio) && i>0){
+      const rx = bx - gap/2;
+      raya = `<line x1="${rx}" x2="${rx}" y1="4" y2="${arriba+chartH+2}" style="stroke:var(--wine)" stroke-width="1.5" stroke-dasharray="4 4"></line><text x="${rx+5}" y="13" font-size="11" font-weight="600" style="fill:var(--gold)" font-family="Montserrat,sans-serif">Precios nuevos →</text>`;
+    }
+    const ld = parseKey(x.lunes);
+    return `<rect x="${bx}" y="${by}" width="${barW}" height="${bh}" rx="5" style="fill:var(${nueva?'--wine':'--line'})"></rect>
+      <text x="${bx+barW/2}" y="${by-5}" text-anchor="middle" font-size="11" style="fill:var(${nueva?'--gold':'--ink-soft'})" font-weight="600" font-family="Montserrat,sans-serif">${fmtCLPShort(x.dinero)}</text>
+      <text x="${bx+barW/2}" y="${h-6}" text-anchor="middle" font-size="11" style="fill:var(--ink-soft)" font-family="Montserrat,sans-serif">${ld.getDate()}/${ld.getMonth()+1}</text>`;
+  }).join('');
+  return `
+    <div class="precios-card">
+      <h4>Antes y después de los precios nuevos</h4>
+      <div class="pc-sub">Lo que entró por semana (lunes a sábado, solo citas, sin cursos). Precios nuevos desde el ${DAY_NAMES_FULL[d.getDay()]} ${d.getDate()} de ${MONTHS[d.getMonth()]}: la primera cita con los precios nuevos.</div>
+      <div class="precios-cmp">${caja('', 'Antes', antes, pa)}${caja('ahora', 'Ahora', ahora, pn)}</div>
+      ${dif}
+      ${vis.length ? `<div class="chart-box"><svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="max-width:${w}px;display:block;">${raya}${barras}</svg></div><div class="hint" style="margin:2px 0 4px;">Cada barra es una semana (dice el lunes). ${semanaMixta ? `La del ${parseKey(semanaMixta).getDate()}/${parseKey(semanaMixta).getMonth()+1} no entra en los promedios: tuvo precios viejos y nuevos. ` : ''}La semana en curso se cuenta cuando termine.</div>` : ''}
+    </div>`;
+}
 function finanzasGraficosHtml(year, month){
   const meses = [];
   for(let i=5;i>=0;i--){
@@ -8675,6 +8764,7 @@ function finanzasGraficosHtml(year, month){
   const espCitas = Object.keys(f.porEspecialista).map(k=>({label:k, value:f.porEspecialista[k].hechas})).sort((a,b)=>b.value-a.value);
 
   return `
+    ${preciosAntesDespuesHtml()}
     <h3 class="fin-sub">Lo que te quedó — últimos 6 meses</h3>
     <div class="chart-box">${svgVBarChart(quedo, {formatValue: v=>(v<0?'−':'')+fmtCLPShort(Math.abs(v))})}</div>
 
@@ -12173,10 +12263,20 @@ function saveServicesFromForm(){
       }
     });
   });
+  let cambioPrecio = false;
   document.querySelectorAll('[data-svc-price]').forEach(inp=>{
     const i = Number(inp.dataset.svcPrice);
-    if(state.services[i]) state.services[i].price = Number(inp.value)||0;
+    if(state.services[i]){
+      const nuevo = Number(inp.value)||0;
+      if((Number(state.services[i].price)||0)!==nuevo && state.services[i].price!=null) cambioPrecio = true;
+      state.services[i].price = nuevo;
+    }
   });
+  // Un cambio de precio queda anotado con la fecha (Finanzas → Gráficos: antes y después).
+  if(cambioPrecio){
+    const hoy = sedeNow().date, lista = (state.settings.cambiosPrecio||[]).slice();
+    if(!lista.some(c=>c.desde===hoy)) state.settings.cambiosPrecio = lista.concat([{desde: hoy}]);
+  }
   document.querySelectorAll('[data-svc-duration]').forEach(inp=>{
     const i = Number(inp.dataset.svcDuration);
     if(state.services[i]) state.services[i].duration = Number(inp.value)||60;

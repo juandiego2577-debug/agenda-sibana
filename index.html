@@ -1796,12 +1796,37 @@ const SLOT_PX = 56; // px per hour
 // (13+16+15+10 = 54). Si se cambia la letra o el relleno de .appt, volver a
 // medir con pruebas/rediseno/dia.mjs.
 const COMPACT_HEIGHT_PX = 50;
-// Alto mínimo de una ficha en la vista Día (una cita de 10 min se dibuja más
-// alta de lo que dura, para que se lea). layoutSideBySide usa este alto para
-// decidir qué se cruza: así dos citas cortas seguidas (17:00–17:10 y
-// 17:10–17:20) van lado a lado en vez de dibujarse una encima de otra.
+// Alto mínimo de una ficha en la vista Día (para que se lea). Con SLOT_PX = 56
+// una cita de 10 min mediría 9 px: si va seguida de otra (17:00–17:10 y
+// 17:10–17:20), esa HORA se agranda en la vista Día (horasDelDia) para que
+// cada cita mida lo que dura y ninguna tape a la otra (22/10/2026, Juan Diego:
+// ponerlas lado a lado las metía en el lado de la otra especialista).
 const FICHA_MIN_PX = 26;
-const FICHA_MIN_MIN = FICHA_MIN_PX/SLOT_PX*60;
+const HORA_MAX_PX = SLOT_PX*4; // una hora agrandada nunca pasa de esto
+// Alto de cada hora del día (px) y la función minuto → px. Una hora se agranda
+// solo si una ficha corta toparía con la siguiente que empieza después (si se
+// cruzan de verdad, van lado a lado como siempre).
+function horasDelDia(items, rangeStart, rangeEnd){
+  const alto = {};
+  for(let h=rangeStart; h<rangeEnd; h++) alto[h] = SLOT_PX;
+  const iv = items.map(it=>({st:minutesFromMidnight(it.start), en:minutesFromMidnight(it.end)})).filter(x=>x.en>x.st);
+  iv.forEach(a=>{
+    // la siguiente que empieza después de esta (o justo cuando termina)
+    let g = Infinity;
+    iv.forEach(b=>{ if(b!==a && b.st>a.st && b.st>=a.en) g = Math.min(g, b.st - a.st); });
+    if(!isFinite(g) || g*SLOT_PX/60 >= FICHA_MIN_PX) return;
+    const necesita = Math.min(HORA_MAX_PX, Math.ceil(FICHA_MIN_PX*60/g));
+    for(let h=Math.floor(a.st/60); h<=Math.floor((a.st+g-1)/60); h++) if(alto[h]!=null) alto[h] = Math.max(alto[h], necesita);
+  });
+  const ini = {}; let y = 0;
+  for(let h=rangeStart; h<=rangeEnd; h++){ ini[h] = y; if(h<rangeEnd) y += alto[h]; }
+  const yDe = m=>{ // m: minutos desde medianoche
+    const h = Math.min(rangeEnd, Math.max(rangeStart, Math.floor(m/60)));
+    if(h>=rangeEnd) return ini[rangeEnd];
+    return ini[h] + (m - h*60)/60*alto[h];
+  };
+  return {alto, ini, total: y, yDe};
+}
 
 let state = {
   appointments: [], // {id,date:'YYYY-MM-DD',start:'HH:MM',end:'HH:MM',client,phone,services:[],price,specialist,estado,abono,metodoAbono,saldo,metodoSaldo,notas}
@@ -2181,6 +2206,19 @@ function servicioLlevaFirma(nombre){
   if(svc && svc.llevaFirma!=null) return !!svc.llevaFirma;
   return !!(svc && svc.micropigmentacion) || NOMBRE_MICRO_RE.test(nombre);
 }
+// ¿Este tratamiento se agenda con abono? (22/10/2026, pedido de Juan Diego:
+// perfilado, evaluaciones y garantías no lo piden). Casilla "💵 Pide abono" por
+// servicio en Servicios y tarifario (s.pideAbono); si nunca se marcó: todo
+// menos el perfilado. Evaluación y garantía nunca. Decide el "Sin abono" de la
+// vista Día y el abono que se sugiere en una cita nueva (no toca ningún cálculo
+// de dinero).
+function servicioPideAbono(nombre){
+  if(!nombre || /evaluaci[oó]n|garant[ií]a/i.test(nombre)) return false;
+  const svc = (state.services||[]).find(s=>s.name===nombre);
+  if(svc && svc.pideAbono!=null) return !!svc.pideAbono;
+  return !/perfilado/i.test(nombre);
+}
+function citaPideAbono(a){ return (a.services||[]).some(x=>servicioPideAbono(x)); }
 function citaLlevaFirma(a){
   return (a.services||[]).some(x=>servicioLlevaFirma(x))
     || (isGarantiaAppt(a) && !!a.garantiaDe && servicioLlevaFirma(a.garantiaDe));
@@ -2203,6 +2241,8 @@ function faltaFirmarAvisoHtml(a){
 // EN PAUSA (12/10/2026): Juan Diego todavía no decide si publicarlas. Para
 // mostrarlas, poner VISTA_DIA_EXTRAS = true.
 const VISTA_DIA_EXTRAS = false;
+// OJO (en pausa, VISTA_DIA_EXTRAS): calcula la altura con SLOT_PX fijo; si se
+// prende, usar horasDelDia (una hora puede estar agrandada por citas cortas).
 function lineaAhoraHtml(dateKey, rangeStart, rangeEnd){
   if(!VISTA_DIA_EXTRAS) return '';
   const now = sedeNow();
@@ -2230,7 +2270,7 @@ function resumenDiaHtml(dateKey, appts){
   if(!activas.length) return '';
   const now = sedeNow();
   const esHoy = dateKey===now.date, pasado = dateKey < now.date;
-  const sinAbono = activas.filter(a=>!(Number(a.abono)>0) && !isGarantiaAppt(a)).length;
+  const sinAbono = activas.filter(a=>!(Number(a.abono)>0) && citaPideAbono(a)).length;
   const porConfirmar = pasado ? 0 : activas.filter(a=>(a.estado||'Pendiente')==='Pendiente').length;
   // Por firmar: citas de hoy sin ficha que todavía no terminan (+30 min).
   const mNow = minutesFromMidnight(now.time);
@@ -2565,7 +2605,8 @@ function boxDeEspecialista(nombre){
 // extra a la derecha. Lo que no tiene box (bloqueo de "Todas", cita sin
 // especialista, una reemplazo sin box) va a la primera columna libre. Las
 // columnas que quedan vacías en un grupo se quitan.
-function layoutSideBySide(items){
+function layoutSideBySide(items, yDe){
+  yDe = yDe || (m=>m/60*SLOT_PX);
   const pref = items.map(it=>{ const b = boxDeEspecialista(it.specialist); return b ? b-1 : null; });
   const order = items.map((it,i)=>i).sort((a,b)=>
     (minutesFromMidnight(items[a].start)-minutesFromMidnight(items[b].start))
@@ -2581,9 +2622,9 @@ function layoutSideBySide(items){
     cluster = []; laneEnds = [];
   };
   order.forEach(i=>{
-    const st = minutesFromMidnight(items[i].start);
-    // hasta donde se DIBUJA (una cita muy corta se ve más alta de lo que dura)
-    const en = Math.max(minutesFromMidnight(items[i].end), st + FICHA_MIN_MIN);
+    // En píxeles, hasta donde se DIBUJA (una ficha nunca mide menos de FICHA_MIN_PX).
+    const st = yDe(minutesFromMidnight(items[i].start));
+    const en = Math.max(yDe(minutesFromMidnight(items[i].end)), st + FICHA_MIN_PX);
     if(cluster.length && st >= clusterEnd) close();
     let c;
     if(pref[i]!=null){
@@ -3114,8 +3155,8 @@ function recomputeServiceFields(){
   // servicio (por cualquier motivo, incluso uno que no tenga que ver con el
   // pago) NUNCA debe borrar el abono que ya quedó registrado/cobrado.
   if(isNew && abonoInput){
-    // Una garantía es gratis: no se le sugiere abono.
-    const conAbono = q.filter(({idx})=>!esServicioGarantia(state.services[idx] && state.services[idx].name)).reduce((s,x)=>s+x.qty,0);
+    // Solo los tratamientos que piden abono (no garantía, evaluación ni perfilado).
+    const conAbono = q.filter(({idx})=>servicioPideAbono(state.services[idx] && state.services[idx].name)).reduce((s,x)=>s+x.qty,0);
     abonoInput.value = abonoSugeridoPorTratamiento() * conAbono;
   }
   if(abonoInput && saldoInput){
@@ -3947,7 +3988,7 @@ async function crearAgendaSede(){
         // apertura de la sede (SEDE.preciosIniciales; un retoque nunca).
         services = lista.map(x=>{
           const nuevo = {name: x.name, price: Number(x.price)||0, duration: x.duration||60};
-          ['micropigmentacion', 'llevaRetoque', 'llevaFirma'].forEach(k=>{ if(x[k]!=null) nuevo[k] = x[k]; });
+          ['micropigmentacion', 'llevaRetoque', 'llevaFirma', 'pideAbono'].forEach(k=>{ if(x[k]!=null) nuevo[k] = x[k]; });
           if(!/retoque|garant/i.test(x.name||'')){
             const regla = SEDE.preciosIniciales.find(r=>r.re.test(x.name||''));
             if(regla && regla.price!=null) nuevo.price = regla.price;
@@ -4580,28 +4621,36 @@ function dayViewHtml(){
     if(eH > rangeEnd) rangeEnd = Math.min(24, eH);
   });
 
-  const totalHours = rangeEnd - rangeStart;
-  const gridHeight = totalHours * SLOT_PX;
+  const partBlocks = dayBlocks.filter(b=>!b.fullDay);
+  // Alto de cada hora: normalmente SLOT_PX; más alta si hay citas cortas seguidas.
+  const horas = horasDelDia([...appts, ...partBlocks, ...fantasmas], rangeStart, rangeEnd);
+  const yDe = horas.yDe;
+  const posY = (start, end)=>{ // top y alto de una ficha, en px
+    const top = yDe(minutesFromMidnight(start)) - yDe(rangeStart*60);
+    return {top, height: Math.max(yDe(minutesFromMidnight(end)) - yDe(minutesFromMidnight(start)), FICHA_MIN_PX)};
+  };
+  const gridHeight = horas.total;
 
   let timeCol = '';
   let hourLines = '';
   for(let h=rangeStart; h<=rangeEnd; h++){
-    const top = (h-rangeStart)*SLOT_PX;
-    timeCol += `<div class="slot" style="height:${SLOT_PX}px"><span>${pad(h)}:00</span></div>`;
+    const top = horas.ini[h];
+    const alto = horas.alto[h]!=null ? horas.alto[h] : SLOT_PX;
+    timeCol += `<div class="slot" style="height:${alto}px"><span>${pad(h)}:00</span></div>`;
     hourLines += `<div class="hourline" style="top:${top}px"></div>`;
-    if(h<rangeEnd) hourLines += `<div class="hourline half" style="top:${top+SLOT_PX/2}px"></div>`;
+    if(h<rangeEnd) hourLines += `<div class="hourline half" style="top:${top+alto/2}px"></div>`;
   }
   let emptyClicks = '';
   let blockedOverlay = '';
   for(let h=rangeStart; h<rangeEnd; h++){
-    const top=(h-rangeStart)*SLOT_PX;
+    const top = horas.ini[h], alto = horas.alto[h];
     const blocked = closed || hourIsBlocked(h, ui.currentDate);
     if(blocked){
-      blockedOverlay += `<div class="blocked" style="top:${top}px;height:${SLOT_PX}px"></div>`;
+      blockedOverlay += `<div class="blocked" style="top:${top}px;height:${alto}px"></div>`;
     } else if(ui.mode==='admin') {
-      emptyClicks += `<div class="emptyclick" style="top:${top}px" data-act="new-appt-at" data-hour="${h}"></div>`;
+      emptyClicks += `<div class="emptyclick" style="top:${top}px;height:${alto}px" data-act="new-appt-at" data-hour="${h}"></div>`;
     } else if(!blockCoversHour(h, ui.currentDate, true)) {
-      emptyClicks += `<div class="emptyclick" style="top:${top}px" data-act="new-block-at" data-hour="${h}" title="Bloquear esta hora"></div>`;
+      emptyClicks += `<div class="emptyclick" style="top:${top}px;height:${alto}px" data-act="new-block-at" data-hour="${h}" title="Bloquear esta hora"></div>`;
     }
   }
 
@@ -4610,18 +4659,14 @@ function dayViewHtml(){
   // el día ni se encima uno con otro. Las citas y los bloqueos de unas horas
   // se reparten lado a lado cuando se cruzan (ej. una cita de Jeeymar a la
   // misma hora en que Salomé bloqueó), para que ninguno quede tapado.
-  const partBlocks = dayBlocks.filter(b=>!b.fullDay);
-  const sideCols = layoutSideBySide([...appts, ...partBlocks, ...fantasmas]);
+  const sideCols = layoutSideBySide([...appts, ...partBlocks, ...fantasmas], yDe);
   const apptCols = sideCols.slice(0, appts.length);
   const blockCols = sideCols.slice(appts.length, appts.length + partBlocks.length);
   const ghostCols = sideCols.slice(appts.length + partBlocks.length);
   const sidePos = ({col, cols})=> cols>1 ? `left:calc(6px + (100% - 12px) * ${col} / ${cols});right:auto;width:calc((100% - 12px) / ${cols} - 3px);` : '';
   let specialistBlocks = '';
   partBlocks.forEach((b,i)=>{
-    const startMin = minutesFromMidnight(b.start) - rangeStart*60;
-    const endMin = minutesFromMidnight(b.end) - rangeStart*60;
-    const top = (startMin/60)*SLOT_PX;
-    const height = Math.max(((endMin-startMin)/60)*SLOT_PX, FICHA_MIN_PX);
+    const {top, height} = posY(b.start, b.end);
     const col = specialistColor(b.specialist);
     const n = blockCols[i].cols;
     const pos = sidePos(blockCols[i]);
@@ -4645,10 +4690,7 @@ function dayViewHtml(){
   let ghostBlocks = '';
   fantasmas.forEach((g,gi)=>{
     const {a, r, ahora} = g;
-    const startMin = minutesFromMidnight(g.start) - rangeStart*60;
-    const endMin = minutesFromMidnight(g.end) - rangeStart*60;
-    const top = (startMin/60)*SLOT_PX;
-    const height = Math.max(((endMin-startMin)/60)*SLOT_PX, FICHA_MIN_PX);
+    const {top, height} = posY(g.start, g.end);
     const isCompact = height < COMPACT_HEIGHT_PX;
     const avisoDt = new Date(r.en);
     const aviso = isNaN(avisoDt) ? '' : ` · avisó el ${avisoDt.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'})}`;
@@ -4669,10 +4711,7 @@ function dayViewHtml(){
 
   let apptBlocks = '';
   appts.forEach((a,ai)=>{
-    const startMin = minutesFromMidnight(a.start) - rangeStart*60;
-    const endMin = minutesFromMidnight(a.end) - rangeStart*60;
-    const top = (startMin/60)*SLOT_PX;
-    const height = Math.max(((endMin-startMin)/60)*SLOT_PX, FICHA_MIN_PX);
+    const {top, height} = posY(a.start, a.end);
     const stClass = 'st-' + (a.estado||'Pendiente').replace(/\s/g,'');
     const dotColor = specialistColor(a.specialist);
     const specBorder = a.specialist ? `border-left-color:${dotColor};` : '';
@@ -4684,7 +4723,7 @@ function dayViewHtml(){
     // Aviso visible desde afuera (sin entrar al detalle de la cita) cuando se
     // agendó sin cobrar abono — antes solo quedaba anotado en las notas, y la
     // especialista podía no enterarse si no abría la ficha.
-    const noAbono = !(Number(a.abono)>0) && a.estado!=='Cancelada' && a.estado!=='NoShow' && !isGarantiaAppt(a); // una garantía es gratis
+    const noAbono = !(Number(a.abono)>0) && a.estado!=='Cancelada' && a.estado!=='NoShow' && citaPideAbono(a); // perfilado, evaluación y garantía no piden abono
     const noAbonoBadge = noAbono ? `<span class="no-abono-badge" title="Sin abono">${iconoSvg('pesos')}<span class="txt">Sin abono</span></span>` : '';
     const personasBadge = apptPersonas(a)>1 ? `<span class="personas-badge">👥 ${apptPersonas(a)}</span>` : '';
     // La clienta cambió de día u hora (botón "📅 Reprogramar"): se ve desde
@@ -4705,10 +4744,7 @@ function dayViewHtml(){
   let courseBlocks = '';
   dayCourses.forEach(c=>{
     const count = courseAttendees(c.id).length;
-    const startMin = minutesFromMidnight(c.start) - rangeStart*60;
-    const endMin = minutesFromMidnight(c.end) - rangeStart*60;
-    const top = (startMin/60)*SLOT_PX;
-    const height = Math.max(((endMin-startMin)/60)*SLOT_PX, FICHA_MIN_PX);
+    const {top, height} = posY(c.start, c.end);
     const isCompact = height < COMPACT_HEIGHT_PX;
     const label = `📚 ${escapeHtml(c.nombre||'Curso')}`;
     const sub = `${count} inscrito${count===1?'':'s'}${c.specialist?' · '+escapeHtml(c.specialist):''}`;
@@ -5268,6 +5304,17 @@ function postcareStatusHtml(a, style){
   return `<div class="hint" style="${style||''}">⚠️ Sin correo anotado: no se le enviarán los cuidados post-tratamiento. Pídele su correo para anotarlo en la cita.</div>`;
 }
 
+// "🚫 No llegó" marcado por una especialista (22/10/2026, pedido de Juan Diego:
+// igual que ellas marcan "Realizada"). Queda quién y cuándo en a.noLlegoMarcadoPor.
+function noLlegoMarcadoHtml(d){
+  const m = d.noLlegoMarcadoPor;
+  if(!m || !m.en || d.estado!=='NoShow') return '';
+  const dt = new Date(m.en);
+  if(isNaN(dt)) return '';
+  const cuando = dt.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit'}) + ' a las ' + dt.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+  const quien = m.nombre ? `por ${escapeHtml(m.nombre)}` : 'en modo Especialista';
+  return `<div class="hint" style="margin:-4px 0 14px;">🚫 "No llegó" marcado ${quien} el ${cuando}.</div>`;
+}
 function pagoMarcadoHtml(d){
   const m = d.pagoMarcadoPor;
   if(!m || !m.en) return '';
@@ -5450,7 +5497,11 @@ function apptViewOnlyHtml(d){
       </div>
       ${staffSplitHtml(d)}
       ${(d.estado==='Realizada' || citaYaEmpezo(d)) ? `<button type="button" class="btn btn-primary" style="width:100%;margin:0 0 14px;" data-act="staff-mark-realizada" data-id="${escapeHtml(d.id)}">${d.estado==='Realizada' ? '💾 Guardar método de pago' : '✅ Marcar como realizada y guardar el pago'}</button>`
-        : `<div class="hint" style="margin:0 0 14px;text-align:center;">⏳ Vas a poder marcarla como realizada cuando empiece la cita (${diaCorto(d.date)} a las ${escapeHtml(d.start||'')}).</div>`}` : ''}
+        : `<div class="hint" style="margin:0 0 14px;text-align:center;">⏳ Vas a poder marcarla como realizada cuando empiece la cita (${diaCorto(d.date)} a las ${escapeHtml(d.start||'')}).</div>`}
+      ${d.estado!=='Realizada' && !d.cursoId && citaYaEmpezo(d) ? `<button type="button" class="btn btn-ghost" style="width:100%;margin:-4px 0 14px;" data-act="staff-mark-nollego" data-id="${escapeHtml(d.id)}">🚫 La clienta no llegó</button>` : ''}` : ''}
+      ${d.estado==='NoShow' && d.noLlegoMarcadoPor ? `<button type="button" class="btn btn-ghost" style="width:100%;margin:0 0 14px;" data-act="staff-deshacer-nollego" data-id="${escapeHtml(d.id)}">↩️ Me equivoqué: sí llegó</button>` : ''}
+      ${noLlegoMarcadoHtml(d)}
+      ${noLlegoMarcadoHtml(d)}
       ${pagoMarcadoHtml(d)}
       ${d.notas ? `<div class="field"><label>Notas</label><div>${escapeHtml(d.notas)}</div></div>` : ''}
       <div class="modal-actions">
@@ -6106,6 +6157,7 @@ function servicesModalHtml(){
       ${SEDE.descuentoMicro ? `<label class="hint" style="grid-column:1/-1;flex:1 1 100%;display:flex;align-items:center;gap:8px;margin:-2px 0 4px;cursor:pointer;"><input type="checkbox" data-svc-micro="${i}" ${s.micropigmentacion?'checked':''} style="width:auto;"> Es micropigmentación (se restan ${descuentoMicroTexto()} antes de la comisión)</label>` : ''}
       ${/retoque|garant[ií]a|evaluaci[oó]n/i.test(s.name||'') ? '' : `<label class="hint" style="grid-column:1/-1;flex:1 1 100%;display:flex;align-items:center;gap:8px;margin:-2px 0 4px;cursor:pointer;"><input type="checkbox" data-svc-retoque="${i}" ${servicioLlevaRetoque(s.name)?'checked':''} style="width:auto;"> 🔁 Lleva retoque (aparece en "Retoques pendientes")</label>`}
       ${/garant[ií]a|evaluaci[oó]n/i.test(s.name||'') ? '' : `<label class="hint" style="grid-column:1/-1;flex:1 1 100%;display:flex;align-items:center;gap:8px;margin:-2px 0 4px;cursor:pointer;"><input type="checkbox" data-svc-firma="${i}" ${servicioLlevaFirma(s.name)?'checked':''} style="width:auto;"> ✍️ Lleva consentimiento (avisa "Falta firmar")</label>`}
+      ${/garant[ií]a|evaluaci[oó]n/i.test(s.name||'') ? '' : `<label class="hint" style="grid-column:1/-1;flex:1 1 100%;display:flex;align-items:center;gap:8px;margin:-2px 0 4px;cursor:pointer;"><input type="checkbox" data-svc-abono="${i}" ${servicioPideAbono(s.name)?'checked':''} style="width:auto;"> 💵 Pide abono (si no se cobró, avisa "Sin abono")</label>`}
     </div>`).join('');
   return `
   <div class="overlay" data-act="overlay-close">
@@ -11187,6 +11239,37 @@ function onAction(e){
       });
       break;
     }
+    case 'staff-mark-nollego': {
+      const appt = state.appointments.find(a=>a.id===e.currentTarget.dataset.id);
+      if(!appt || appt.estado==='Realizada' || appt.estado==='NoShow') break;
+      if(!citaYaEmpezo(appt)){ showAlert('Esta cita todavía no empieza. Vas a poder marcar que no llegó desde la hora de la cita.'); break; }
+      const abono = Number(appt.abono)>0 && !appt.abonoDevuelto ? ` Su abono de ${fmtCLP(appt.abono)} queda para el negocio.` : '';
+      showConfirmDialog(`¿Marcar que ${appt.client||'la clienta'} no llegó a su cita?${abono}`, ()=>{
+        appt.estado = 'NoShow';
+        appt.noLlegoMarcadoPor = { nombre: staffIdentity() || '', en: new Date().toISOString() };
+        if(CUENTA && CUENTA.personal) appt.noLlegoMarcadoPor.usuario = CUENTA.usuario;
+        ui.modal = null;
+        render();
+        saveData().then(ok=>{
+          if(!ok) return;
+          syncToBackupWebhook('save', appt);
+          showAlert('Listo, quedó como "No llegó".');
+        });
+      });
+      break;
+    }
+    case 'staff-deshacer-nollego': {
+      const appt = state.appointments.find(a=>a.id===e.currentTarget.dataset.id);
+      if(!appt || appt.estado!=='NoShow') break;
+      showConfirmDialog('¿Volver a dejar la cita como pendiente? Después podrás marcarla como realizada.', ()=>{
+        appt.estado = 'Pendiente';
+        delete appt.noLlegoMarcadoPor;
+        ui.modal = {type:'appt', mode:'edit', data: Object.assign({}, appt), original: JSON.parse(JSON.stringify(appt))};
+        render();
+        saveData().then(ok=>{ if(ok) syncToBackupWebhook('save', appt); });
+      });
+      break;
+    }
     case 'open-sin-cerrar': {
       ui.modal = {type:'sin-cerrar', lista: resumenDinero(filtroCitasDelResumen()).sinCerrar};
       render(); break;
@@ -12101,6 +12184,10 @@ function saveServicesFromForm(){
   document.querySelectorAll('[data-svc-firma]').forEach(inp=>{
     const i = Number(inp.dataset.svcFirma);
     if(state.services[i]) state.services[i].llevaFirma = inp.checked;
+  });
+  document.querySelectorAll('[data-svc-abono]').forEach(inp=>{
+    const i = Number(inp.dataset.svcAbono);
+    if(state.services[i]) state.services[i].pideAbono = inp.checked;
   });
   const cremaIncluidaInput = document.getElementById('f-crema-incluida');
   if(cremaIncluidaInput) state.settings.cremaIncluida = cremaIncluidaInput.checked;

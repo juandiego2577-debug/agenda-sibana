@@ -747,6 +747,8 @@ try{ if(localStorage.getItem('sibanaTema')==='claro') document.documentElement.d
   .r2-main{display:grid;gap:6px;min-width:0;}
   .r2-lbl{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;}
   .r2-cifra{font-family:var(--head);font-weight:700;font-size:30px;line-height:1.05;color:var(--gold);font-variant-numeric:lining-nums tabular-nums;}
+  .summary.r2 .r2-partes{margin:6px 0 8px;max-width:320px;}
+  .summary.r2 .r2-partes small{color:var(--ink-soft);font-size:11.5px;}
   .r2-cifra small{font-family:var(--ui);font-weight:500;font-size:13px;color:var(--ink-soft);margin-left:6px;}
   .r2-barra{height:7px;border-radius:5px;background:var(--tenue);overflow:hidden;}
   .r2-barra i{display:block;height:100%;border-radius:5px;background:var(--metal);}
@@ -4922,6 +4924,10 @@ function summaryHtml(){
     </footer>`;
   }
   const r = resumenDinero(appts);
+  // Semana/mes con curso (22/10/2026, Juan Diego): el total junto arriba y,
+  // debajo, cuánto es de las citas y cuánto del curso, para no confundirse.
+  const deCurso = appts.filter(a=>a.cursoId), deCitas = appts.filter(a=>!a.cursoId);
+  const rCitas = deCurso.length ? resumenDinero(deCitas) : null, rCurso = deCurso.length ? resumenDinero(deCurso) : null;
   // ¿El período entero todavía no llega? Entonces no "entró" nada: se muestra lo esperado.
   const primerDia = ui.view==='day' ? dateKey
     : ui.view==='week' ? toKey(startOfWeek(ui.currentDate))
@@ -4937,6 +4943,7 @@ function summaryHtml(){
       <div class="r2-main">
         <div class="r2-lbl">${futuro ? 'Esperado ' + periodo : 'Entró ' + periodo}</div>
         <div class="r2-cifra">${fmtCLP(futuro ? r.esperado : r.entro)}${!futuro && r.falta>0 ? `<small>de ${fmtCLP(r.esperado)}</small>` : ''}</div>
+        ${rCurso ? `<div class="r2-partes"><div class="r2-fila"><span>📅 Citas</span><span>${fmtCLP(futuro ? rCitas.esperado : rCitas.entro)}${!futuro && rCitas.falta>0 ? ` <small>de ${fmtCLP(rCitas.esperado)}</small>` : ''}</span></div><div class="r2-fila"><span>📚 Curso</span><span>${fmtCLP(futuro ? rCurso.esperado : rCurso.entro)}${!futuro && rCurso.falta>0 ? ` <small>de ${fmtCLP(rCurso.esperado)}</small>` : ''}</span></div></div>` : ''}
         ${futuro
           ? `<div class="r2-estado">Si se hacen todas las citas${r.entro ? ' · abonos ya recibidos ' + fmtCLP(r.entro) : ''}</div>`
           : `${total ? `<div class="r2-barra" aria-hidden="true"><i style="width:${pct}%"></i></div>` : ''}${estado}`}
@@ -4945,7 +4952,8 @@ function summaryHtml(){
         ? metodos.map(m=>`<div class="r2-fila"><span>${escapeHtml(m)}</span><span>${fmtCLP(r.porMetodo[m])}</span></div>`).join('')
         : '<div class="r2-fila"><span>Todavía nada</span></div>'}</div>
       <div class="r2-col"><div class="r2-lbl">Citas</div>
-        <div class="r2-fila"><span>Citas</span><span>${total}</span></div>
+        <div class="r2-fila"><span>Citas</span><span>${deCurso.length ? deCitas.length : total}</span></div>
+        ${deCurso.length ? `<div class="r2-fila"><span>Inscritas al curso</span><span>${deCurso.length}</span></div>` : ''}
         ${personasWorthShowing(appts) ? `<div class="r2-fila"><span>Personas atendidas</span><span>${personas}</span></div>` : ''}
         ${ui.saving ? '<div class="r2-fila"><span>Guardando…</span></div>' : ''}
       </div>
